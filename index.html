@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRESTA AI ORGANIZATION</title>
+<link rel="icon" href="data:,">
+<style>
+  :root{--bg:#0A2E22;--panel:#0E3B2C;--panel2:#124634;--line:#1C5742;
+    --gold:#C9A24B;--gold2:#D9B65C;--text:#F2F1EC;--muted:#A9BBB2;--bad:#E08A7E}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+    line-height:1.7;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:780px;margin:0 auto;padding:20px 16px 60px}
+  header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding-bottom:8px}
+  h1{font-size:18px;font-weight:600;margin:0}
+  h1 span{color:var(--gold)}
+  .clock{margin-left:auto;color:var(--gold);font-variant-numeric:tabular-nums;letter-spacing:.06em}
+  .sub{width:100%;font-size:12px;color:var(--muted);margin-top:2px}
+  nav{display:flex;gap:4px;margin:12px 0 18px;border-bottom:1px solid var(--line)}
+  nav button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);
+    font:inherit;font-size:14px;padding:9px 12px;cursor:pointer}
+  nav button.on{color:var(--gold);border-bottom-color:var(--gold)}
+  section{display:none} section.on{display:block}
+  h2{font-size:13px;font-weight:600;margin:22px 0 10px;color:var(--gold2);
+    display:flex;align-items:center;gap:8px}
+  h2::after{content:"";flex:1;height:1px;background:var(--line)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .now{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--gold);
+    border-radius:0 12px 12px 0;padding:12px 16px;margin-bottom:14px}
+  .now b{display:block;font-size:15px}
+  .now span{font-size:12px;color:var(--muted)}
+  .floor{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+  .desk{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .desk h3{margin:0 0 4px;font-size:12px;color:var(--gold2);font-weight:600}
+  .desk .src{font-size:10px;color:var(--muted);margin-bottom:6px}
+  .p{display:flex;align-items:center;gap:9px;padding:4px 0}
+  .av{position:relative;width:26px;height:26px;border-radius:50%;flex:0 0 26px;background:var(--panel2);
+    border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted)}
+  .p.act .av{background:var(--gold);color:#0A2E22;border-color:var(--gold);font-weight:700}
+  .p.act .av::after{content:"";position:absolute;inset:-5px;border-radius:50%;
+    border:1px solid var(--gold);animation:ring 1.6s ease-out infinite}
+  @keyframes ring{0%{transform:scale(.8);opacity:.9}100%{transform:scale(1.5);opacity:0}}
+  .pn{font-size:12px;color:var(--muted);line-height:1.35}
+  .p.act .pn{color:var(--text)}
+  .pn i{display:block;font-style:normal;font-size:10px;color:var(--muted)}
+  .p.act .pn i{color:var(--gold)}
+  .dots i{display:inline-block;width:3px;height:3px;border-radius:50%;background:var(--gold);margin-right:2px;
+    animation:blink 1.2s infinite}
+  .dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,60%,100%{opacity:.25}30%{opacity:1}}
+  .feed div{display:flex;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line);font-size:12px}
+  .feed div:last-child{border-bottom:0}
+  .feed b{color:var(--gold);font-weight:400;font-variant-numeric:tabular-nums;flex:0 0 46px}
+  .feed span{color:var(--muted);word-break:break-word}
+  .feed em{font-style:normal;color:var(--text)}
+  .feed .ng em{color:var(--bad)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px}
+  .chips button{background:none;border:1px solid var(--line);color:var(--muted);border-radius:999px;
+    font:inherit;font-size:12px;padding:4px 12px;cursor:pointer}
+  .chips button:hover{border-color:var(--gold);color:var(--gold)}
+  .msgs{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+  .msg{max-width:88%;padding:10px 13px;border-radius:12px;font-size:14px;white-space:pre-wrap;word-break:break-word}
+  .msg.me{align-self:flex-end;background:var(--gold);color:#0A2E22}
+  .msg.ai{align-self:flex-start;background:var(--panel);border:1px solid var(--line)}
+  textarea{width:100%;background:var(--panel);color:var(--text);border:1px solid var(--line);
+    border-radius:10px;padding:11px;font:inherit;font-size:14px;resize:vertical;min-height:72px}
+  textarea:focus{outline:none;border-color:var(--gold)}
+  .btn{background:none;border:1px solid var(--line);color:var(--muted);border-radius:9px;font:inherit;
+    font-size:14px;padding:8px 16px;cursor:pointer}
+  .btn:hover{border-color:var(--gold);color:var(--gold)}
+  .btn.main{border-color:var(--gold);color:var(--gold)}
+  .btn.main:hover{background:var(--gold);color:#0A2E22}
+  .btn:disabled{opacity:.45;cursor:default}
+  .bar{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .state{font-size:12px;color:var(--muted)}
+  input[type=password]{background:var(--panel);color:var(--text);border:1px solid var(--line);
+    border-radius:9px;padding:10px 12px;font:inherit;font-size:15px;width:100%;max-width:280px}
+  input[type=password]:focus{outline:none;border-color:var(--gold)}
+  .note{font-size:12px;color:var(--muted);padding:11px 15px;background:var(--panel);
+    border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;margin-top:12px}
+  .row{display:flex;gap:12px;padding:11px 15px;border-bottom:1px solid var(--line);align-items:baseline}
+  .row:last-child{border-bottom:0}
+  .when{color:var(--gold);font-size:13px;font-variant-numeric:tabular-nums;min-width:72px}
+  .what b{display:block;font-size:14px}.what span{font-size:12px;color:var(--muted)}
+  footer{margin-top:30px;color:var(--muted);font-size:11px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div id="gate">
+  <header><h1>CRESTA <span>AI ORGANIZATION</span></h1><div class="sub">社内用</div></header>
+  <p style="font-size:14px">合言葉を入力してください。</p>
+  <input type="password" id="pw" autocomplete="current-password">
+  <div class="bar"><button class="btn main" id="go">入る</button><span class="state" id="gs"></span></div>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <h1>CRESTA <span>AI ORGANIZATION</span></h1>
+    <div class="clock" id="clk">--:--:--</div>
+    <div class="sub" id="sub">5部門・13名</div>
+  </header>
+  <nav>
+    <button class="on" onclick="tab(0,this)">いま</button>
+    <button onclick="tab(1,this)">会話</button>
+    <button onclick="tab(2,this)">予定</button>
+  </nav>
+
+  <section class="on" id="s0">
+    <div class="now"><b id="nowt">読み込んでいます…</b><span id="nows"></span></div>
+    <div class="floor" id="floor"></div>
+    <h2>直近の動き</h2>
+    <div class="card feed" id="feed"></div>
+    <div class="note">「本物」はLINEとタスクの処理です。画像係と物販係はClaude側の予約で動くため、ここでは時刻で表示しています。</div>
+  </section>
+
+  <section id="s1">
+    <div class="msgs" id="msgs"></div>
+    <div class="chips" id="chips"></div>
+    <textarea id="q" placeholder="指示でも質問でも。例：明日16時に山田様へ電話、で登録して"></textarea>
+    <div class="bar"><button class="btn main" id="send">送る</button><span class="state" id="ss"></span></div>
+    <div class="note">LINEと同じ司令塔AIです。会話は記録に残り、タスク登録などもここからできます。返事まで20秒ほどかかることがあります。</div>
+  </section>
+
+  <section id="s2">
+    <h2>毎日ひとりでに動くもの</h2>
+    <div class="card">
+      <div class="row"><span class="when">6:56</span><span class="what"><b>画像係</b><span>Canvaで投稿画像を3案つくる</span></span></div>
+      <div class="row"><span class="when">8:00</span><span class="what"><b>今日のタスク</b><span>その日の予定をLINEに送る</span></span></div>
+      <div class="row"><span class="when">10:41</span><span class="what"><b>物販係</b><span>楽天から1件、XとThreadsの案をつくる</span></span></div>
+      <div class="row"><span class="when">5分ごと</span><span class="what"><b>タスクの通知</b><span>期限が近いものを知らせる</span></span></div>
+    </div>
+    <h2>未処理</h2>
+    <div class="card" id="pend"></div>
+  </section>
+</div>
+
+<footer>CRESTA JAPAN　社内用</footer>
+</div>
+
+<script>
+var BASE = 'https://vnjfmdvxpzofslrgdosf.supabase.co/functions/v1/dashboard';
+var KEY = '';
+try{ KEY = localStorage.getItem('cresta-dash') || ''; }catch(e){}
+
+function api(path, body){
+  return fetch(BASE + path, {
+    method:'POST',
+    headers:{'content-type':'application/json','x-dash-key':KEY},
+    body: JSON.stringify(body || {})
+  }).then(function(r){
+    if(r.status === 401) throw new Error('unauth');
+    if(!r.ok) throw new Error('http ' + r.status);
+    return r.json();
+  });
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(m){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;'}[m]; }); }
+function z(n){ return (n<10?'0':'')+n; }
+function jst(d){ var n=d?new Date(d):new Date(); return new Date(n.getTime()+(new Date().getTimezoneOffset()+540)*60000); }
+function hhmm(d){ var j=jst(d); return z(j.getHours())+':'+z(j.getMinutes()); }
+
+/* ---------- ログイン ---------- */
+document.getElementById('go').onclick = function(){
+  KEY = document.getElementById('pw').value;
+  document.getElementById('gs').textContent = '確認しています…';
+  api('/api/state').then(function(s){
+    try{ localStorage.setItem('cresta-dash', KEY); }catch(e){}
+    open_(s);
+  }).catch(function(){ document.getElementById('gs').textContent = '合言葉が違います。'; });
+};
+document.getElementById('pw').addEventListener('keydown', function(e){
+  if(e.key === 'Enter') document.getElementById('go').click();
+});
+
+function open_(s){
+  document.getElementById('gate').style.display='none';
+  document.getElementById('app').style.display='block';
+  paint(s);
+  setInterval(poll, 4000);
+  setInterval(clock, 1000); clock();
+}
+function clock(){
+  var j = jst();
+  document.getElementById('clk').textContent = z(j.getHours())+':'+z(j.getMinutes())+':'+z(j.getSeconds());
+  floor(last);
+}
+var last = null;
+function poll(){ api('/api/state').then(paint).catch(function(){}); }
+function paint(s){ last = s; floor(s); feed(s); chat(s); pend(s); }
+
+/* ---------- フロア ---------- */
+var DEPTS = [
+ {d:'司令塔AI', src:'LINE・この画面', live:true,
+  m:[{n:'受付・振り分け',i:'司'}]},
+ {d:'秘書AI', src:'タスクの見回り', live:true,
+  m:[{n:'段取り担当',i:'段'},{n:'期限・抜け漏れ担当',i:'期'}]},
+ {d:'不動産AI', src:'相談があったとき', live:true,
+  m:[{n:'査定・相場担当',i:'査'},{n:'売主対応担当',i:'売'},{n:'リスク確認担当',i:'リ'}]},
+ {d:'マーケティングAI', src:'予約 6:56', sched:{t:6*60+56,dur:9,say:'Canvaで画像を3案つくっています'},
+  m:[{n:'企画担当',i:'企'},{n:'読者目線担当',i:'読'},{n:'校閲担当',i:'校'}]},
+ {d:'物販AI', src:'予約 10:41', sched:{t:10*60+41,dur:7,say:'楽天から1件選んで、XとThreadsの案を相談しています'},
+  m:[{n:'商品選び担当',i:'選'},{n:'コピー担当',i:'コ'},{n:'読者目線担当',i:'読'},{n:'校閲担当',i:'校'}]}
+];
+var JOB2DEPT = {
+  process_line_message:'司令塔AI', send_line_message:'司令塔AI', execute_approved_action:'司令塔AI',
+  task_reminder_scan:'秘書AI', daily_task_digest:'秘書AI'
+};
+var JOBNAME = {
+  process_line_message:'LINEの相談にこたえています', send_line_message:'LINEに送っています',
+  execute_approved_action:'承認済みの操作を実行しています',
+  task_reminder_scan:'期限が近いタスクを見ています', daily_task_digest:'今日のタスクをまとめています'
+};
+(function(){
+  var f=document.getElementById('floor'); if(!f) return;
+  var h='';
+  DEPTS.forEach(function(g,gi){
+    h+='<div class="desk"><h3>'+g.d+'</h3><div class="src">'+g.src+'</div>';
+    g.m.forEach(function(p,k){
+      h+='<div class="p" id="p'+gi+'_'+k+'"><div class="av">'+p.i+'</div>'
+       + '<div class="pn">'+p.n+'<i>待機中</i></div></div>';
+    });
+    h+='</div>';
+  });
+  f.innerHTML=h;
+})();
+
+function floor(s){
+  var act = {};
+  if(s){
+    (s.jobs||[]).forEach(function(j){
+      if(j.status==='running'){ var d=JOB2DEPT[j.type]; if(d) act[d]=JOBNAME[j.type]||'動いています'; }
+    });
+    (s.runs||[]).forEach(function(r){
+      if(!r.finished_at) act['司令塔AI'] = '「'+String(r.input||'').slice(0,18)+'」を考えています';
+    });
+  }
+  var j = jst(), mins = j.getHours()*60+j.getMinutes();
+  DEPTS.forEach(function(g){
+    if(g.sched && mins>=g.sched.t && mins<g.sched.t+g.sched.dur) act[g.d]=g.sched.say;
+  });
+  DEPTS.forEach(function(g,gi){
+    g.m.forEach(function(p,k){
+      var el=document.getElementById('p'+gi+'_'+k); if(!el) return;
+      var on = !!act[g.d];
+      el.className = 'p' + (on?' act':'');
+      el.querySelector('i').innerHTML = on
+        ? '<span class="dots"><i></i><i></i><i></i></span>'+esc(act[g.d]) : '待機中';
+    });
+  });
+  var names = Object.keys(act);
+  var t=document.getElementById('nowt'), u=document.getElementById('nows');
+  if(names.length){ t.textContent = names.join('・')+' が動いています'; u.textContent = act[names[0]]; }
+  else {
+    var nx=null;
+    DEPTS.forEach(function(g){ if(g.sched && g.sched.t>mins && (!nx||g.sched.t<nx.t)) nx={t:g.sched.t,d:g.d}; });
+    t.textContent='全員 待機中';
+    u.textContent = nx ? ('次は '+z(Math.floor(nx.t/60))+':'+z(nx.t%60)+' に '+nx.d+'（あと'+(nx.t-mins)+'分）')
+                       : '今日の予約は終わりました。次は明日 6:56 です';
+  }
+}
+
+/* ---------- 直近の動き ---------- */
+function feed(s){
+  var items=[];
+  (s.runs||[]).forEach(function(r){
+    items.push({t:r.finished_at||r.started_at, ok:r.status!=='failed',
+      who:'司令塔AI', what:(r.finished_at? '返事しました：' : '考え中：')+String(r.input||'').slice(0,40)});
+  });
+  (s.jobs||[]).forEach(function(jb){
+    items.push({t:jb.updated_at||jb.run_at, ok:jb.status!=='dead'&&jb.status!=='failed',
+      who:JOB2DEPT[jb.type]||'システム',
+      what:(JOBNAME[jb.type]||jb.type)+'（'+jb.status+(jb.attempts>1?' '+jb.attempts+'回目':'')+'）'});
+  });
+  items.sort(function(a,b){ return (b.t||'').localeCompare(a.t||''); });
+  var h='';
+  items.slice(0,18).forEach(function(x){
+    h+='<div class="'+(x.ok?'':'ng')+'"><b>'+hhmm(x.t)+'</b><span><em>'+esc(x.who)+'</em>　'+esc(x.what)+'</span></div>';
+  });
+  document.getElementById('feed').innerHTML = h || '<div><b>--</b><span>まだ動きがありません</span></div>';
+}
+
+/* ---------- 未処理 ---------- */
+function pend(s){
+  var h='';
+  h+='<div class="row"><span class="when">'+(s.counts&&s.counts.queued||0)+'件</span><span class="what"><b>順番待ちの仕事</b><span>これから処理されます</span></span></div>';
+  h+='<div class="row"><span class="when">'+(s.counts&&s.counts.dead||0)+'件</span><span class="what"><b>失敗した仕事</b><span>再試行しても終わらなかったもの</span></span></div>';
+  h+='<div class="row"><span class="when">'+(s.counts&&s.counts.approvals||0)+'件</span><span class="what"><b>承認待ち</b><span>LINEで「承認 ◯◯」と返すと実行します</span></span></div>';
+  h+='<div class="row"><span class="when">'+(s.counts&&s.counts.tasks||0)+'件</span><span class="what"><b>未完了のタスク</b><span></span></span></div>';
+  document.getElementById('pend').innerHTML=h;
+}
+
+/* ---------- 会話 ---------- */
+var localMsgs = [];
+function chat(s){
+  if(sending) return;
+  localMsgs = (s.chat||[]).slice();
+  drawMsgs();
+}
+function drawMsgs(){
+  var h='';
+  localMsgs.forEach(function(m){
+    if(m.role!=='user' && m.role!=='assistant') return;
+    h+='<div class="msg '+(m.role==='user'?'me':'ai')+'">'+esc(m.content)+'</div>';
+  });
+  var box=document.getElementById('msgs');
+  box.innerHTML = h || '<div class="msg ai">こんにちは。何でも聞いてください。</div>';
+  box.scrollIntoView({block:'end'});
+}
+var sending=false;
+document.getElementById('send').onclick = function(){
+  var ta=document.getElementById('q'), text=ta.value.trim();
+  var st=document.getElementById('ss'), btn=document.getElementById('send');
+  if(!text || sending) return;
+  sending=true; btn.disabled=true; st.textContent='考えています…';
+  localMsgs.push({role:'user',content:text}); drawMsgs(); ta.value='';
+  api('/api/chat',{text:text}).then(function(r){
+    localMsgs.push({role:'assistant',content:r.reply}); drawMsgs();
+    st.textContent=''; btn.disabled=false; sending=false;
+  }).catch(function(e){
+    st.textContent = (e.message==='unauth') ? '合言葉が切れました。画面を再読み込みしてください。' : 'うまくいきませんでした。もう一度試してください。';
+    btn.disabled=false; sending=false;
+  });
+};
+
+/* よく使う指示（押すと入力欄に入る。そのまま直して送れる） */
+var CHIPS = ['タスク一覧','今日やること','今週の投稿ネタを考えて','承認待ちを見せて','議事録'];
+(function(){
+  var c=document.getElementById('chips'); if(!c) return;
+  CHIPS.forEach(function(s){
+    var b=document.createElement('button');
+    b.textContent=s;
+    b.onclick=function(){
+      var ta=document.getElementById('q');
+      ta.value=s; ta.focus();
+    };
+    c.appendChild(b);
+  });
+})();
+
+function tab(i,b){
+  var ns=document.querySelectorAll('nav button'), ss=document.querySelectorAll('section');
+  for(var k=0;k<ns.length;k++) ns[k].className=(k===i?'on':'');
+  for(var k=0;k<ss.length;k++) ss[k].className=(k===i?'on':'');
+}
+
+/* 保存済みの合言葉で自動的に入る */
+if(KEY){
+  api('/api/state').then(open_).catch(function(){
+    document.getElementById('gs').textContent='もう一度、合言葉を入力してください。';
+  });
+}
+</script>
+</body>
+</html>
