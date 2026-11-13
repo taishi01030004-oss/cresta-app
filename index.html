@@ -87,6 +87,13 @@
   .row:last-child{border-bottom:0}
   .when{color:var(--gold);font-size:13px;font-variant-numeric:tabular-nums;min-width:72px}
   .what b{display:block;font-size:14px}.what span{font-size:12px;color:var(--muted)}
+  .ask{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:4px 0 16px}
+  .ask .ttl{font-size:12px;color:var(--gold2);margin-bottom:8px}
+  .ask textarea{min-height:60px}
+  .ans{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-top:12px;
+    font-size:14px;white-space:pre-wrap;word-break:break-word}
+  .who{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .who span{font-size:11px;color:var(--gold);border:1px solid var(--gold);border-radius:999px;padding:1px 9px}
   .intro{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--gold);
     border-radius:0 12px 12px 0;padding:13px 16px;margin-bottom:14px}
   .intro b{display:block;font-size:15px}
@@ -126,6 +133,16 @@
     <div class="clock" id="clk">--:--:--</div>
     <div class="sub" id="sub">5部門・13名</div>
   </header>
+  <div class="ask">
+    <div class="ttl">司令塔AIへの指示</div>
+    <textarea id="aQ" placeholder="やりたいこと・聞きたいことを書いてください。司令塔AIが担当の部署に振り分けます"></textarea>
+    <div class="bar">
+      <button class="btn main" id="aSend">送る</button>
+      <span class="state" id="aState"></span>
+    </div>
+    <div id="aOut"></div>
+  </div>
+
   <nav>
     <button class="on" onclick="tab(0,this)">いま</button>
     <button onclick="tab(1,this)">会話</button>
@@ -432,8 +449,8 @@ function sbTag(s){
   return '<span class="tag '+cls+'">'+esc(s)+'</span>';
 }
 
-function sbCards(list){
-  var box=document.getElementById('sbCards');
+function sbCards(list, boxId){
+  var box=document.getElementById(boxId || 'sbCards');
   if(!list || !list.length){ box.innerHTML=''; return; }
   var rows=[['活用案','useCase'],['対象経費','eligibleCosts'],['補助率・自己負担','money'],
             ['申請期限','deadline'],['主な要件','requirements'],['確認すべきこと','missing'],['次にやること','nextStep']];
@@ -468,7 +485,7 @@ function sbSend(){
   sbMsgs.push({role:'user',content:text}); sbDraw(); ta.value='';
   api('/api/subsidy',{text:text}).then(function(r){
     if(r.error){ sbMsgs.push({role:'assistant',content:r.error}); }
-    else { sbMsgs.push({role:'assistant',content:r.reply}); sbCards(r.candidates); }
+    else { sbMsgs.push({role:'assistant',content:r.reply}); sbCards(r.candidates,'sbCards'); }
     sbDraw(); st.textContent=''; btn.disabled=false; sbSending=false;
   }).catch(function(e){
     st.textContent = (e.message==='unauth') ? '合言葉が切れました。再読み込みしてください。' : 'うまくいきませんでした。もう一度試してください。';
@@ -480,6 +497,33 @@ document.getElementById('sbAgain').onclick = function(){
   var t=document.getElementById('sbQ');
   t.value='条件を変えて、もう一度提案してください。変更点：';
   t.focus();
+};
+
+/* ---------- 一番上の指示欄（司令塔AIへ） ---------- */
+var aSending=false;
+document.getElementById('aSend').onclick = function(){
+  var ta=document.getElementById('aQ'), text=ta.value.trim();
+  var st=document.getElementById('aState'), btn=document.getElementById('aSend'), out=document.getElementById('aOut');
+  if(!text || aSending) return;
+  aSending=true; btn.disabled=true; st.textContent='司令塔AIが担当に振り分けています…';
+  out.innerHTML='';
+  api('/api/chat',{text:text}).then(function(r){
+    var h='<div class="ans">';
+    if(r.agents && r.agents.length){
+      h+='<div class="who">';
+      r.agents.forEach(function(a){ h+='<span>'+esc(a)+'</span>'; });
+      h+='</div>';
+    }
+    h+=esc(r.reply)+'</div><div id="aCards"></div>';
+    out.innerHTML=h;
+    if(r.candidates && r.candidates.length) sbCards(r.candidates,'aCards');
+    localMsgs.push({role:'user',content:text});
+    localMsgs.push({role:'assistant',content:r.reply});
+    ta.value=''; st.textContent=''; btn.disabled=false; aSending=false;
+  }).catch(function(e){
+    st.textContent = (e.message==='unauth') ? '合言葉が切れました。再読み込みしてください。' : 'うまくいきませんでした。もう一度試してください。';
+    btn.disabled=false; aSending=false;
+  });
 };
 
 function jump(i){
