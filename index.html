@@ -94,6 +94,72 @@
     font-size:14px;white-space:pre-wrap;word-break:break-word}
   .who{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
   .who span{font-size:11px;color:var(--gold);border:1px solid var(--gold);border-radius:999px;padding:1px 9px}
+
+  /* ===== オフィス ===== */
+  .office{position:relative;width:100%;aspect-ratio:16/11;border-radius:14px;overflow:hidden;
+    border:1px solid var(--line);user-select:none;
+    background:
+      repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 1px,transparent 1px 34px),
+      repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0 1px,transparent 1px 34px),
+      linear-gradient(180deg,#0d3a2b 0%,#0b3125 100%)}
+  .office.tall{aspect-ratio:3/5}
+  .office .wall{position:absolute;left:0;right:0;top:0;height:5%;background:#08261c;border-bottom:2px solid #1c5742}
+  .office .win{position:absolute;top:1%;height:3%;width:9%;background:linear-gradient(180deg,#3d6b5d,#1f4a3c);
+    border-radius:2px;opacity:.7}
+  .obj{position:absolute;transform:translate(-50%,-50%);pointer-events:none}
+  .isl{position:absolute;transform:translate(-50%,-50%);background:#5a4630;border:2px solid #7a5f3f;
+    border-radius:6px;box-shadow:0 6px 0 rgba(0,0,0,.25)}
+  .isl .mon{position:absolute;width:16%;height:22%;background:#0f1d18;border:1px solid #2c5c4b;border-radius:2px}
+  .isl .mon.on{background:#1d5b47;box-shadow:0 0 8px rgba(201,162,75,.55);border-color:var(--gold)}
+  .isl.click{pointer-events:auto;cursor:pointer}
+  .tagl{position:absolute;transform:translate(-50%,0);font-size:11px;color:var(--gold2);white-space:nowrap;
+    background:rgba(8,38,28,.85);border:1px solid var(--line);border-radius:999px;padding:1px 9px;pointer-events:none}
+  .tagl.on{border-color:var(--gold);color:#0A2E22;background:var(--gold)}
+  .lab{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:11px;color:#f3e2b8;
+    white-space:nowrap;pointer-events:none;padding:0 7px;border-radius:999px;line-height:1.6}
+  .lab.on{background:var(--gold);color:#0A2E22;font-weight:700}
+  .office.tall .lab{font-size:10px}
+  .boss .lab{left:58%}
+  .table{position:absolute;transform:translate(-50%,-50%);border-radius:50%;background:#5a4630;
+    border:2px solid #7a5f3f;box-shadow:0 6px 0 rgba(0,0,0,.25)}
+  .boss{position:absolute;transform:translate(-50%,-50%);background:#6b5234;border:2px solid var(--gold);
+    border-radius:6px;box-shadow:0 6px 0 rgba(0,0,0,.25)}
+  .prop{position:absolute;transform:translate(-50%,-50%);font-size:18px;line-height:1;opacity:.95;pointer-events:none}
+
+  .pp{position:absolute;width:24px;height:34px;transform:translate(-50%,-90%);
+    transition:left 1.8s linear,top 1.8s linear;z-index:2}
+  .pp .hd{position:absolute;left:5px;top:0;width:14px;height:14px;border-radius:50%;background:#f1d7b8;
+    box-shadow:inset 0 -3px 0 rgba(0,0,0,.12)}
+  .pp .hd::before{content:"";position:absolute;left:-1px;top:-2px;width:16px;height:8px;border-radius:8px 8px 3px 3px;
+    background:var(--hair,#2b2018)}
+  .pp .bd{position:absolute;left:2px;top:13px;width:20px;height:16px;border-radius:7px 7px 4px 4px;background:var(--c);
+    font-size:9px;font-weight:700;color:#0A2E22;display:flex;align-items:center;justify-content:center}
+  .pp .lg{position:absolute;left:6px;top:28px;width:12px;height:6px}
+  .pp .lg::before,.pp .lg::after{content:"";position:absolute;top:0;width:4px;height:6px;border-radius:2px;background:#23312b}
+  .pp .lg::before{left:0}.pp .lg::after{right:0}
+  .pp.walk .lg::before{animation:legA .35s infinite}
+  .pp.walk .lg::after{animation:legB .35s infinite}
+  .pp.walk{animation:bob .35s infinite}
+  @keyframes legA{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+  @keyframes legB{0%,100%{transform:translateY(-2px)}50%{transform:translateY(0)}}
+  @keyframes bob{0%,100%{margin-top:0}50%{margin-top:-1px}}
+  .pp.sit .lg{display:none}
+  .pp.sit .bd{animation:type 1.1s infinite}
+  @keyframes type{0%,100%{transform:translateY(0)}50%{transform:translateY(1px)}}
+  .pp.flip .hd::before{border-radius:8px 8px 3px 3px}
+  .pp .bb{position:absolute;bottom:38px;left:50%;transform:translateX(-50%);max-width:170px;width:max-content;
+    background:#F2F1EC;color:#0A2E22;font-size:10px;line-height:1.4;padding:3px 8px;border-radius:8px;
+    box-shadow:0 2px 0 rgba(0,0,0,.25);opacity:0;transition:opacity .3s;pointer-events:none;white-space:normal}
+  .pp .bb::after{content:"";position:absolute;left:50%;bottom:-4px;margin-left:-4px;border:4px solid transparent;
+    border-top-color:#F2F1EC;border-bottom:0}
+  .pp.say .bb{opacity:1}
+  .pp.bl .bb{left:-4px;transform:none}
+  .pp.bl .bb::after{left:16px}
+  .pp.br .bb{left:auto;right:-4px;transform:none}
+  .pp.br .bb::after{left:auto;right:12px;margin-left:0}
+  .pp .bb .dots i{background:#0A2E22}
+  .pp.glow .bd{box-shadow:0 0 0 2px var(--gold),0 0 10px rgba(201,162,75,.7)}
+  .oleg{font-size:11px;color:var(--muted);margin-top:8px}
   .intro{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--gold);
     border-radius:0 12px 12px 0;padding:13px 16px;margin-bottom:14px}
   .intro b{display:block;font-size:15px}
@@ -152,7 +218,8 @@
 
   <section class="on" id="s0">
     <div class="now"><b id="nowt">読み込んでいます…</b><span id="nows"></span></div>
-    <div class="floor" id="floor"></div>
+    <div class="office" id="office"></div>
+    <div class="oleg">光っている部署と吹き出しは、実際の稼働に連動しています。コーヒーを取りに行くなどの動きは雰囲気の演出です。助成金AIの机を押すと、その画面に移ります。</div>
     <h2>直近の動き</h2>
     <div class="card feed" id="feed"></div>
     <div class="note">「本物」はLINEとタスクの処理です。画像係と物販係はClaude側の予約で動くため、ここでは時刻で表示しています。</div>
@@ -283,21 +350,252 @@ var JOBNAME = {
   execute_approved_action:'承認済みの操作を実行しています',
   task_reminder_scan:'期限が近いタスクを見ています', daily_task_digest:'今日のタスクをまとめています'
 };
-(function(){
-  var f=document.getElementById('floor'); if(!f) return;
-  var h='';
-  DEPTS.forEach(function(g,gi){
-    h+='<div class="desk'+(g.goTab!==undefined?' go':'')+'"'
-     + (g.goTab!==undefined?' onclick="jump('+g.goTab+')"':'')
-     + '><h3>'+g.d+(g.goTab!==undefined?' <span class="arw">開く ›</span>':'')+'</h3>'
-     + '<div class="src">'+g.src+'</div>';
-    g.m.forEach(function(p,k){
-      h+='<div class="p" id="p'+gi+'_'+k+'"><div class="av">'+p.i+'</div>'
-       + '<div class="pn">'+p.n+'<i>待機中</i></div></div>';
+/* ===================== オフィス ===================== */
+var OFFICE = (function(){
+  var root = document.getElementById('office');
+  if(!root) return null;
+
+  var COLOR = {'司令塔AI':'#C9A24B','秘書AI':'#8FC1E3','不動産AI':'#E7A98A',
+               'マーケティングAI':'#C7A6DE','物販AI':'#F3D19C','助成金AI':'#8EDDB0'};
+  var HAIR = ['#2b2018','#4a2f1d','#1d1d1d','#6b4a2b','#3a3a3a','#5a3b24'];
+  var LAY = {
+    wide:{ boss:{x:50,y:15,w:16,h:6}, table:{x:50,y:52,r:8}, coffee:{x:5,y:52}, printer:{x:95,y:52},
+      plants:[[3,10],[97,10],[3,95],[97,95]],
+      isl:{'秘書AI':{x:17,y:30,w:20,h:10,hx:33,hy:43},'不動産AI':{x:83,y:30,w:20,h:10,hx:67,hy:43},
+           'マーケティングAI':{x:17,y:73,w:20,h:10,hx:33,hy:58},'物販AI':{x:83,y:73,w:20,h:10,hx:67,hy:58},
+           '助成金AI':{x:50,y:84,w:20,h:9,hx:50,hy:71}} },
+    tall:{ boss:{x:50,y:11,w:34,h:4}, table:{x:50,y:45,r:10}, coffee:{x:7,y:45}, printer:{x:93,y:45},
+      plants:[[5,7],[95,7],[5,97],[95,97]],
+      isl:{'秘書AI':{x:24,y:25,w:34,h:5,hx:22,hy:38},'不動産AI':{x:76,y:25,w:34,h:5,hx:78,hy:38},
+           'マーケティングAI':{x:24,y:66,w:34,h:5,hx:22,hy:49},'物販AI':{x:76,y:66,w:34,h:5,hx:78,hy:49},
+           '助成金AI':{x:50,y:87,w:34,h:5,hx:18,hy:85}} }
+  };
+  var L = null, people = [], byDept = {}, cmd = null;
+  var liveAct = {}, tempAct = {}, shown = {}, cmdBusy = false, wandering = 0;
+
+  function el(cls, parent){ var d=document.createElement('div'); d.className=cls; (parent||root).appendChild(d); return d; }
+  function pos(e,x,y){ e.style.left=x+'%'; e.style.top=y+'%'; }
+
+  function seats(I,n){
+    var sp=I.w*0.28, top=I.y-I.h/2+1, bot=I.y+I.h/2+7;
+    if(n===1) return [{x:I.x,y:bot,row:'b'}];
+    if(n===2) return [{x:I.x-sp,y:top,row:'t'},{x:I.x+sp,y:top,row:'t'}];
+    if(n===3) return [{x:I.x-sp,y:top,row:'t'},{x:I.x+sp,y:top,row:'t'},{x:I.x,y:bot,row:'b'}];
+    return [{x:I.x-sp,y:top,row:'t'},{x:I.x+sp,y:top,row:'t'},{x:I.x-sp,y:bot,row:'b'},{x:I.x+sp,y:bot,row:'b'}];
+  }
+  function meet(I){ return {x:I.hx, y:I.hy}; }
+  function huddle(I,n,k){
+    var M=meet(I), a=Math.PI*2*k/Math.max(n,1)-Math.PI/2;
+    return {x:M.x+Math.cos(a)*4.2, y:M.y+Math.sin(a)*5+3};
+  }
+
+  function build(){
+    var wide = root.clientWidth >= 560;
+    L = wide ? LAY.wide : LAY.tall;
+    root.className = 'office' + (wide ? '' : ' tall');
+    root.innerHTML=''; people=[]; byDept={}; shown={}; wandering=0;
+
+    el('wall');
+    [12,30,62,80].forEach(function(x){ var w=el('win'); w.style.left=x+'%'; });
+
+    // 植物・コーヒー・コピー機
+    L.plants.forEach(function(p){ var d=el('prop'); d.textContent='🪴'; pos(d,p[0],p[1]); });
+    var cf=el('prop'); cf.textContent='☕'; pos(cf,L.coffee.x,L.coffee.y);
+    var pr=el('prop'); pr.textContent='🖨️'; pos(pr,L.printer.x,L.printer.y);
+
+    // 会議テーブル
+    var t=el('table'); pos(t,L.table.x,L.table.y); t.style.width=(L.table.r*2)+'%'; t.style.aspectRatio='1';
+
+    // 司令塔の机
+    var B=L.boss, bd=el('boss'); pos(bd,B.x,B.y); bd.style.width=B.w+'%'; bd.style.height=B.h+'%';
+    var bm=el('mon',bd); bm.style.cssText='position:absolute;left:6%;top:20%;width:12%;height:55%;background:#0f1d18;border:1px solid #2c5c4b;border-radius:2px';
+    var bt=el('lab',bd); bt.textContent='司令塔AI'; shown['司令塔AI']={tag:bt};
+
+    // 部署の島
+    DEPTS.forEach(function(g){
+      if(g.d==='司令塔AI') return;
+      var I=L.isl[g.d]; if(!I) return;
+      var is=el('isl'+(g.goTab!==undefined?' click':'')); pos(is,I.x,I.y); is.style.width=I.w+'%'; is.style.height=I.h+'%';
+      if(g.goTab!==undefined){ is.onclick=function(){ jump(g.goTab); }; is.title=g.d+'を開く'; }
+      var tag=el('lab',is); tag.textContent=g.d.replace('マーケティングAI','マーケAI');
+      var S=seats(I,g.m.length), mons=[];
+      S.forEach(function(st){
+        var m=el('mon',is);
+        m.style.left=(((st.x-(I.x-I.w/2))/I.w)*100-8)+'%';
+        if(st.row==='t') m.style.top='10%'; else m.style.bottom='10%';
+        mons.push(m);
+      });
+      shown[g.d]={tag:tag, mons:mons};
+      byDept[g.d]=[];
+      g.m.forEach(function(mb,k){
+        var p=person(g.d, mb.i, mb.n, S[k]);
+        byDept[g.d].push(p);
+      });
     });
-    h+='</div>';
-  });
-  f.innerHTML=h;
+
+    // 司令塔本人
+    cmd = person('司令塔AI','司','受付・振り分け',{x:B.x,y:B.y+B.h/2+6.5});
+    byDept['司令塔AI']=[cmd];
+
+    applyActive(true);
+  }
+
+  function person(dept, initial, name, home){
+    var e=el('pp sit'); e.title=dept+'　'+name;
+    e.style.setProperty('--c', COLOR[dept]||'#ccc');
+    e.style.setProperty('--hair', HAIR[Math.floor(Math.random()*HAIR.length)]);
+    var hd=el('hd',e), b=el('bd',e); b.textContent=initial; el('lg',e);
+    var bb=el('bb',e);
+    var p={el:e, bb:bb, dept:dept, home:{x:home.x,y:home.y}, at:{x:home.x,y:home.y}, job:0, out:false};
+    pos(e,home.x,home.y);
+    return p;
+  }
+
+  function moveTo(p,x,y,done){
+    var job=++p.job;
+    var d=Math.hypot(x-p.at.x,(y-p.at.y)*0.7), sec=Math.max(.5,Math.min(3.6,d*.085));
+    p.el.style.transition='left '+sec+'s linear, top '+sec+'s linear';
+    p.el.classList.remove('sit'); p.el.classList.add('walk');
+    pos(p.el,x,y); p.at={x:x,y:y};
+    setTimeout(function(){
+      if(job!==p.job) return;
+      p.el.classList.remove('walk');
+      if(done) done();
+    }, sec*1000+60);
+  }
+  function goHome(p,done){
+    moveTo(p,p.home.x,p.home.y,function(){ p.el.classList.add('sit'); face(p,false); if(done) done(); });
+  }
+  function face(p,left){ /* 向きは変えない（見た目が左右対称のため） */ }
+  function say(p,html,ms){
+    p.el.classList.toggle('bl', p.at.x<30);
+    p.el.classList.toggle('br', p.at.x>70);
+    p.bb.innerHTML=html; p.el.classList.add('say');
+    clearTimeout(p.sayT);
+    if(ms) p.sayT=setTimeout(function(){ p.el.classList.remove('say'); }, ms);
+  }
+  function hush(p){ clearTimeout(p.sayT); p.el.classList.remove('say'); }
+  var DOTS='<span class="dots"><i></i><i></i><i></i></span>';
+
+  /* ---- 部署の稼働（実データ＋司令塔の巡回中の一時表示）を反映 ---- */
+  function applyActive(force){
+    var all={}, k;
+    for(k in liveAct) all[k]=liveAct[k];
+    for(k in tempAct) all[k]=tempAct[k];
+    Object.keys(byDept).forEach(function(d){
+      if(d==='司令塔AI') return;
+      var text=all[d]||'', sh=shown[d]; if(!sh) return;
+      if(!force && sh.text===text) return;
+      var was=!!sh.text; sh.text=text;
+      sh.tag.classList.toggle('on', !!text);
+      sh.mons.forEach(function(m){ m.classList.toggle('on', !!text); });
+      var ms=byDept[d];
+      if(text){
+        ms.forEach(function(p,i){
+          p.out=false; p.el.classList.add('glow');
+          var h=huddle(L.isl[d], ms.length, i);
+          if(!was || force) moveTo(p,h.x,h.y,function(){ face(p, h.x>meet(L.isl[d]).x); });
+          if(i===0) say(p, DOTS+' '+esc(text)); else say(p, DOTS);
+        });
+      } else if(was || force){
+        ms.forEach(function(p){ p.el.classList.remove('glow'); hush(p); goHome(p); });
+      }
+    });
+    // 司令塔
+    if(!cmdBusy){
+      var ct=liveAct['司令塔AI']||'';
+      var sh=shown['司令塔AI'];
+      if(force || sh.text!==ct){
+        sh.text=ct; sh.tag.classList.toggle('on',!!ct);
+        if(ct){ cmd.el.classList.add('glow'); moveTo(cmd, L.table.x, L.table.y-L.table.r*1.2-2); say(cmd, DOTS+' '+esc(ct)); }
+        else { cmd.el.classList.remove('glow'); hush(cmd); goHome(cmd); }
+      }
+    }
+  }
+
+  /* ---- ときどき席を立つ（雰囲気の演出） ---- */
+  setInterval(function(){
+    if(!L || wandering>=2 || Math.random()>0.45) return;
+    var idle=[];
+    Object.keys(byDept).forEach(function(d){
+      if(d==='司令塔AI' || shown[d]&&shown[d].text) return;
+      byDept[d].forEach(function(p){ if(!p.out) idle.push(p); });
+    });
+    if(!idle.length) return;
+    var p=idle[Math.floor(Math.random()*idle.length)], r=Math.random(), dest, line;
+    if(r<0.4){ dest={x:L.coffee.x+4,y:L.coffee.y+3}; line='☕'; }
+    else if(r<0.65){ dest={x:L.printer.x-4,y:L.printer.y+3}; line='コピー中'; }
+    else {
+      var others=Object.keys(byDept).filter(function(d){ return d!==p.dept && d!=='司令塔AI'; });
+      var od=others[Math.floor(Math.random()*others.length)], q=byDept[od][0];
+      dest={x:q.home.x+(q.home.x<50?4:-4), y:q.home.y+2}; line='ちょっと相談';
+    }
+    p.out=true; wandering++;
+    p.el.classList.remove('sit');
+    moveTo(p,dest.x,dest.y,function(){
+      if(!p.out) return;
+      say(p,line,2500);
+      setTimeout(function(){
+        if(!p.out) return;
+        p.out=false; wandering=Math.max(0,wandering-1);
+        if(!(shown[p.dept]&&shown[p.dept].text)) goHome(p);
+      }, 3000+Math.random()*3000);
+    });
+  }, 2500);
+
+  /* ---- 一番上の指示欄と連動 ---- */
+  function cmdStart(){
+    cmdBusy=true;
+    cmd.el.classList.add('glow'); shown['司令塔AI'].tag.classList.add('on');
+    moveTo(cmd, L.table.x, L.table.y-L.table.r*1.2-2, function(){ face(cmd,false); });
+    say(cmd, DOTS+' 振り分けています');
+  }
+  function cmdReplay(agents){
+    var list=(agents||[]).filter(function(a){ return L.isl[a]; });
+    var i=0;
+    function next(){
+      if(i>=list.length){
+        moveTo(cmd, cmd.home.x, cmd.home.y, function(){
+          cmd.el.classList.add('sit'); face(cmd,false);
+          say(cmd,'まとまりました！',3500);
+          setTimeout(function(){ cmdEnd(); }, 3600);
+        });
+        return;
+      }
+      var d=list[i++], I=L.isl[d], M=meet(I);
+      say(cmd, d+'へ', 1500);
+      moveTo(cmd, M.x+(M.x<50?6:-6), M.y-2, function(){
+        say(cmd,'お願いします',1800);
+        tempAct[d]='精査しています'; applyActive();
+        setTimeout(function(){
+          var lead=byDept[d][0]; say(lead,'まとめました',1600);
+          setTimeout(function(){ delete tempAct[d]; applyActive(); next(); }, 1700);
+        }, 2600);
+      });
+    }
+    hush(cmd);
+    next();
+  }
+  function cmdEnd(){
+    cmdBusy=false; tempAct={};
+    cmd.el.classList.remove('glow'); shown['司令塔AI'].tag.classList.remove('on'); hush(cmd);
+    shown['司令塔AI'].text=null;
+    applyActive();
+  }
+
+  var lastWide=null;
+  function maybeRebuild(){
+    var wide=root.clientWidth>=560;
+    if(wide!==lastWide && root.clientWidth>0){ lastWide=wide; build(); }
+  }
+  window.addEventListener('resize', maybeRebuild);
+
+  return {
+    setActive:function(act){ maybeRebuild(); if(!L) return; liveAct=act||{}; applyActive(); },
+    cmdStart:function(){ maybeRebuild(); if(L) cmdStart(); },
+    cmdReplay:function(a){ if(L) cmdReplay(a); },
+    cmdEnd:function(){ if(L) cmdEnd(); }
+  };
 })();
 
 function floor(s){
@@ -317,15 +615,7 @@ function floor(s){
   DEPTS.forEach(function(g){
     if(g.sched && mins>=g.sched.t && mins<g.sched.t+g.sched.dur) act[g.d]=g.sched.say;
   });
-  DEPTS.forEach(function(g,gi){
-    g.m.forEach(function(p,k){
-      var el=document.getElementById('p'+gi+'_'+k); if(!el) return;
-      var on = !!act[g.d];
-      el.className = 'p' + (on?' act':'');
-      el.querySelector('i').innerHTML = on
-        ? '<span class="dots"><i></i><i></i><i></i></span>'+esc(act[g.d]) : '待機中';
-    });
-  });
+  if(window.OFFICE) OFFICE.setActive(act);
   var names = Object.keys(act);
   var t=document.getElementById('nowt'), u=document.getElementById('nows');
   if(names.length){ t.textContent = names.join('・')+' が動いています'; u.textContent = act[names[0]]; }
@@ -534,6 +824,7 @@ document.getElementById('aSend').onclick = function(){
   var st=document.getElementById('aState'), btn=document.getElementById('aSend'), out=document.getElementById('aOut');
   if(!text || aSending) return;
   aSending=true; btn.disabled=true; st.textContent='司令塔AIが担当に振り分けています…';
+  if(window.OFFICE) OFFICE.cmdStart();
   out.innerHTML='';
   runAndWait('/api/chat', text, function(sec){
     st.textContent = sec < 15 ? '司令塔AIが担当に振り分けています…' : '担当の部署で検討しています…（'+sec+'秒）';
@@ -547,6 +838,7 @@ document.getElementById('aSend').onclick = function(){
     h+=esc(showResult(r))+'</div><div id="aCards"></div>';
     out.innerHTML=h;
     if(r.candidates && r.candidates.length) sbCards(r.candidates,'aCards');
+    if(window.OFFICE){ if(r.status==='done') OFFICE.cmdReplay(r.agents||[]); else OFFICE.cmdEnd(); }
     if(r.status==='done'){
       localMsgs.push({role:'user',content:text});
       localMsgs.push({role:'assistant',content:r.reply});
@@ -556,6 +848,7 @@ document.getElementById('aSend').onclick = function(){
   }).catch(function(e){
     st.textContent = (e.message==='unauth') ? '合言葉が切れました。再読み込みしてください。' : '通信がうまくいきませんでした。もう一度試してください。';
     btn.disabled=false; aSending=false;
+    if(window.OFFICE) OFFICE.cmdEnd();
   });
 };
 
