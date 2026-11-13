@@ -211,6 +211,45 @@
   .pcard .foot span{font-size:11px;color:var(--muted)}
   @media (max-width:420px){ .kv{display:block} .kv dt{margin-bottom:2px} }
   footer{margin-top:30px;color:var(--muted);font-size:11px;text-align:center}
+
+  /* リンク（AIの文章から安全に作る）・出典・議事録・依頼の一覧 */
+  a.lk{color:var(--gold2);text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere;word-break:break-word;
+    display:inline;padding:2px 0}
+  .ans,.msg,.pcard dd,.mins{overflow-wrap:anywhere;word-break:break-word}
+  .ans .txt{white-space:pre-wrap}
+  .srcs{margin-top:10px;font-size:12px;color:var(--muted)}
+  .srcs b{color:var(--gold2);font-weight:600}
+  .srcs li{margin:3px 0}
+  .reqs{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .req{display:inline-flex;align-items:center;gap:6px;font-size:12px;border:1px solid var(--line);border-radius:999px;
+    padding:5px 10px;background:var(--bg);color:var(--text);cursor:pointer;max-width:100%}
+  .req .q{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .req .sg{color:var(--gold2)}
+  .req.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+  .req .x{border:0;background:none;color:var(--bad);font-size:12px;cursor:pointer;padding:0 0 0 4px}
+  .rid{font-size:11px;color:var(--muted);margin-bottom:6px}
+  details.mins{margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px}
+  details.mins summary{cursor:pointer;color:var(--gold2)}
+  .mn{border-top:1px solid var(--line);margin-top:8px;padding-top:8px}
+  .mn h4{margin:0 0 4px;font-size:13px}
+  .mn .e{margin:6px 0;white-space:pre-wrap}
+  .mn .e b{color:var(--gold2);font-weight:600}
+  .mn .e.maj b::after{content:" 重大";color:var(--bad);font-size:11px}
+  .mn .k{color:var(--muted);font-size:12px;margin-top:4px;white-space:pre-wrap}
+  .urlng{color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+  .motion{margin-left:auto;font-size:11px}
+  /* 中央テーブルの名札・失敗表示・動きを減らす設定 */
+  .pp .nm{position:absolute;top:35px;left:50%;transform:translateX(-50%);font-size:9px;line-height:1.3;white-space:nowrap;
+    background:rgba(5,25,18,.85);color:var(--text);padding:0 4px;border-radius:4px;display:none;pointer-events:none}
+  .pp.mt .nm{display:block}
+  .office.tall .pp .bb{max-width:118px;font-size:10px;padding:3px 6px}
+  .office.tall .pp .nm{font-size:8px}
+  .mlist{font-size:12px;color:var(--muted);margin:6px 2px 0;display:flex;flex-wrap:wrap;gap:4px 12px}
+  .mlist b{color:var(--text);font-weight:600}
+  .mlist .ng{color:var(--bad)}
+  .pp.ng .bb{background:#F6D6D0}
+  .office.calm .pp,.office.calm .pp *{transition:none!important;animation:none!important}
+  @media (prefers-reduced-motion: reduce){ .office .pp,.office .pp *{transition:none!important;animation:none!important} }
 </style>
 </head>
 <body>
@@ -236,6 +275,7 @@
       <button class="btn main" id="aSend">送る</button>
       <span class="state" id="aState"></span>
     </div>
+    <div class="reqs" id="aReqs"></div>
     <div id="aOut"></div>
   </div>
 
@@ -248,8 +288,11 @@
 
   <section class="on" id="s0">
     <div class="now"><b id="nowt">読み込んでいます…</b><span id="nows"></span></div>
+    <div class="bar" style="margin:0 0 6px"><span class="state" id="mtgNow">中央テーブル：会議はありません</span>
+      <button class="btn sm motion" id="motionBtn" aria-pressed="false">動きを減らす</button></div>
     <div class="office" id="office"></div>
-    <div class="oleg">机を押すと、その部署のスキル（できること・未接続のこと）が見られます。光っている部署と吹き出しは実際の稼働に連動しています。コーヒーを取りに行くなどの動きは雰囲気の演出です。</div>
+    <div class="mlist" id="mtgList" aria-live="polite"></div>
+    <div class="oleg">中央テーブルに集まるのは、上の指示欄の依頼で実際に呼ばれた担当だけです。吹き出しは、その担当が実際にしている処理を表しています。机を押すと、その部署のスキル（できること・未接続のこと）が見られます。コーヒーを取りに行くなどの動きは雰囲気の演出です。</div>
     <h2>直近の動き</h2>
     <div class="card feed" id="feed"></div>
     <div class="note">「本物」はLINEとタスクの処理です。画像係と物販係はClaude側の予約で動くため、ここでは時刻で表示しています。</div>
@@ -326,8 +369,27 @@ function api(path, body){
     return r.json();
   });
 }
-function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(m){
-  return {'&':'&amp;','<':'&lt;','>':'&gt;'}[m]; }); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(m){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); }
+/* AIの文章の中のURLを、安全にリンクにする（HTMLは実行しない。http/https だけ） */
+function safeUrl(u){ try{ var x=new URL(u); return (x.protocol==='https:'||x.protocol==='http:') ? x.href : null; }catch(e){ return null; } }
+function hostOf(u){ try{ return new URL(u).host.replace(/^www\./,''); }catch(e){ return ''; } }
+function linkHtml(url,label){
+  var ok=safeUrl(url); if(!ok) return esc(label||url);
+  return '<a class="lk" href="'+esc(ok)+'" target="_blank" rel="noopener noreferrer">'+esc(label||('ページを開く（'+hostOf(ok)+'）'))+'</a>';
+}
+function rich(s){
+  s=String(s==null?'':s);
+  var re=/\[([^\]\n]{1,80})\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"'）)\]、。]+)/g, out='', last=0, m;
+  while((m=re.exec(s))){
+    out+=esc(s.slice(last,m.index));
+    var url=m[2]||m[3], tail='';
+    if(!m[1]){ var t=url.replace(/[.,;:!?]+$/,''); tail=url.slice(t.length); url=t; }
+    out+=(safeUrl(url) ? linkHtml(url,m[1]) : esc(m[0].slice(0,m[0].length-tail.length)))+esc(tail);
+    last=re.lastIndex;
+  }
+  return out+esc(s.slice(last));
+}
 function z(n){ return (n<10?'0':'')+n; }
 function jst(d){ var n=d?new Date(d):new Date(); return new Date(n.getTime()+(new Date().getTimezoneOffset()+540)*60000); }
 function hhmm(d){ var j=jst(d); return z(j.getHours())+':'+z(j.getMinutes()); }
@@ -473,10 +535,12 @@ var OFFICE = (function(){
     });
 
     // 司令塔本人
-    cmd = person('司令塔AI','司','受付・振り分け',{x:B.x,y:B.y+B.h/2+6.5});
+    cmd = person('司令塔AI','司','司令塔',{x:B.x,y:B.y+B.h/2+6.5});
     byDept['司令塔AI']=[cmd];
+    root.classList.toggle('calm', calm());
 
     applyActive(true);
+    if(mtg && mtg.on){ var last=mtg.last; mtg.seated={}; mtg.order=[]; mtg.said={}; cmdBusy=true; seatPerson(cmd,0); if(last) meetingUpdate(mtg.rid,last); }
   }
 
   function person(dept, initial, name, home){
@@ -484,15 +548,15 @@ var OFFICE = (function(){
     e.style.setProperty('--c', COLOR[dept]||'#ccc');
     e.style.setProperty('--hair', HAIR[Math.floor(Math.random()*HAIR.length)]);
     var hd=el('hd',e), b=el('bd',e); b.textContent=initial; el('lg',e);
-    var bb=el('bb',e);
-    var p={el:e, bb:bb, dept:dept, home:{x:home.x,y:home.y}, at:{x:home.x,y:home.y}, job:0, out:false};
+    var bb=el('bb',e), nm=el('nm',e); nm.textContent=name;
+    var p={el:e, bb:bb, dept:dept, name:name, home:{x:home.x,y:home.y}, at:{x:home.x,y:home.y}, job:0, out:false};
     pos(e,home.x,home.y);
     return p;
   }
 
   function moveTo(p,x,y,done){
     var job=++p.job;
-    var d=Math.hypot(x-p.at.x,(y-p.at.y)*0.7), sec=Math.max(.5,Math.min(3.6,d*.085));
+    var d=Math.hypot(x-p.at.x,(y-p.at.y)*0.7), sec=calm() ? 0.05 : Math.max(.5,Math.min(3.6,d*.085)*(fast||1));
     p.el.style.transition='left '+sec+'s linear, top '+sec+'s linear';
     p.el.classList.remove('sit'); p.el.classList.add('walk');
     pos(p.el,x,y); p.at={x:x,y:y};
@@ -555,7 +619,7 @@ var OFFICE = (function(){
 
   /* ---- ときどき席を立つ（雰囲気の演出） ---- */
   setInterval(function(){
-    if(!L || wandering>=2 || Math.random()>0.45) return;
+    if(!L || calm() || wandering>=2 || Math.random()>0.45) return;
     var idle=[];
     Object.keys(byDept).forEach(function(d){
       if(d==='司令塔AI' || shown[d]&&shown[d].text) return;
@@ -583,68 +647,132 @@ var OFFICE = (function(){
     });
   }, 2500);
 
-  /* ---- 中央の会議（一番上の指示欄と連動。呼ばれた部署は実際の途中経過から分かる） ---- */
-  var mtg = {on:false, seats:{}, order:[], done:{}};
-  function tableSeat(i){
+  /* ---- 動きを減らす（端末の設定、またはボタン） ---- */
+  var calmPref=null;
+  try{ calmPref=localStorage.getItem('cresta-calm'); }catch(e){}
+  function calm(){
+    if(calmPref==='1') return true;
+    if(calmPref==='0') return false;
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+  var fast=1;
+
+  /* ---- 中央テーブルの会議 ----
+     1つの依頼ID（rid）だけを表示する。届く情報はサーバーの「実際の進み具合」だけで、
+     演出のために発言や担当を作らない。呼ばれていない担当は自席に残る。 */
+  var mtg = {on:false, rid:null, seated:{}, order:[], said:{}, last:null};
+  var ACTIVE = {intake:1, assign:1, research:1, propose:1, review:1, revise:1, cross:1, merge:1};
+
+  function seatKey(p){ return p.dept+'/'+p.name; }
+  function findPerson(seat, dept){
+    if(seat==='司令塔AI') return cmd;
+    var ms=byDept[dept]; if(!ms) return null;
+    if(seat===dept) return ms[0];                      // 部署のリーダー
+    var role=seat.slice(dept.length+1);                 // 例: 不動産AI・リスク確認担当 → リスク確認担当
+    for(var i=0;i<ms.length;i++) if(ms[i].name===role) return ms[i];
+    return null;
+  }
+  /* 席の位置：司令塔は上座。ほかは人数に合わせて円周に均等に並べ、多いときは内外2列にずらす */
+  function tablePos(i, n){
     var T=L.table, k=root.clientWidth/Math.max(1,root.clientHeight);
-    var a=-Math.PI/2 + i*(Math.PI*2/6);           // 0番＝司令塔（上座）、1〜5番＝部署のリーダー
-    return {x:T.x+Math.cos(a)*(T.r+3.5), y:T.y+Math.sin(a)*(T.r+3.5)*k+3};
+    if(i===0) return {x:T.x, y:T.y-(T.r+3.2)*k+2};
+    // 横長の画面では楕円に広げ、人数が多いときは1人おきに外側へずらして、名札と吹き出しが重ならないようにする
+    var wide=root.clientWidth>=560, a=-Math.PI/2 + i*(Math.PI*2/(n+1));
+    var r=T.r+3.6+(n>5 ? 2 : 0)+(n>6 && i%2 ? 5 : 0), rx=r*(wide?2.1:1.25), ry=r*(wide?1.05:1);
+    return {x:Math.max(6,Math.min(94,T.x+Math.cos(a)*rx)), y:T.y+Math.sin(a)*ry*k+3};
   }
-  function meetingStart(){
-    mtg={on:true, seats:{}, order:[], done:{}};
+  function seatPerson(p, i){
+    var sp=tablePos(i, mtg.order.length);
+    p.el.classList.remove('sit');
+    moveTo(p, sp.x, sp.y);
+  }
+  function arrange(){ mtg.order.forEach(function(p,i){ seatPerson(p,i+1); }); }
+  function bring(p){
+    var k=seatKey(p);
+    if(mtg.seated[k]) return;
+    mtg.seated[k]=true;
+    if(p===cmd) return;
+    p.atTable=true; p.out=true; p.el.classList.add('glow','mt');
+    mtg.order.push(p);
+    arrange();
+  }
+  function bubble(p, phase, label){
+    var key=seatKey(p), v=phase+'|'+label;
+    if(mtg.said[key]===v) return;
+    mtg.said[key]=v;
+    p.el.classList.toggle('ng', phase==='failed');
+    if(phase==='failed') say(p, '⚠ '+esc(label));
+    else if(ACTIVE[phase]) say(p, DOTS+' '+esc(label));
+    else if(root.clientWidth>=560) say(p, esc(label), 3500);
+    else hush(p);
+  }
+  /* 文字でも見られる参加者一覧（スマホ・動きを減らす設定でも分かるように） */
+  function drawList(seats){
+    var box=document.getElementById('mtgList'); if(!box) return;
+    if(!seats){ box.innerHTML=''; return; }
+    box.innerHTML=seats.map(function(x){
+      var who=x.seat==='司令塔AI' ? '司令塔' : (x.seat===x.dept ? x.dept : x.seat.replace(x.dept+'・', x.dept.replace('マーケティングAI','マーケAI')+' '));
+      return '<span'+(x.phase==='failed'?' class="ng"':'')+'><b>'+esc(who)+'</b> '+esc(x.label)+'</span>';
+    }).join('');
+  }
+  function setNow(t){ var n=document.getElementById('mtgNow'); if(n) n.textContent=t; }
+
+  function meetingStart(rid, text){
+    if(mtg.on) meetingClear();
+    mtg={on:true, rid:rid, seated:{}, order:[], said:{}, last:null};
     cmdBusy=true;
-    cmd.el.classList.add('glow'); shown['司令塔AI'].tag.classList.add('on');
-    var sp=tableSeat(0);
-    moveTo(cmd, sp.x, sp.y);
-    say(cmd, DOTS+' 振り分けています');
+    cmd.el.classList.add('glow','mt'); shown['司令塔AI'].tag.classList.add('on');
+    mtg.seated[seatKey(cmd)]=true;
+    seatPerson(cmd,0);
+    say(cmd, DOTS+' 依頼を受け付けました');
+    setNow('中央テーブル：'+(text?('「'+String(text).slice(0,24)+'」'):'依頼')+' の会議');
   }
-  function meetingSet(working, finished){
-    if(!mtg.on) return;
-    (working||[]).forEach(function(d){
-      if(mtg.seats[d] || !byDept[d] || !L.isl[d]) return;
-      var lead=byDept[d][0];
-      lead.atTable=true; lead.out=true;
-      mtg.order.push(d); mtg.seats[d]=lead;
-      lead.el.classList.add('glow'); lead.el.classList.remove('sit');
-      var sp=tableSeat(mtg.order.length);
-      say(cmd, esc(d)+'、お願いします', 2400);
-      moveTo(lead, sp.x, sp.y, function(){
-        if(!mtg.on) return;
-        say(lead, esc(d.replace('マーケティングAI','マーケ'))+'です。引き受けます', 2600);
-        setTimeout(function(){ if(mtg.on && !mtg.done[d]) say(lead, DOTS+' チームと検討中'); }, 2700);
-      });
-      tempAct[d]='チームで検討しています';          // 島に残ったメンバーが集まって作業
+  /* seats: [{seat, dept, phase, label}]（サーバーの実際の進み具合） */
+  function meetingUpdate(rid, seats){
+    if(!mtg.on || rid!==mtg.rid || !seats) return;
+    mtg.last=seats;
+    drawList(seats);
+    seats.forEach(function(x){
+      var p=findPerson(x.seat, x.dept); if(!p) return;
+      bring(p);
+      bubble(p, x.phase, x.label);
+    });
+  }
+  var END_SAY={'完了':'回答しました','承認待ち':'承認待ちです（まだ送っていません）','追加情報待ち':'追加の情報をお願いします',
+               '未接続':'未接続の機能がありました','失敗':'失敗しました','キャンセル':'キャンセルしました'};
+  /* 回答は先に画面に出してある。ここは片付けの演出だけ（回答を待たせない） */
+  function meetingDone(rid, r){
+    if(!mtg.on || rid!==mtg.rid) return;
+    fast=0.5;                                   // 片付けは早めに
+    if(r && r.seats) meetingUpdate(rid, r.seats); // 途中を見る前に終わった担当も、短く席につく
+    var st=(r&&r.state) || (r&&r.status==='cancelled' ? 'キャンセル' : (r&&r.status==='done' ? '完了' : '失敗'));
+    var bad=(st==='失敗'||st==='キャンセル'||st==='未接続');
+    cmd.el.classList.toggle('ng', bad);
+    say(cmd, esc(END_SAY[st]||st), 2600);
+    setNow('中央テーブル：'+(END_SAY[st]||st));
+    var myRid=rid;
+    setTimeout(function(){ if(mtg.rid===myRid) meetingClear(); }, calm()?600:1600);
+  }
+  function meetingClear(){
+    var ppl=mtg.order.slice();
+    mtg={on:false, rid:null, seated:{}, order:[], said:{}, last:null};
+    ppl.forEach(function(p){ p.atTable=false; p.out=false; p.el.classList.remove('glow','mt','ng'); hush(p); goHome(p); });
+    cmd.el.classList.remove('mt','ng');
+    goHome(cmd, function(){
+      if(mtg.on) return;
+      fast=1; cmdBusy=false;
+      cmd.el.classList.remove('glow'); shown['司令塔AI'].tag.classList.remove('on'); shown['司令塔AI'].text=null;
       applyActive();
-      setTimeout(function(){ if(mtg.on) say(cmd, DOTS+' 話し合っています'); }, 2500);
     });
-    (finished||[]).forEach(function(d){
-      var lead=mtg.seats[d]; if(!lead || mtg.done[d]) return;
-      mtg.done[d]=true;
-      say(lead, '報告：まとまりました');
-      delete tempAct[d]; applyActive();
-    });
+    hush(cmd);
+    drawList(null);
+    setNow('中央テーブル：会議はありません');
   }
-  function meetingFinish(ok){
-    var leaders=mtg.order.map(function(d){ return mtg.seats[d]; });
-    leaders.forEach(function(p){ say(p, ok?'まとめました':'いったん戻ります', 1600); });
-    tempAct={}; applyActive();
-    say(cmd, ok?'まとまりました！':'うまくいきませんでした', 3000);
-    setTimeout(function(){
-      leaders.forEach(function(p){ p.atTable=false; p.out=false; p.el.classList.remove('glow'); hush(p); goHome(p); });
-      goHome(cmd, function(){
-        cmdBusy=false; mtg.on=false;
-        cmd.el.classList.remove('glow'); shown['司令塔AI'].tag.classList.remove('on'); shown['司令塔AI'].text=null;
-        applyActive();
-      });
-    }, 2000);
-  }
-  function meetingDone(agents, ok){
-    if(!mtg.on) return;
-    // 途中経過を見る前に終わった部署も、いったん席に呼んでから解散する
-    var missing=(agents||[]).filter(function(d){ return !mtg.seats[d] && L.isl[d]; });
-    if(missing.length){ meetingSet(missing, []); setTimeout(function(){ meetingSet([], missing); setTimeout(function(){ meetingFinish(ok); }, 1800); }, 3600); }
-    else { meetingSet([], agents||[]); setTimeout(function(){ meetingFinish(ok); }, 1200); }
-  }
+
+  var mb=document.getElementById('motionBtn');
+  function drawMotion(){ if(mb){ mb.textContent=calm()?'動きを戻す':'動きを減らす'; mb.setAttribute('aria-pressed', calm()?'true':'false'); } root.classList.toggle('calm', calm()); }
+  if(mb) mb.onclick=function(){ calmPref=calm()?'0':'1'; try{ localStorage.setItem('cresta-calm', calmPref); }catch(e){} drawMotion(); };
+  drawMotion();
 
   var lastWide=null;
   function maybeRebuild(){
@@ -655,9 +783,10 @@ var OFFICE = (function(){
 
   return {
     setActive:function(act){ maybeRebuild(); if(!L) return; liveAct=act||{}; applyActive(); },
-    meetingStart:function(){ maybeRebuild(); if(L) meetingStart(); },
-    meetingSet:function(w,f){ if(L) meetingSet(w,f); },
-    meetingDone:function(a,ok){ if(L) meetingDone(a, ok!==false); }
+    meetingStart:function(rid,text){ maybeRebuild(); if(L) meetingStart(rid,text); },
+    meetingUpdate:function(rid,seats){ if(L) meetingUpdate(rid,seats); },
+    meetingDone:function(rid,r){ if(L) meetingDone(rid,r); },
+    current:function(){ return mtg.on ? mtg.rid : null; }
   };
 })();
 
@@ -734,7 +863,7 @@ function drawMsgs(){
   var h='';
   localMsgs.forEach(function(m){
     if(m.role!=='user' && m.role!=='assistant') return;
-    h+='<div class="msg '+(m.role==='user'?'me':'ai')+'">'+esc(m.content)+'</div>';
+    h+='<div class="msg '+(m.role==='user'?'me':'ai')+'">'+rich(m.content)+'</div>';
   });
   var box=document.getElementById('msgs');
   box.innerHTML = h || '<div class="msg ai">こんにちは。何でも聞いてください。</div>';
@@ -793,7 +922,7 @@ var sbMsgs = [], sbSending = false, sbLoaded = false;
 function sbDraw(){
   var h='';
   sbMsgs.forEach(function(m){
-    h+='<div class="msg '+(m.role==='user'?'me':'ai')+'">'+esc(m.content)+'</div>';
+    h+='<div class="msg '+(m.role==='user'?'me':'ai')+'">'+rich(m.content)+'</div>';
   });
   document.getElementById('sbMsgs').innerHTML=h;
   document.getElementById('sbLead').style.display = sbMsgs.length ? 'none' : 'block';
@@ -804,6 +933,12 @@ function sbTag(s){
   return '<span class="tag '+cls+'">'+esc(s)+'</span>';
 }
 
+/* カードのURL：検索で実際に見たページと一致したものだけリンクにする */
+function urlFoot(url, verified, check, label){
+  if(!safeUrl(url||'')) return '';
+  if(verified) return linkHtml(url, label)+'<span>（検索で確認済み）</span>';
+  return '<span class="urlng">URL要確認'+(check==='site'?'（同じサイトは検索で確認・このページは未確認）':'（検索で確認できず）')+'：'+esc(url)+'</span>';
+}
 function sbCards(list, boxId){
   var box=document.getElementById(boxId || 'sbCards');
   if(!list || !list.length){ box.innerHTML=''; return; }
@@ -817,10 +952,10 @@ function sbCards(list, boxId){
      + '<div class="org">'+esc(c.agency)+'　／　'+esc(c.reason)+'</div><dl>';
     rows.forEach(function(r){
       if(!c[r[1]]) return;
-      h+='<div class="kv"><dt>'+r[0]+'</dt><dd>'+esc(c[r[1]])+'</dd></div>';
+      h+='<div class="kv"><dt>'+r[0]+'</dt><dd>'+rich(c[r[1]])+'</dd></div>';
     });
-    h+='</dl><div class="foot">';
-    if(/^https?:\/\//.test(c.url||'')) h+='<a href="'+esc(c.url)+'" target="_blank" rel="noopener">公式ページを開く ›</a>';
+    if(c.reviewNote) h+='<div class="kv"><dt>要件チェック担当</dt><dd>'+rich(c.reviewNote)+'</dd></div>';
+    h+='</dl><div class="foot">'+urlFoot(c.url, c.verified, c.urlCheck, '公式ページを開く ›');
     h+='<span>確認日 '+esc(c.checkedOn||'—')+'</span></div></div>';
   });
   box.innerHTML=h;
@@ -833,9 +968,8 @@ function propCards(list, boxId){
   var h='<h2>見つかった物件（'+list.length+'件）</h2>';
   list.forEach(function(p){
     h+='<div class="pcard"><div class="ttl"><h3>'+esc(p.title)+'</h3><span class="tag">'+esc(p.source)+'</span></div><dl>';
-    rows.forEach(function(r){ if(p[r[1]]) h+='<div class="kv"><dt>'+r[0]+'</dt><dd>'+esc(p[r[1]])+'</dd></div>'; });
-    h+='</dl><div class="foot">';
-    if(/^https?:\/\//.test(p.url||'')) h+='<a href="'+esc(p.url)+'" target="_blank" rel="noopener">掲載ページを開く ›</a>';
+    rows.forEach(function(r){ if(p[r[1]]) h+='<div class="kv"><dt>'+r[0]+'</dt><dd>'+rich(p[r[1]])+'</dd></div>'; });
+    h+='</dl><div class="foot">'+urlFoot(p.url, p.verified, p.urlCheck, '掲載ページを開く ›');
     h+='<span>確認日 '+esc(p.checkedOn||'—')+'　掲載情報は古い・成約済みの場合があります</span></div></div>';
   });
   box.insertAdjacentHTML('beforeend', h);
@@ -857,7 +991,7 @@ function sbSend(){
   sbMsgs.push({role:'user',content:text}); sbDraw(); ta.value='';
   runAndWait('/api/subsidy', text, function(sec){ st.textContent='公式サイトを調べています…（'+sec+'秒）'; }).then(function(r){
     sbMsgs.push({role:'assistant',content:showResult(r)});
-    if(r.status==='done'){ sbCards(r.candidates,'sbCards'); document.getElementById('sbCards').insertAdjacentHTML('afterbegin', outcomeHtml(r)); }
+    if(r.status==='done'){ sbCards(r.candidates,'sbCards'); document.getElementById('sbCards').insertAdjacentHTML('afterbegin', outcomeHtml(r)+sourcesHtml(r)+minutesHtml(r)); }
     sbDraw(); st.textContent=''; btn.disabled=false; sbSending=false;
   }).catch(function(e){
     st.textContent = (e.message==='unauth') ? '合言葉が切れました。再読み込みしてください。' : 'うまくいきませんでした。もう一度試してください。';
@@ -943,6 +1077,36 @@ function outcomeHtml(r){
   return h;
 }
 
+/* 出典（WEB検索で実際に見たページ） */
+function sourcesHtml(r){
+  var list=(r.sources||[]).filter(function(x){ return safeUrl(x.url); }).slice(0,8);
+  if(!list.length) return '';
+  var h='<div class="srcs"><b>出典（WEB検索で確認したページ）</b><ul>';
+  list.forEach(function(x){
+    h+='<li>'+linkHtml(x.url, (x.title||hostOf(x.url))+' を開く')+'　確認日 '+esc(x.checkedOn||'—')+'</li>';
+  });
+  h+='</ul>'+(r.droppedUrls?'<div>※ 確認できなかったURLは回答から省きました</div>':'')+'</div>';
+  return h;
+}
+/* 検討記録（議事録）：提案の要旨・指摘・修正点・採用理由 */
+var KIND={team:'チームで検討',review:'別の担当が見直し',cross:'部署をまたいだ合同確認'};
+var EK={proposal:'提案',critique:'指摘',revision:'修正案',recheck:'再確認',review:'確認'};
+function minutesHtml(r){
+  var ms=r.minutes||[];
+  if(!ms.length) return '';
+  var h='<details class="mins"><summary>この依頼の検討記録（議事録）を見る（'+ms.length+'件）</summary>';
+  ms.forEach(function(m){
+    h+='<div class="mn"><h4>'+esc(m.dept)+'｜'+esc(KIND[m.kind]||m.kind)+'</h4><div class="k">議題：'+rich(m.topic)+'</div>';
+    (m.entries||[]).forEach(function(e){
+      h+='<div class="e'+(e.major?' maj':'')+'"><b>'+esc(e.role)+'｜'+esc(EK[e.kind]||e.kind)+'</b>\n'+rich(e.text)+'</div>';
+    });
+    h+='<div class="k">修正した点：'+rich(m.changes||'—')+'</div><div class="k">採用：'+rich(m.adopted||'—')+'</div>';
+    if(m.unresolved) h+='<div class="k" style="color:var(--bad)">未解決・未確認：'+rich(m.unresolved)+'</div>';
+    h+='</div>';
+  });
+  return h+'</details>';
+}
+
 /* ---------- 受付して、終わるまで数秒ごとに見に行く ---------- */
 function runAndWait(path, text, onTick){
   return api(path,{text:text}).then(function(r){
@@ -969,41 +1133,108 @@ function showResult(s){
   return s.error || 'うまく処理できませんでした。';
 }
 
-/* ---------- 一番上の指示欄（司令塔AIへ） ---------- */
-var aSending=false;
+/* ---------- 一番上の指示欄（司令塔AIへ） ----------
+   依頼ごとに「依頼ID」で管理する。進み具合・参加者・検討記録・回答・承認状態は、すべて同じIDのものだけを表示する。
+   同時に複数送れる。中央テーブルには、選んでいる依頼（なければ一番新しい進行中の依頼）の会議だけを出す。 */
+var REQS=[], focusRid=null, MAX_RUNNING=3;
+function reqRunning(){ return REQS.filter(function(q){ return !q.final; }); }
+function drawReqs(){
+  var box=document.getElementById('aReqs'), h='';
+  REQS.slice(-6).forEach(function(q){
+    var on=q.rid && q.rid===OFFICE_RID();
+    h+='<span class="req'+(on?' on':'')+'" data-rid="'+esc(q.rid||'')+'" title="依頼ID '+esc(q.rid||'受付中')+'">'
+      + '<span class="q">'+esc(q.text)+'</span><span class="sg">'+esc(q.stage)+'</span>'
+      + (!q.final && q.rid ? '<button class="x" data-cancel="'+esc(q.rid)+'" aria-label="この依頼を取り消す">取消</button>' : '')
+      + '</span>';
+  });
+  box.innerHTML=h;
+}
+function OFFICE_RID(){ return window.OFFICE && OFFICE.current ? OFFICE.current() : null; }
+document.getElementById('aReqs').onclick=function(ev){
+  var t=ev.target;
+  var c=t.getAttribute && t.getAttribute('data-cancel');
+  if(c){ ev.stopPropagation(); cancelReq(c); return; }
+  var chip=t.closest ? t.closest('.req') : null, rid=chip && chip.getAttribute('data-rid');
+  var q=rid && REQS.filter(function(x){ return x.rid===rid; })[0];
+  if(q && !q.final){ focusRid=rid; showMeeting(q); }
+  else if(q){ var el=document.getElementById('res-'+rid); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }
+};
+function showMeeting(q){
+  if(!window.OFFICE) return;
+  OFFICE.meetingStart(q.rid, q.text);
+  if(q.seats) OFFICE.meetingUpdate(q.rid, q.seats);
+  drawReqs();
+}
+/* 中央テーブルに出す依頼：選んだもの → なければ一番新しい進行中のもの */
+function pickMeeting(){
+  var run=reqRunning().filter(function(q){ return q.rid; });
+  var q=run.filter(function(x){ return x.rid===focusRid; })[0] || run[run.length-1];
+  if(q && OFFICE_RID()!==q.rid) showMeeting(q);
+}
+function cancelReq(rid){
+  var q=REQS.filter(function(x){ return x.rid===rid; })[0]; if(!q || q.final) return;
+  q.stage='取り消し中'; drawReqs();
+  api('/api/cancel',{id:rid}).catch(function(){ q.stage='取り消せませんでした'; drawReqs(); });
+}
+function pollRun(q){
+  var started=Date.now();
+  function check(){
+    api('/api/run',{id:q.rid}).then(function(s){
+      if(s.status==='pending'){
+        q.stage=s.stage||'受付'; q.seats=s.seats||[];
+        if(OFFICE_RID()===q.rid && window.OFFICE) OFFICE.meetingUpdate(q.rid, q.seats);
+        drawReqs(); updState();
+        setTimeout(check, 2000);
+      } else finish(q, s);
+    }).catch(function(e){
+      if(e.message==='unauth'){ finish(q,{status:'failed',error:'合言葉が切れました。再読み込みしてください。'}); return; }
+      if(Date.now()-started < 240000) setTimeout(check, 4000);
+      else finish(q,{status:'failed',error:'通信がうまくいきませんでした。'});
+    });
+  }
+  setTimeout(check, 1200);
+}
+function updState(){
+  var run=reqRunning(), st=document.getElementById('aState');
+  st.textContent = run.length ? ('進行中 '+run.length+'件：'+run.map(function(q){ return q.stage; }).join('・')) : '';
+}
+function finish(q, r){
+  q.final=true; q.stage=r.state || (r.status==='done'?'完了':r.status==='cancelled'?'キャンセル':'失敗');
+  // 回答は、会議の片付けを待たずにすぐ出す
+  var out=document.getElementById('aOut');
+  var h='<div class="ans" id="res-'+esc(q.rid||'')+'"><div class="rid">依頼ID '+esc((q.rid||'').slice(0,8))+'　「'+esc(q.text.slice(0,40))+'」</div>';
+  if(r.agents && r.agents.length){
+    h+='<div class="who">';
+    r.agents.forEach(function(a){ h+='<span>'+esc(a)+'</span>'; });
+    h+='</div>';
+  }
+  h+='<div class="txt">'+rich(showResult(r))+'</div>'+outcomeHtml(r)+sourcesHtml(r)+minutesHtml(r)
+    +'<div id="cards-'+esc(q.rid||'x')+'"></div></div>';
+  out.insertAdjacentHTML('afterbegin', h);
+  if(r.candidates && r.candidates.length) sbCards(r.candidates,'cards-'+q.rid);
+  if(r.properties && r.properties.length) propCards(r.properties,'cards-'+q.rid);
+  if(r.status==='done'){ localMsgs.push({role:'user',content:q.text}); localMsgs.push({role:'assistant',content:r.reply}); }
+  if(window.OFFICE && OFFICE_RID()===q.rid) OFFICE.meetingDone(q.rid, r);
+  if(focusRid===q.rid) focusRid=null;
+  drawReqs(); updState();
+  setTimeout(pickMeeting, calmNow()?700:1900);
+}
+function calmNow(){ try{ return localStorage.getItem('cresta-calm')==='1'; }catch(e){ return false; } }
 document.getElementById('aSend').onclick = function(){
-  var ta=document.getElementById('aQ'), text=ta.value.trim();
-  var st=document.getElementById('aState'), btn=document.getElementById('aSend'), out=document.getElementById('aOut');
-  if(!text || aSending) return;
-  aSending=true; btn.disabled=true; st.textContent='司令塔AIが担当に振り分けています…';
-  if(window.OFFICE) OFFICE.meetingStart();
-  out.innerHTML='';
-  runAndWait('/api/chat', text, function(sec, s){
-    var w=(s&&s.working)||[];
-    st.textContent = w.length ? ('中央の机で '+w.join('・')+' と話し合っています…（'+sec+'秒）') : '司令塔AIが担当に振り分けています…（'+sec+'秒）';
-    if(window.OFFICE) OFFICE.meetingSet(w, (s&&s.finished)||[]);
-  }).then(function(r){
-    var h='<div class="ans">';
-    if(r.agents && r.agents.length){
-      h+='<div class="who">';
-      r.agents.forEach(function(a){ h+='<span>'+esc(a)+'</span>'; });
-      h+='</div>';
-    }
-    h+=esc(showResult(r))+outcomeHtml(r)+'</div><div id="aCards"></div>';
-    out.innerHTML=h;
-    if(r.candidates && r.candidates.length) sbCards(r.candidates,'aCards');
-    if(r.properties && r.properties.length) propCards(r.properties,'aCards');
-    if(window.OFFICE) OFFICE.meetingDone(r.agents||[], r.status==='done');
-    if(r.status==='done'){
-      localMsgs.push({role:'user',content:text});
-      localMsgs.push({role:'assistant',content:r.reply});
-      ta.value='';
-    }
-    st.textContent=''; btn.disabled=false; aSending=false;
+  var ta=document.getElementById('aQ'), text=ta.value.trim(), st=document.getElementById('aState');
+  if(!text) return;
+  if(reqRunning().length>=MAX_RUNNING){ st.textContent='同時に進められる依頼は'+MAX_RUNNING+'件までです。終わるのを待ってから送ってください。'; return; }
+  var q={rid:null, text:text, stage:'受付', seats:null, final:false};
+  REQS.push(q); ta.value=''; drawReqs(); updState();
+  api('/api/chat',{text:text}).then(function(r){
+    if(!r.runId) throw new Error('no run');
+    q.rid=r.runId; focusRid=q.rid;
+    showMeeting(q);
+    pollRun(q);
   }).catch(function(e){
+    q.final=true; q.stage='送信失敗'; drawReqs(); updState();
     st.textContent = (e.message==='unauth') ? '合言葉が切れました。再読み込みしてください。' : '通信がうまくいきませんでした。もう一度試してください。';
-    btn.disabled=false; aSending=false;
-    if(window.OFFICE) OFFICE.meetingDone([], false);
+    if(!ta.value) ta.value=text;
   });
 };
 
