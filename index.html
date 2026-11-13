@@ -342,8 +342,10 @@ function floor(s){
 function feed(s){
   var items=[];
   (s.runs||[]).forEach(function(r){
-    items.push({t:r.finished_at||r.started_at, ok:r.status!=='failed',
-      who:'司令塔AI', what:(r.finished_at? '返事しました：' : '考え中：')+String(r.input||'').slice(0,40)});
+    items.push({t:r.finished_at||r.started_at, ok:r.status!=='failed'&&r.status!=='timeout',
+      who:RUN2DEPT[r.agent]||r.agent||'司令塔AI',
+      what:(r.status==='timeout' ? '時間切れ：' : (r.status==='failed' ? '失敗：' : (r.finished_at ? '返事しました：' : '考え中：')))
+        +String(r.input||'').slice(0,40)});
   });
   (s.jobs||[]).forEach(function(jb){
     items.push({t:jb.updated_at||jb.run_at, ok:jb.status!=='dead'&&jb.status!=='failed',
@@ -392,8 +394,8 @@ document.getElementById('send').onclick = function(){
   if(!text || sending) return;
   sending=true; btn.disabled=true; st.textContent='考えています…';
   localMsgs.push({role:'user',content:text}); drawMsgs(); ta.value='';
-  api('/api/chat',{text:text}).then(function(r){
-    localMsgs.push({role:'assistant',content:r.reply}); drawMsgs();
+  runAndWait('/api/chat', text, function(sec){ st.textContent='考えています…（'+sec+'秒）'; }).then(function(r){
+    localMsgs.push({role:'assistant',content:showResult(r)}); drawMsgs();
     st.textContent=''; btn.disabled=false; sending=false;
   }).catch(function(e){
     st.textContent = (e.message==='unauth') ? '合言葉が切れました。画面を再読み込みしてください。' : 'うまくいきませんでした。もう一度試してください。';
@@ -483,9 +485,9 @@ function sbSend(){
   sbSending=true; btn.disabled=true;
   st.textContent='公式サイトを調べています…（1分ほどかかります）';
   sbMsgs.push({role:'user',content:text}); sbDraw(); ta.value='';
-  api('/api/subsidy',{text:text}).then(function(r){
-    if(r.error){ sbMsgs.push({role:'assistant',content:r.error}); }
-    else { sbMsgs.push({role:'assistant',content:r.reply}); sbCards(r.candidates,'sbCards'); }
+  runAndWait('/api/subsidy', text, function(sec){ st.textContent='公式サイトを調べています…（'+sec+'秒）'; }).then(function(r){
+    sbMsgs.push({role:'assistant',content:showResult(r)});
+    if(r.status==='done') sbCards(r.candidates,'sbCards');
     sbDraw(); st.textContent=''; btn.disabled=false; sbSending=false;
   }).catch(function(e){
     st.textContent = (e.message==='unauth') ? '合言葉が切れました。再読み込みしてください。' : 'うまくいきませんでした。もう一度試してください。';
@@ -499,6 +501,32 @@ document.getElementById('sbAgain').onclick = function(){
   t.focus();
 };
 
+/* ---------- 受付して、終わるまで数秒ごとに見に行く ---------- */
+function runAndWait(path, text, onTick){
+  return api(path,{text:text}).then(function(r){
+    if(!r.runId) throw new Error('no run');
+    var started = Date.now();
+    return new Promise(function(resolve, reject){
+      function check(){
+        api('/api/run',{id:r.runId}).then(function(s){
+          if(s.status==='pending'){
+            if(onTick) onTick(Math.round((Date.now()-started)/1000));
+            setTimeout(check, 3000);
+          } else resolve(s);
+        }).catch(function(e){
+          // 通信が一瞬切れても、しばらくは見に行き続ける
+          if(Date.now()-started < 240000) setTimeout(check, 5000); else reject(e);
+        });
+      }
+      setTimeout(check, 2500);
+    });
+  });
+}
+function showResult(s){
+  if(s.status==='done') return s.reply || '（返事が空でした）';
+  return s.error || 'うまく処理できませんでした。';
+}
+
 /* ---------- 一番上の指示欄（司令塔AIへ） ---------- */
 var aSending=false;
 document.getElementById('aSend').onclick = function(){
@@ -507,21 +535,26 @@ document.getElementById('aSend').onclick = function(){
   if(!text || aSending) return;
   aSending=true; btn.disabled=true; st.textContent='司令塔AIが担当に振り分けています…';
   out.innerHTML='';
-  api('/api/chat',{text:text}).then(function(r){
+  runAndWait('/api/chat', text, function(sec){
+    st.textContent = sec < 15 ? '司令塔AIが担当に振り分けています…' : '担当の部署で検討しています…（'+sec+'秒）';
+  }).then(function(r){
     var h='<div class="ans">';
     if(r.agents && r.agents.length){
       h+='<div class="who">';
       r.agents.forEach(function(a){ h+='<span>'+esc(a)+'</span>'; });
       h+='</div>';
     }
-    h+=esc(r.reply)+'</div><div id="aCards"></div>';
+    h+=esc(showResult(r))+'</div><div id="aCards"></div>';
     out.innerHTML=h;
     if(r.candidates && r.candidates.length) sbCards(r.candidates,'aCards');
-    localMsgs.push({role:'user',content:text});
-    localMsgs.push({role:'assistant',content:r.reply});
-    ta.value=''; st.textContent=''; btn.disabled=false; aSending=false;
+    if(r.status==='done'){
+      localMsgs.push({role:'user',content:text});
+      localMsgs.push({role:'assistant',content:r.reply});
+      ta.value='';
+    }
+    st.textContent=''; btn.disabled=false; aSending=false;
   }).catch(function(e){
-    st.textContent = (e.message==='unauth') ? '合言葉が切れました。再読み込みしてください。' : 'うまくいきませんでした。もう一度試してください。';
+    st.textContent = (e.message==='unauth') ? '合言葉が切れました。再読み込みしてください。' : '通信がうまくいきませんでした。もう一度試してください。';
     btn.disabled=false; aSending=false;
   });
 };
