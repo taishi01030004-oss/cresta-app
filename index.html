@@ -227,7 +227,7 @@
   <header>
     <h1>CRESTA <span>AI ORGANIZATION</span></h1>
     <div class="clock" id="clk">--:--:--</div>
-    <div class="sub" id="sub">5部門・13名</div>
+    <div class="sub" id="sub">6部門・18名</div>
   </header>
   <div class="ask">
     <div class="ttl">司令塔AIへの指示</div>
@@ -369,7 +369,7 @@ var DEPTS = [
  {d:'秘書AI', src:'タスクの見回り', live:true,
   m:[{n:'段取り担当',i:'段'},{n:'期限・抜け漏れ担当',i:'期'}]},
  {d:'不動産AI', src:'相談があったとき', live:true,
-  m:[{n:'査定・相場担当',i:'査'},{n:'売主対応担当',i:'売'},{n:'リスク確認担当',i:'リ'}]},
+  m:[{n:'査定・相場担当',i:'査'},{n:'売主対応担当',i:'売'},{n:'リスク確認担当',i:'リ'},{n:'物件探し担当',i:'探'}]},
  {d:'マーケティングAI', src:'予約 6:56', sched:{t:6*60+56,dur:9,say:'Canvaで画像を3案つくっています'},
   m:[{n:'企画担当',i:'企'},{n:'読者目線担当',i:'読'},{n:'校閲担当',i:'校'}]},
  {d:'物販AI', src:'予約 10:41', sched:{t:10*60+41,dur:7,say:'楽天から1件選んで、XとThreadsの案を相談しています'},
@@ -802,6 +802,21 @@ function sbCards(list, boxId){
   box.innerHTML=h;
 }
 
+function propCards(list, boxId){
+  var box=document.getElementById(boxId); if(!box || !list || !list.length) return;
+  var rows=[['所在地','area'],['価格','price'],['広さ・間取り','size'],['築年','built'],['交通','access'],
+            ['利回り','yieldNote'],['条件に合う点','fit'],['確認が必要な点','concerns']];
+  var h='<h2>見つかった物件（'+list.length+'件）</h2>';
+  list.forEach(function(p){
+    h+='<div class="pcard"><div class="ttl"><h3>'+esc(p.title)+'</h3><span class="tag">'+esc(p.source)+'</span></div><dl>';
+    rows.forEach(function(r){ if(p[r[1]]) h+='<div class="kv"><dt>'+r[0]+'</dt><dd>'+esc(p[r[1]])+'</dd></div>'; });
+    h+='</dl><div class="foot">';
+    if(/^https?:\/\//.test(p.url||'')) h+='<a href="'+esc(p.url)+'" target="_blank" rel="noopener">掲載ページを開く ›</a>';
+    h+='<span>確認日 '+esc(p.checkedOn||'—')+'　掲載情報は古い・成約済みの場合があります</span></div></div>';
+  });
+  box.insertAdjacentHTML('beforeend', h);
+}
+
 function sbLoad(){
   if(sbLoaded) return; sbLoaded=true;
   api('/api/subsidy',{}).then(function(r){
@@ -951,6 +966,7 @@ document.getElementById('aSend').onclick = function(){
     h+=esc(showResult(r))+outcomeHtml(r)+'</div><div id="aCards"></div>';
     out.innerHTML=h;
     if(r.candidates && r.candidates.length) sbCards(r.candidates,'aCards');
+    if(r.properties && r.properties.length) propCards(r.properties,'aCards');
     if(window.OFFICE){ if(r.status==='done') OFFICE.cmdReplay(r.agents||[]); else OFFICE.cmdEnd(); }
     if(r.status==='done'){
       localMsgs.push({role:'user',content:text});
