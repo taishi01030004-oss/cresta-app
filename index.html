@@ -33,6 +33,9 @@
   .now span{font-size:12px;color:var(--muted)}
   .floor{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
   .desk{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .desk.go{cursor:pointer}
+  .desk.go:hover{border-color:var(--gold)}
+  .desk h3 .arw{float:right;font-weight:400;font-size:11px;color:var(--muted)}
   .desk h3{margin:0 0 4px;font-size:12px;color:var(--gold2);font-weight:600}
   .desk .src{font-size:10px;color:var(--muted);margin-bottom:6px}
   .p{display:flex;align-items:center;gap:9px;padding:4px 0}
@@ -248,8 +251,12 @@ var DEPTS = [
  {d:'マーケティングAI', src:'予約 6:56', sched:{t:6*60+56,dur:9,say:'Canvaで画像を3案つくっています'},
   m:[{n:'企画担当',i:'企'},{n:'読者目線担当',i:'読'},{n:'校閲担当',i:'校'}]},
  {d:'物販AI', src:'予約 10:41', sched:{t:10*60+41,dur:7,say:'楽天から1件選んで、XとThreadsの案を相談しています'},
-  m:[{n:'商品選び担当',i:'選'},{n:'コピー担当',i:'コ'},{n:'読者目線担当',i:'読'},{n:'校閲担当',i:'校'}]}
+  m:[{n:'商品選び担当',i:'選'},{n:'コピー担当',i:'コ'},{n:'読者目線担当',i:'読'},{n:'校閲担当',i:'校'}]},
+ {d:'助成金AI', src:'この画面・WEB検索つき', goTab:2, live:true,
+  m:[{n:'制度さがし担当',i:'助'},{n:'要件チェック担当',i:'要'},{n:'活用提案担当',i:'案'}]}
 ];
+/** 実行履歴に出てくる担当名 → 画面の部署名 */
+var RUN2DEPT = { '司令塔AI':'司令塔AI', '助成金・補助金提案AI':'助成金AI' };
 var JOB2DEPT = {
   process_line_message:'司令塔AI', send_line_message:'司令塔AI', execute_approved_action:'司令塔AI',
   task_reminder_scan:'秘書AI', daily_task_digest:'秘書AI'
@@ -263,7 +270,10 @@ var JOBNAME = {
   var f=document.getElementById('floor'); if(!f) return;
   var h='';
   DEPTS.forEach(function(g,gi){
-    h+='<div class="desk"><h3>'+g.d+'</h3><div class="src">'+g.src+'</div>';
+    h+='<div class="desk'+(g.goTab!==undefined?' go':'')+'"'
+     + (g.goTab!==undefined?' onclick="jump('+g.goTab+')"':'')
+     + '><h3>'+g.d+(g.goTab!==undefined?' <span class="arw">開く ›</span>':'')+'</h3>'
+     + '<div class="src">'+g.src+'</div>';
     g.m.forEach(function(p,k){
       h+='<div class="p" id="p'+gi+'_'+k+'"><div class="av">'+p.i+'</div>'
        + '<div class="pn">'+p.n+'<i>待機中</i></div></div>';
@@ -280,7 +290,10 @@ function floor(s){
       if(j.status==='running'){ var d=JOB2DEPT[j.type]; if(d) act[d]=JOBNAME[j.type]||'動いています'; }
     });
     (s.runs||[]).forEach(function(r){
-      if(!r.finished_at) act['司令塔AI'] = '「'+String(r.input||'').slice(0,18)+'」を考えています';
+      if(r.finished_at) return;
+      var d = RUN2DEPT[r.agent] || '司令塔AI';
+      act[d] = (d==='助成金AI' ? '公式サイトを調べています：' : '')
+             + '「'+String(r.input||'').slice(0,18)+'」を考えています';
     });
   }
   var j = jst(), mins = j.getHours()*60+j.getMinutes();
@@ -468,6 +481,12 @@ document.getElementById('sbAgain').onclick = function(){
   t.value='条件を変えて、もう一度提案してください。変更点：';
   t.focus();
 };
+
+function jump(i){
+  var ns=document.querySelectorAll('nav button');
+  if(ns[i]) ns[i].click();
+  window.scrollTo(0,0);
+}
 
 function tab(i,b){
   if(i===2) sbLoad();
