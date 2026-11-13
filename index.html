@@ -531,13 +531,14 @@ var OFFICE = (function(){
       var ms=byDept[d];
       if(text){
         ms.forEach(function(p,i){
+          if(p.atTable) return;
           p.out=false; p.el.classList.add('glow');
           var h=huddle(L.isl[d], ms.length, i);
           if(!was || force) moveTo(p,h.x,h.y,function(){ face(p, h.x>meet(L.isl[d]).x); });
           if(i===0) say(p, DOTS+' '+esc(text)); else say(p, DOTS);
         });
       } else if(was || force){
-        ms.forEach(function(p){ p.el.classList.remove('glow'); hush(p); goHome(p); });
+        ms.forEach(function(p){ if(p.atTable) return; p.el.classList.remove('glow'); hush(p); goHome(p); });
       }
     });
     // 司令塔
@@ -582,44 +583,67 @@ var OFFICE = (function(){
     });
   }, 2500);
 
-  /* ---- 一番上の指示欄と連動 ---- */
-  function cmdStart(){
+  /* ---- 中央の会議（一番上の指示欄と連動。呼ばれた部署は実際の途中経過から分かる） ---- */
+  var mtg = {on:false, seats:{}, order:[], done:{}};
+  function tableSeat(i){
+    var T=L.table, k=root.clientWidth/Math.max(1,root.clientHeight);
+    var a=-Math.PI/2 + i*(Math.PI*2/6);           // 0番＝司令塔（上座）、1〜5番＝部署のリーダー
+    return {x:T.x+Math.cos(a)*(T.r+3.5), y:T.y+Math.sin(a)*(T.r+3.5)*k+3};
+  }
+  function meetingStart(){
+    mtg={on:true, seats:{}, order:[], done:{}};
     cmdBusy=true;
     cmd.el.classList.add('glow'); shown['司令塔AI'].tag.classList.add('on');
-    moveTo(cmd, L.table.x, L.table.y-L.table.r*1.2-2, function(){ face(cmd,false); });
+    var sp=tableSeat(0);
+    moveTo(cmd, sp.x, sp.y);
     say(cmd, DOTS+' 振り分けています');
   }
-  function cmdReplay(agents){
-    var list=(agents||[]).filter(function(a){ return L.isl[a]; });
-    var i=0;
-    function next(){
-      if(i>=list.length){
-        moveTo(cmd, cmd.home.x, cmd.home.y, function(){
-          cmd.el.classList.add('sit'); face(cmd,false);
-          say(cmd,'まとまりました！',3500);
-          setTimeout(function(){ cmdEnd(); }, 3600);
-        });
-        return;
-      }
-      var d=list[i++], I=L.isl[d], M=meet(I);
-      say(cmd, d+'へ', 1500);
-      moveTo(cmd, M.x+(M.x<50?6:-6), M.y-2, function(){
-        say(cmd,'お願いします',1800);
-        tempAct[d]='精査しています'; applyActive();
-        setTimeout(function(){
-          var lead=byDept[d][0]; say(lead,'まとめました',1600);
-          setTimeout(function(){ delete tempAct[d]; applyActive(); next(); }, 1700);
-        }, 2600);
+  function meetingSet(working, finished){
+    if(!mtg.on) return;
+    (working||[]).forEach(function(d){
+      if(mtg.seats[d] || !byDept[d] || !L.isl[d]) return;
+      var lead=byDept[d][0];
+      lead.atTable=true; lead.out=true;
+      mtg.order.push(d); mtg.seats[d]=lead;
+      lead.el.classList.add('glow'); lead.el.classList.remove('sit');
+      var sp=tableSeat(mtg.order.length);
+      say(cmd, esc(d)+'、お願いします', 2400);
+      moveTo(lead, sp.x, sp.y, function(){
+        if(!mtg.on) return;
+        say(lead, esc(d.replace('マーケティングAI','マーケ'))+'です。引き受けます', 2600);
+        setTimeout(function(){ if(mtg.on && !mtg.done[d]) say(lead, DOTS+' チームと検討中'); }, 2700);
       });
-    }
-    hush(cmd);
-    next();
+      tempAct[d]='チームで検討しています';          // 島に残ったメンバーが集まって作業
+      applyActive();
+      setTimeout(function(){ if(mtg.on) say(cmd, DOTS+' 話し合っています'); }, 2500);
+    });
+    (finished||[]).forEach(function(d){
+      var lead=mtg.seats[d]; if(!lead || mtg.done[d]) return;
+      mtg.done[d]=true;
+      say(lead, '報告：まとまりました');
+      delete tempAct[d]; applyActive();
+    });
   }
-  function cmdEnd(){
-    cmdBusy=false; tempAct={};
-    cmd.el.classList.remove('glow'); shown['司令塔AI'].tag.classList.remove('on'); hush(cmd);
-    shown['司令塔AI'].text=null;
-    applyActive();
+  function meetingFinish(ok){
+    var leaders=mtg.order.map(function(d){ return mtg.seats[d]; });
+    leaders.forEach(function(p){ say(p, ok?'まとめました':'いったん戻ります', 1600); });
+    tempAct={}; applyActive();
+    say(cmd, ok?'まとまりました！':'うまくいきませんでした', 3000);
+    setTimeout(function(){
+      leaders.forEach(function(p){ p.atTable=false; p.out=false; p.el.classList.remove('glow'); hush(p); goHome(p); });
+      goHome(cmd, function(){
+        cmdBusy=false; mtg.on=false;
+        cmd.el.classList.remove('glow'); shown['司令塔AI'].tag.classList.remove('on'); shown['司令塔AI'].text=null;
+        applyActive();
+      });
+    }, 2000);
+  }
+  function meetingDone(agents, ok){
+    if(!mtg.on) return;
+    // 途中経過を見る前に終わった部署も、いったん席に呼んでから解散する
+    var missing=(agents||[]).filter(function(d){ return !mtg.seats[d] && L.isl[d]; });
+    if(missing.length){ meetingSet(missing, []); setTimeout(function(){ meetingSet([], missing); setTimeout(function(){ meetingFinish(ok); }, 1800); }, 3600); }
+    else { meetingSet([], agents||[]); setTimeout(function(){ meetingFinish(ok); }, 1200); }
   }
 
   var lastWide=null;
@@ -631,9 +655,9 @@ var OFFICE = (function(){
 
   return {
     setActive:function(act){ maybeRebuild(); if(!L) return; liveAct=act||{}; applyActive(); },
-    cmdStart:function(){ maybeRebuild(); if(L) cmdStart(); },
-    cmdReplay:function(a){ if(L) cmdReplay(a); },
-    cmdEnd:function(){ if(L) cmdEnd(); }
+    meetingStart:function(){ maybeRebuild(); if(L) meetingStart(); },
+    meetingSet:function(w,f){ if(L) meetingSet(w,f); },
+    meetingDone:function(a,ok){ if(L) meetingDone(a, ok!==false); }
   };
 })();
 
@@ -928,7 +952,7 @@ function runAndWait(path, text, onTick){
       function check(){
         api('/api/run',{id:r.runId}).then(function(s){
           if(s.status==='pending'){
-            if(onTick) onTick(Math.round((Date.now()-started)/1000));
+            if(onTick) onTick(Math.round((Date.now()-started)/1000), s);
             setTimeout(check, 3000);
           } else resolve(s);
         }).catch(function(e){
@@ -952,10 +976,12 @@ document.getElementById('aSend').onclick = function(){
   var st=document.getElementById('aState'), btn=document.getElementById('aSend'), out=document.getElementById('aOut');
   if(!text || aSending) return;
   aSending=true; btn.disabled=true; st.textContent='司令塔AIが担当に振り分けています…';
-  if(window.OFFICE) OFFICE.cmdStart();
+  if(window.OFFICE) OFFICE.meetingStart();
   out.innerHTML='';
-  runAndWait('/api/chat', text, function(sec){
-    st.textContent = sec < 15 ? '司令塔AIが担当に振り分けています…' : '担当の部署で検討しています…（'+sec+'秒）';
+  runAndWait('/api/chat', text, function(sec, s){
+    var w=(s&&s.working)||[];
+    st.textContent = w.length ? ('中央の机で '+w.join('・')+' と話し合っています…（'+sec+'秒）') : '司令塔AIが担当に振り分けています…（'+sec+'秒）';
+    if(window.OFFICE) OFFICE.meetingSet(w, (s&&s.finished)||[]);
   }).then(function(r){
     var h='<div class="ans">';
     if(r.agents && r.agents.length){
@@ -967,7 +993,7 @@ document.getElementById('aSend').onclick = function(){
     out.innerHTML=h;
     if(r.candidates && r.candidates.length) sbCards(r.candidates,'aCards');
     if(r.properties && r.properties.length) propCards(r.properties,'aCards');
-    if(window.OFFICE){ if(r.status==='done') OFFICE.cmdReplay(r.agents||[]); else OFFICE.cmdEnd(); }
+    if(window.OFFICE) OFFICE.meetingDone(r.agents||[], r.status==='done');
     if(r.status==='done'){
       localMsgs.push({role:'user',content:text});
       localMsgs.push({role:'assistant',content:r.reply});
@@ -977,7 +1003,7 @@ document.getElementById('aSend').onclick = function(){
   }).catch(function(e){
     st.textContent = (e.message==='unauth') ? '合言葉が切れました。再読み込みしてください。' : '通信がうまくいきませんでした。もう一度試してください。';
     btn.disabled=false; aSending=false;
-    if(window.OFFICE) OFFICE.cmdEnd();
+    if(window.OFFICE) OFFICE.meetingDone([], false);
   });
 };
 
