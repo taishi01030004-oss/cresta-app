@@ -84,6 +84,26 @@
   .row:last-child{border-bottom:0}
   .when{color:var(--gold);font-size:13px;font-variant-numeric:tabular-nums;min-width:72px}
   .what b{display:block;font-size:14px}.what span{font-size:12px;color:var(--muted)}
+  .intro{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--gold);
+    border-radius:0 12px 12px 0;padding:13px 16px;margin-bottom:14px}
+  .intro b{display:block;font-size:15px}
+  .intro span{font-size:12px;color:var(--muted)}
+  .lead{font-size:13px;color:var(--muted);margin-bottom:8px}
+  .pcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px}
+  .pcard .ttl{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:2px}
+  .pcard h3{margin:0;font-size:15px;font-weight:600;flex:1;min-width:150px}
+  .pcard .org{font-size:12px;color:var(--muted);margin-bottom:10px}
+  .tag{font-size:11px;border-radius:999px;padding:1px 9px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+  .tag.open{color:var(--gold);border-color:var(--gold)}
+  .tag.soon{color:var(--gold2);border-color:var(--gold2)}
+  .tag.closed{color:var(--bad);border-color:var(--bad)}
+  .kv{display:flex;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
+  .kv dt{flex:0 0 104px;color:var(--muted);font-size:12px;margin:0}
+  .kv dd{margin:0;flex:1;word-break:break-word}
+  .pcard .foot{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .pcard .foot a{color:var(--gold);font-size:13px}
+  .pcard .foot span{font-size:11px;color:var(--muted)}
+  @media (max-width:420px){ .kv{display:block} .kv dt{margin-bottom:2px} }
   footer{margin-top:30px;color:var(--muted);font-size:11px;text-align:center}
 </style>
 </head>
@@ -106,7 +126,8 @@
   <nav>
     <button class="on" onclick="tab(0,this)">いま</button>
     <button onclick="tab(1,this)">会話</button>
-    <button onclick="tab(2,this)">予定</button>
+    <button onclick="tab(2,this)">助成金</button>
+    <button onclick="tab(3,this)">予定</button>
   </nav>
 
   <section class="on" id="s0">
@@ -126,6 +147,30 @@
   </section>
 
   <section id="s2">
+    <div class="intro">
+      <b>助成金・補助金 提案AI</b>
+      <span>事業内容や取り組みたいことを入力すると、利用できる可能性がある支援制度と、その活用方法を提案します。公式サイトをWEB検索で確認してから答えます。</span>
+    </div>
+
+    <div class="lead" id="sbLead">どんなことをしたいですか？　下から選ぶか、そのまま書いてください。</div>
+    <div class="chips" id="sbFields"></div>
+
+    <div class="msgs" id="sbMsgs"></div>
+    <div id="sbCards"></div>
+
+    <textarea id="sbQ" placeholder="例：名古屋市で不動産業をしています。空き家を1棟買って改修し、貸したいです"></textarea>
+    <div class="bar">
+      <button class="btn main" id="sbSend">送る</button>
+      <button class="btn" id="sbAgain">条件を変えて再提案</button>
+      <span class="state" id="sbState"></span>
+    </div>
+    <div class="note">
+      採択や受給を保証するものではありません。最終的な可否は、各制度の公募要領と事務局の判断によります。
+      個人番号（マイナンバー）や口座情報は入力しないでください。
+    </div>
+  </section>
+
+  <section id="s3">
     <h2>毎日ひとりでに動くもの</h2>
     <div class="card">
       <div class="row"><span class="when">6:56</span><span class="what"><b>画像係</b><span>Canvaで投稿画像を3案つくる</span></span></div>
@@ -341,7 +386,91 @@ var CHIPS = ['タスク一覧','今日やること','今週の投稿ネタを考
   });
 })();
 
+/* ---------- 助成金・補助金 提案AI ---------- */
+var SB_FIELDS = [
+  {k:'AI関係', q:'AI関係で相談したいです。'},
+  {k:'WEB関係', q:'WEB関係で相談したいです。'},
+  {k:'不動産関係', q:'不動産関係で相談したいです。'},
+  {k:'投資関係', q:'投資関係で相談したいです。'}
+];
+var sbMsgs = [], sbSending = false, sbLoaded = false;
+
+(function(){
+  var c=document.getElementById('sbFields'); if(!c) return;
+  SB_FIELDS.forEach(function(f){
+    var b=document.createElement('button');
+    b.textContent=f.k;
+    b.onclick=function(){ var t=document.getElementById('sbQ'); t.value=f.q; t.focus(); };
+    c.appendChild(b);
+  });
+})();
+
+function sbDraw(){
+  var h='';
+  sbMsgs.forEach(function(m){
+    h+='<div class="msg '+(m.role==='user'?'me':'ai')+'">'+esc(m.content)+'</div>';
+  });
+  document.getElementById('sbMsgs').innerHTML=h;
+  document.getElementById('sbLead').style.display = sbMsgs.length ? 'none' : 'block';
+}
+
+function sbTag(s){
+  var cls = s==='募集中' ? 'open' : (s==='募集予定' ? 'soon' : (s==='募集終了' ? 'closed' : ''));
+  return '<span class="tag '+cls+'">'+esc(s)+'</span>';
+}
+
+function sbCards(list){
+  var box=document.getElementById('sbCards');
+  if(!list || !list.length){ box.innerHTML=''; return; }
+  var rows=[['活用案','useCase'],['対象経費','eligibleCosts'],['補助率・自己負担','money'],
+            ['申請期限','deadline'],['主な要件','requirements'],['確認すべきこと','missing'],['次にやること','nextStep']];
+  var h='<h2>候補の制度（'+list.length+'件）</h2>';
+  list.forEach(function(c){
+    h+='<div class="pcard"><div class="ttl"><h3>'+esc(c.name)+'</h3>'+sbTag(c.status)+'</div>'
+     + '<div class="org">'+esc(c.agency)+'　／　'+esc(c.reason)+'</div><dl>';
+    rows.forEach(function(r){
+      if(!c[r[1]]) return;
+      h+='<div class="kv"><dt>'+r[0]+'</dt><dd>'+esc(c[r[1]])+'</dd></div>';
+    });
+    h+='</dl><div class="foot">';
+    if(/^https?:\/\//.test(c.url||'')) h+='<a href="'+esc(c.url)+'" target="_blank" rel="noopener">公式ページを開く ›</a>';
+    h+='<span>確認日 '+esc(c.checkedOn||'—')+'</span></div></div>';
+  });
+  box.innerHTML=h;
+}
+
+function sbLoad(){
+  if(sbLoaded) return; sbLoaded=true;
+  api('/api/subsidy',{}).then(function(r){
+    if(r.history && r.history.length){ sbMsgs=r.history; sbDraw(); }
+  }).catch(function(){});
+}
+
+function sbSend(){
+  var ta=document.getElementById('sbQ'), text=ta.value.trim();
+  var st=document.getElementById('sbState'), btn=document.getElementById('sbSend');
+  if(!text || sbSending) return;
+  sbSending=true; btn.disabled=true;
+  st.textContent='公式サイトを調べています…（1分ほどかかります）';
+  sbMsgs.push({role:'user',content:text}); sbDraw(); ta.value='';
+  api('/api/subsidy',{text:text}).then(function(r){
+    if(r.error){ sbMsgs.push({role:'assistant',content:r.error}); }
+    else { sbMsgs.push({role:'assistant',content:r.reply}); sbCards(r.candidates); }
+    sbDraw(); st.textContent=''; btn.disabled=false; sbSending=false;
+  }).catch(function(e){
+    st.textContent = (e.message==='unauth') ? '合言葉が切れました。再読み込みしてください。' : 'うまくいきませんでした。もう一度試してください。';
+    btn.disabled=false; sbSending=false;
+  });
+}
+document.getElementById('sbSend').onclick = sbSend;
+document.getElementById('sbAgain').onclick = function(){
+  var t=document.getElementById('sbQ');
+  t.value='条件を変えて、もう一度提案してください。変更点：';
+  t.focus();
+};
+
 function tab(i,b){
+  if(i===2) sbLoad();
   var ns=document.querySelectorAll('nav button'), ss=document.querySelectorAll('section');
   for(var k=0;k<ns.length;k++) ns[k].className=(k===i?'on':'');
   for(var k=0;k<ss.length;k++) ss[k].className=(k===i?'on':'');
