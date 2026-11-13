@@ -160,6 +160,36 @@
   .pp .bb .dots i{background:#0A2E22}
   .pp.glow .bd{box-shadow:0 0 0 2px var(--gold),0 0 10px rgba(201,162,75,.7)}
   .oleg{font-size:11px;color:var(--muted);margin-top:8px}
+  .skov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:50;align-items:flex-end;justify-content:center}
+  .skov.on{display:flex}
+  .skbox{background:var(--bg);border:1px solid var(--line);border-radius:16px 16px 0 0;width:100%;max-width:760px;
+    max-height:86vh;overflow:auto;padding:18px 16px 28px}
+  @media (min-width:700px){ .skov{align-items:center} .skbox{border-radius:16px} }
+  .skhd{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .skhd b{font-size:16px}
+  .skhd button{margin-left:auto}
+  .sk{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px}
+  .sk .t{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+  .sk .t b{font-size:14px;flex:1;min-width:120px}
+  .sk .id{font-size:10px;color:var(--muted)}
+  .st{font-size:11px;border-radius:999px;padding:1px 9px;border:1px solid var(--line);white-space:nowrap}
+  .st.available{color:var(--gold);border-color:var(--gold)}
+  .st.partial{color:var(--gold2);border-color:var(--gold2);border-style:dashed}
+  .st.unconnected{color:var(--bad);border-color:var(--bad)}
+  .sk .why{font-size:12px;color:var(--bad);margin-top:4px}
+  .sk .why.p{color:var(--gold2)}
+  .sk dl{margin:8px 0 0}
+  .sk .mode{font-size:11px;color:var(--muted);margin-top:2px}
+  .chips2{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .chips2 span{font-size:11px;border:1px solid var(--line);border-radius:999px;padding:1px 9px;color:var(--muted)}
+  .chips2 span.s{color:var(--text)}
+  .state{font-size:11px}
+  .stt{font-size:11px;border-radius:999px;padding:1px 9px;margin-left:4px}
+  .stt.done{background:var(--gold);color:#0A2E22}
+  .stt.wait{border:1px solid var(--gold2);color:var(--gold2)}
+  .stt.bad{border:1px solid var(--bad);color:var(--bad)}
+  .isl{cursor:pointer;pointer-events:auto}
+  .boss{cursor:pointer;pointer-events:auto}
   .intro{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--gold);
     border-radius:0 12px 12px 0;padding:13px 16px;margin-bottom:14px}
   .intro b{display:block;font-size:15px}
@@ -219,7 +249,7 @@
   <section class="on" id="s0">
     <div class="now"><b id="nowt">読み込んでいます…</b><span id="nows"></span></div>
     <div class="office" id="office"></div>
-    <div class="oleg">光っている部署と吹き出しは、実際の稼働に連動しています。コーヒーを取りに行くなどの動きは雰囲気の演出です。助成金AIの机を押すと、その画面に移ります。</div>
+    <div class="oleg">机を押すと、その部署のスキル（できること・未接続のこと）が見られます。光っている部署と吹き出しは実際の稼働に連動しています。コーヒーを取りに行くなどの動きは雰囲気の演出です。</div>
     <h2>直近の動き</h2>
     <div class="card feed" id="feed"></div>
     <div class="note">「本物」はLINEとタスクの処理です。画像係と物販係はClaude側の予約で動くため、ここでは時刻で表示しています。</div>
@@ -267,7 +297,14 @@
     </div>
     <h2>未処理</h2>
     <div class="card" id="pend"></div>
+    <h2>接続と設定</h2>
+    <div class="card" id="conn"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
+    <div class="note">「未接続」の機能は、AIに頼んでも実行されません。実行したように表示することもありません。</div>
   </section>
+</div>
+
+<div class="skov" id="skov" onclick="if(event.target===this)skClose()">
+  <div class="skbox" id="skbox"></div>
 </div>
 
 <footer>CRESTA JAPAN　社内用</footer>
@@ -312,6 +349,7 @@ function open_(s){
   document.getElementById('gate').style.display='none';
   document.getElementById('app').style.display='block';
   paint(s);
+  loadSkills().catch(function(){});
   setInterval(poll, 4000);
   setInterval(clock, 1000); clock();
 }
@@ -408,6 +446,7 @@ var OFFICE = (function(){
 
     // 司令塔の机
     var B=L.boss, bd=el('boss'); pos(bd,B.x,B.y); bd.style.width=B.w+'%'; bd.style.height=B.h+'%';
+    bd.onclick=function(){ skOpen('司令塔AI'); }; bd.title='司令塔AIのスキルを見る';
     var bm=el('mon',bd); bm.style.cssText='position:absolute;left:6%;top:20%;width:12%;height:55%;background:#0f1d18;border:1px solid #2c5c4b;border-radius:2px';
     var bt=el('lab',bd); bt.textContent='司令塔AI'; shown['司令塔AI']={tag:bt};
 
@@ -415,8 +454,8 @@ var OFFICE = (function(){
     DEPTS.forEach(function(g){
       if(g.d==='司令塔AI') return;
       var I=L.isl[g.d]; if(!I) return;
-      var is=el('isl'+(g.goTab!==undefined?' click':'')); pos(is,I.x,I.y); is.style.width=I.w+'%'; is.style.height=I.h+'%';
-      if(g.goTab!==undefined){ is.onclick=function(){ jump(g.goTab); }; is.title=g.d+'を開く'; }
+      var is=el('isl click'); pos(is,I.x,I.y); is.style.width=I.w+'%'; is.style.height=I.h+'%';
+      is.onclick=function(){ skOpen(g.d); }; is.title=g.d+'のスキルを見る';
       var tag=el('lab',is); tag.textContent=g.d.replace('マーケティングAI','マーケAI');
       var S=seats(I,g.m.length), mons=[];
       S.forEach(function(st){
@@ -745,7 +784,9 @@ function sbCards(list, boxId){
   var box=document.getElementById(boxId || 'sbCards');
   if(!list || !list.length){ box.innerHTML=''; return; }
   var rows=[['活用案','useCase'],['対象経費','eligibleCosts'],['補助率・自己負担','money'],
-            ['申請期限','deadline'],['主な要件','requirements'],['確認すべきこと','missing'],['次にやること','nextStep']];
+            ['申請期限','deadline'],['主な要件','requirements'],
+            ['適合を確認','matched'],['適合しない','notMatched'],['追加確認が必要','toConfirm'],
+            ['確認すべきこと','missing'],['次にやること','nextStep']];
   var h='<h2>候補の制度（'+list.length+'件）</h2>';
   list.forEach(function(c){
     h+='<div class="pcard"><div class="ttl"><h3>'+esc(c.name)+'</h3>'+sbTag(c.status)+'</div>'
@@ -777,7 +818,7 @@ function sbSend(){
   sbMsgs.push({role:'user',content:text}); sbDraw(); ta.value='';
   runAndWait('/api/subsidy', text, function(sec){ st.textContent='公式サイトを調べています…（'+sec+'秒）'; }).then(function(r){
     sbMsgs.push({role:'assistant',content:showResult(r)});
-    if(r.status==='done') sbCards(r.candidates,'sbCards');
+    if(r.status==='done'){ sbCards(r.candidates,'sbCards'); document.getElementById('sbCards').insertAdjacentHTML('afterbegin', outcomeHtml(r)); }
     sbDraw(); st.textContent=''; btn.disabled=false; sbSending=false;
   }).catch(function(e){
     st.textContent = (e.message==='unauth') ? '合言葉が切れました。再読み込みしてください。' : 'うまくいきませんでした。もう一度試してください。';
@@ -790,6 +831,78 @@ document.getElementById('sbAgain').onclick = function(){
   t.value='条件を変えて、もう一度提案してください。変更点：';
   t.focus();
 };
+
+/* ---------- スキル台帳（部署ごと） ---------- */
+var SKILLS = null;
+var MODE_LABEL = {
+  team:'実際の処理：担当どうしが独立したAIで話し合う',
+  single:'実際の処理：部署のAIが1つで処理する',
+  stages:'実際の処理：1つのAIが段階ごとに順に処理する（会議ではありません）',
+  scheduled:'実際の処理：Claude側の予約タスクが決まった時刻に動く',
+  rule:'実際の処理：AIを通さず、決まったプログラムで処理する'
+};
+function loadSkills(){
+  if(SKILLS) return Promise.resolve(SKILLS);
+  return api('/api/skills',{}).then(function(r){ SKILLS=r; drawConn(); return r; });
+}
+function drawConn(){
+  var box=document.getElementById('conn'); if(!box||!SKILLS) return;
+  var h='';
+  SKILLS.connections.forEach(function(c){
+    var bad = /未接続|未設定/.test(c.state);
+    h+='<div class="row"><span class="what"><b>'+esc(c.name)+'</b><span'+(bad?' style="color:var(--bad)"':'')+'>'+esc(c.state)+'</span></span></div>';
+  });
+  box.innerHTML=h;
+}
+function skOpen(dept){
+  var box=document.getElementById('skbox');
+  box.innerHTML='<div class="skhd"><b>'+esc(dept)+'のスキル</b><button class="btn sm" onclick="skClose()">閉じる</button></div><div class="state">読み込んでいます…</div>';
+  document.getElementById('skov').classList.add('on');
+  loadSkills().then(function(r){
+    var list=r.skills.filter(function(x){ return x.dept===dept; });
+    var h='<div class="skhd"><b>'+esc(dept)+'のスキル</b><button class="btn sm" onclick="skClose()">閉じる</button></div>';
+    if(dept==='助成金AI') h+='<div class="bar" style="margin:4px 0 0"><button class="btn sm main" onclick="skClose();jump(2)">助成金の画面を開く ›</button></div>';
+    list.forEach(function(k){
+      h+='<div class="sk"><div class="t"><b>'+esc(k.name)+'</b><span class="st '+k.status+'">'+esc(k.statusLabel)+'</span></div>'
+       + '<div class="id">'+esc(k.id)+'　担当：'+esc(k.roles.join('・'))+'</div>'
+       + '<div class="mode">'+esc(MODE_LABEL[k.mode]||'')+'</div>';
+      if(k.statusNote) h+='<div class="why'+(k.status==='available'?' p':'')+'">'+esc(k.statusNote)+'</div>';
+      h+='<dl>'
+       + '<div class="kv"><dt>使う場面</dt><dd>'+esc(k.when)+'</dd></div>'
+       + '<div class="kv"><dt>必要な情報</dt><dd>'+esc(k.inputs.join('、'))+'</dd></div>'
+       + '<div class="kv"><dt>手順</dt><dd>'+k.steps.map(function(x,i){return (i+1)+'. '+esc(x);}).join('<br>')+'</dd></div>'
+       + '<div class="kv"><dt>出すもの</dt><dd>'+esc(k.output)+'</dd></div>'
+       + '<div class="kv"><dt>確認すること</dt><dd>'+esc(k.verify.join('／'))+'</dd></div>'
+       + '<div class="kv"><dt>承認</dt><dd>'+esc(k.approval)+'</dd></div>'
+       + '<div class="kv"><dt>困ったとき</dt><dd>'+esc(k.fallback)+'</dd></div>'
+       + (k.tools.length?'<div class="kv"><dt>使う道具</dt><dd>'+esc(k.tools.join('、'))+'</dd></div>':'')
+       + '</dl></div>';
+    });
+    var links=r.links.filter(function(l){ return l.from===dept || l.to===dept; });
+    if(links.length){
+      h+='<h2>ほかの部署との連携（司令塔が仲立ち）</h2><div class="card">';
+      links.forEach(function(l){ h+='<div class="row"><span class="what"><b>'+esc(l.from)+' → '+esc(l.to)+'</b><span>'+esc(l.when)+'</span></span></div>'; });
+      h+='</div>';
+    }
+    box.innerHTML=h;
+  }).catch(function(){
+    box.innerHTML='<div class="skhd"><b>'+esc(dept)+'</b><button class="btn sm" onclick="skClose()">閉じる</button></div><div class="state">読み込めませんでした。</div>';
+  });
+}
+function skClose(){ document.getElementById('skov').classList.remove('on'); }
+
+/* 答えの下に「状態・使ったスキル・道具」を出す */
+function outcomeHtml(r){
+  var cls = r.state==='完了' ? 'done' : (r.state==='失敗'||r.state==='未接続' ? 'bad' : 'wait');
+  var h='<div class="chips2">';
+  if(r.state) h+='<span class="stt '+cls+'">'+esc(r.state)+'</span>';
+  (r.skills||[]).forEach(function(k){ h+='<span class="s" title="'+esc(MODE_LABEL[k.mode]||'')+'">'+esc(k.dept)+'：'+esc(k.name)+'</span>'; });
+  if(r.searches) h+='<span>WEB検索 '+r.searches+'回</span>';
+  (r.toolsUsed||[]).filter(function(t){ return /^calc_/.test(t); }).forEach(function(t){ h+='<span>計算ツール '+esc(t)+'</span>'; });
+  h+='</div>';
+  if(r.stateNote) h+='<div class="state" style="margin-top:4px">'+esc(r.stateNote)+'</div>';
+  return h;
+}
 
 /* ---------- 受付して、終わるまで数秒ごとに見に行く ---------- */
 function runAndWait(path, text, onTick){
@@ -835,7 +948,7 @@ document.getElementById('aSend').onclick = function(){
       r.agents.forEach(function(a){ h+='<span>'+esc(a)+'</span>'; });
       h+='</div>';
     }
-    h+=esc(showResult(r))+'</div><div id="aCards"></div>';
+    h+=esc(showResult(r))+outcomeHtml(r)+'</div><div id="aCards"></div>';
     out.innerHTML=h;
     if(r.candidates && r.candidates.length) sbCards(r.candidates,'aCards');
     if(window.OFFICE){ if(r.status==='done') OFFICE.cmdReplay(r.agents||[]); else OFFICE.cmdEnd(); }
