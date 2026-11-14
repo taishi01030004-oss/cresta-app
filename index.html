@@ -284,6 +284,7 @@
     <button onclick="tab(1,this)">会話</button>
     <button onclick="tab(2,this)">助成金</button>
     <button onclick="tab(3,this)">予定</button>
+    <button onclick="tab(4,this)">投稿</button>
   </nav>
 
   <section class="on" id="s0">
@@ -343,6 +344,19 @@
     <h2>接続と設定</h2>
     <div class="card" id="conn"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
     <div class="note">「未接続」の機能は、AIに頼んでも実行されません。実行したように表示することもありません。</div>
+  </section>
+
+  <section id="s4">
+    <div class="intro">
+      <b>投稿</b>
+      <span>AIが作った投稿案です。本文と画像を確認して承認すると「予約済み」になります。承認したあとに本文・画像・投稿先・予定日時が変わると、自動で確認待ちに戻ります（承認を取り直します）。</span>
+    </div>
+    <div class="bar" style="flex-wrap:wrap;gap:6px">
+      <span id="postFilter" class="chips" style="margin:0"></span>
+      <span class="state" id="postState"></span>
+    </div>
+    <div id="postList"><div class="card"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div></div>
+    <div class="note" id="postNote">公開の実行はまだつないでいません。</div>
   </section>
 </div>
 
@@ -1244,8 +1258,128 @@ function jump(i){
   window.scrollTo(0,0);
 }
 
+/* ===== 投稿タブ ===== */
+var POSTS=[], POST_FILTER='all';
+var POST_FILTERS=[['all','すべて'],['review','確認待ち'],['scheduled','予約済み'],['posted','公開済み'],['cancelled','取り消し']];
+
+function postsLoad(){
+  api('/api/posts',{}).then(function(r){
+    POSTS = r.posts || [];
+    document.getElementById('postNote').textContent = r.publishing
+      ? '承認した投稿は、予定日時になると公開されます。'
+      : '公開の実行はまだつないでいません。「予約済み」は承認が済んだという意味で、自動では投稿されません。';
+    drawPostFilter(); drawPosts();
+  }).catch(function(){
+    document.getElementById('postList').innerHTML =
+      '<div class="card"><div class="row"><span class="what"><span>読み込めませんでした。</span></span></div></div>';
+  });
+}
+function drawPostFilter(){
+  var h='';
+  for(var i=0;i<POST_FILTERS.length;i++){
+    var k=POST_FILTERS[i][0], n=0;
+    for(var j=0;j<POSTS.length;j++) if(k==='all'||POSTS[j].status===k) n++;
+    h+='<button class="btn sm'+(POST_FILTER===k?' main':'')+'" onclick="setPostFilter(\''+k+'\')">'
+      +esc(POST_FILTERS[i][1])+'（'+n+'）</button>';
+  }
+  document.getElementById('postFilter').innerHTML=h;
+}
+function setPostFilter(k){ POST_FILTER=k; drawPostFilter(); drawPosts(); }
+function toLocalInput(iso){
+  if(!iso) return '';
+  var d=new Date(iso); if(isNaN(d.getTime())) return '';
+  var p=function(n){ return (n<10?'0':'')+n; };
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());
+}
+function drawPosts(){
+  var list=[];
+  for(var i=0;i<POSTS.length;i++) if(POST_FILTER==='all'||POSTS[i].status===POST_FILTER) list.push(POSTS[i]);
+  if(!list.length){
+    document.getElementById('postList').innerHTML =
+      '<div class="card"><div class="row"><span class="what"><span>この状態の投稿はありません。</span></span></div></div>';
+    return;
+  }
+  var h=''; for(var k=0;k<list.length;k++) h+=postCard(list[k]);
+  document.getElementById('postList').innerHTML=h;
+}
+function postCard(p){
+  var chips=[p.statusLabel, p.formatLabel, p.categoryLabel];
+  if(p.hasPr) chips.push('PR表記あり');
+  else if(p.category==='affiliate') chips.push('PR表記なし');
+  var h='<div class="card" style="margin-bottom:10px">';
+  h+='<div class="row"><span class="what"><b>'+esc(p.title)+'</b><span>'+esc(chips.join('　/　'))+'</span></span></div>';
+
+  if(p.slides && p.slides.length>1){
+    var sl='';
+    for(var i=0;i<p.slides.length;i++){
+      sl+='<div>'+(i+1)+'枚目　'+esc(p.slides[i].heading)
+        +(p.slides[i].body?'<br><span style="opacity:.75">'+esc(p.slides[i].body)+'</span>':'')+'</div>';
+    }
+    h+='<div class="row"><span class="what"><b>各ページ</b><span>'+sl+'</span></span></div>';
+  }
+  h+='<div class="row"><span class="what"><b>本文</b><span style="white-space:pre-wrap">'+esc(p.caption)+'</span></span></div>';
+  if(p.hashtags && p.hashtags.length){
+    var tg=[]; for(var t=0;t<p.hashtags.length;t++) tg.push(p.hashtags[t].charAt(0)==='#'?p.hashtags[t]:'#'+p.hashtags[t]);
+    h+='<div class="row"><span class="what"><b>タグ</b><span>'+esc(tg.join(' '))+'</span></span></div>';
+  }
+
+  var ms='';
+  for(var m=0;m<(p.media||[]).length;m++){
+    var u=safeUrl(p.media[m].url);
+    if(u){
+      ms += p.media[m].kind==='video'
+        ? '<a class="btn sm" href="'+esc(u)+'" target="_blank" rel="noopener">動画を開く</a> '
+        : '<img src="'+esc(u)+'" alt="'+esc(p.media[m].alt||'')+'" style="width:84px;height:84px;object-fit:cover;border-radius:8px;margin:0 6px 6px 0">';
+    }
+    var ce=p.media[m].canvaEditUrl ? safeUrl(p.media[m].canvaEditUrl) : null;
+    if(ce) ms+='<a class="btn sm" href="'+esc(ce)+'" target="_blank" rel="noopener">Canvaで編集</a> ';
+  }
+  h+='<div class="row"><span class="what"><b>画像・動画</b><span>'+(ms||'まだありません')+'</span></span></div>';
+
+  var ss='';
+  for(var s=0;s<(p.sources||[]).length;s++){
+    var su=safeUrl(p.sources[s].url);
+    if(su) ss+='<div><a href="'+esc(su)+'" target="_blank" rel="noopener">'+esc(p.sources[s].url)+'</a>'
+      +'（'+esc(p.sources[s].checkedOn)+' 確認'+(p.sources[s].note?'：'+esc(p.sources[s].note):'')+'）</div>';
+  }
+  h+='<div class="row"><span class="what"><b>出典</b><span>'+(ss||'なし')+'</span></span></div>';
+
+  if(p.postedUrl){
+    var pu=safeUrl(p.postedUrl);
+    if(pu) h+='<div class="row"><span class="what"><b>投稿先</b><span><a href="'+esc(pu)+'" target="_blank" rel="noopener">公開された投稿を開く</a></span></span></div>';
+  }
+  if(p.errorMessage) h+='<div class="row"><span class="what"><b>エラー</b><span>'+esc(p.errorMessage)+'</span></span></div>';
+
+  h+='<div class="bar" style="flex-wrap:wrap;gap:6px">';
+  h+='<input type="datetime-local" id="dt-'+esc(p.id)+'" value="'+esc(toLocalInput(p.scheduledAt))+'">';
+  h+='<button class="btn sm" onclick="postAct(\''+esc(p.id)+'\',\'schedule\')">予定を変える</button>';
+  if(p.status==='review'||p.status==='approval')
+    h+='<button class="btn main sm" onclick="postAct(\''+esc(p.id)+'\',\'approve\')">承認する</button>';
+  if(p.status==='scheduled')
+    h+='<button class="btn sm" onclick="postAct(\''+esc(p.id)+'\',\'hold\')">確認待ちに戻す</button>';
+  if(p.status!=='posted'&&p.status!=='cancelled')
+    h+='<button class="btn sm" onclick="postAct(\''+esc(p.id)+'\',\'cancel\')">取り消す</button>';
+  h+='</div></div>';
+  return h;
+}
+function postAct(id, action){
+  var st=document.getElementById('postState');
+  st.textContent='送っています…';
+  var body={ id:id, action:action };
+  if(action==='schedule'){
+    var v=document.getElementById('dt-'+id).value;
+    if(!v){ st.textContent='日時を入れてください。'; return; }
+    body.scheduledAt=new Date(v).toISOString();
+  }
+  api('/api/post', body).then(function(r){
+    st.textContent = r.message || '';
+    postsLoad();
+  }).catch(function(){ st.textContent='うまくいきませんでした。'; });
+}
+
 function tab(i,b){
   if(i===2) sbLoad();
+  if(i===4) postsLoad();
   var ns=document.querySelectorAll('nav button'), ss=document.querySelectorAll('section');
   for(var k=0;k<ns.length;k++) ns[k].className=(k===i?'on':'');
   for(var k=0;k<ss.length;k++) ss[k].className=(k===i?'on':'');
