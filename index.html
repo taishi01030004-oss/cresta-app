@@ -102,6 +102,19 @@
   .mrow .nm2{min-width:90px}.mrow .tg{font-size:11px;color:var(--muted)}
   .mrow.off{opacity:.5}
   .warn{border-left-color:var(--bad)!important}
+  .lrow{display:flex;gap:10px;align-items:flex-start;padding:10px 15px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .lrow:last-child{border-bottom:0}
+  .lrow .lt{flex:1 1 220px;min-width:0}
+  .lrow .lt b{display:block;font-size:14px;overflow-wrap:anywhere}
+  .lrow .lt span{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+  .lrow .lb{display:flex;gap:6px;flex-wrap:wrap}
+  .badge{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin-right:4px;color:var(--gold2)}
+  .lform{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;padding:12px 15px}
+  .lform label{font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+  .lform input,.lform select,.lform textarea{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;font-size:14px;min-height:0}
+  .lform .wide{grid-column:1/-1}
+  .mt2{padding:8px 15px;border-top:1px dashed var(--line);font-size:13px}
+  .mt2 .ok{color:var(--gold2)}.mt2 .ng{color:var(--bad)}
   .note{font-size:12px;color:var(--muted);padding:11px 15px;background:var(--panel);
     border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;margin-top:12px}
   .row{display:flex;gap:12px;padding:11px 15px;border-bottom:1px solid var(--line);align-items:baseline}
@@ -330,6 +343,7 @@
     <button onclick="tab(1,this)">会話</button>
     <button onclick="tab(2,this)">助成金</button>
     <button onclick="tab(3,this)">予定</button>
+    <button onclick="tab(4,this)">台帳</button>
   </nav>
 
   <section class="on" id="s0">
@@ -391,6 +405,27 @@
     <h2>接続と設定</h2>
     <div class="card" id="conn"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
     <div class="note">「未接続」の機能は、AIに頼んでも実行されません。実行したように表示することもありません。</div>
+  </section>
+
+  <section id="s4">
+    <div class="bar" style="margin-top:0">
+      <button class="btn main" id="lgP" data-k="property">物件台帳</button>
+      <button class="btn" id="lgC" data-k="customer">顧客台帳</button>
+    </div>
+    <div class="inl" style="padding:10px 0">
+      <input id="lgQ" placeholder="キーワード（名前・エリア・駅・メモ）">
+      <select id="lgS"></select>
+      <button class="btn" id="lgGo">探す</button>
+      <span id="lgW" style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn main" id="lgNew">＋ 新しく登録</button>
+        <label class="btn" style="cursor:pointer">CSVを取り込む<input type="file" id="lgFile" accept=".csv,text/csv" style="display:none"></label>
+        <button class="btn sm" id="lgTpl">見本のCSV</button>
+      </span>
+    </div>
+    <div id="lgMsg"></div>
+    <div id="lgForm"></div>
+    <div class="card" id="lgList"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
+    <div class="note">お客様の電話番号・メールアドレスは、この画面だけで表示し、AIには渡しません。REINS・ATBBは自動で取りに行きません。それぞれのサイトから手でダウンロードしたCSVを「CSVを取り込む」から入れられます（文字コードはShift_JIS・UTF-8のどちらでも可）。</div>
   </section>
 </div>
 
@@ -530,7 +565,7 @@ document.getElementById('pw').addEventListener('keydown', function(e){
 });
 function logout(){
   var a=AUTH; saveAuth(null); KEY=''; try{ localStorage.removeItem('cresta-dash'); localStorage.removeItem('cresta-company'); }catch(e){}
-  if(a && CONF && CONF.anonKey) fetch(CONF.supabaseUrl + '/auth/v1/logout', {method:'POST', headers:{apikey:CONF.anonKey, authorization:'Bearer '+a.access}}).catch(function(){});
+  if(a && CONF && CONF.anonKey) fetch(CONF.supabaseUrl + '/auth/v1/logout?scope=local', {method:'POST', headers:{apikey:CONF.anonKey, authorization:'Bearer '+a.access}}).catch(function(){});
   location.reload();
 }
 /* 招待リンク（#signup=コード）で開いたときは、登録画面にコードを入れておく */
@@ -1193,6 +1228,7 @@ function drawAcct(){
     +['member','admin','viewer'].concat(ME.member.role==='owner'?['owner']:[]).map(function(r){ return '<option value="'+r+'">'+ROLE_OPT[r]+'</option>'; }).join('')
     +'</select><button class="btn main" id="iGo">招待コードを作る</button></div><div id="iOut"></div>';
   h+='</div>';
+  h+='<h2 style="margin-top:18px">LINE公式アカウント</h2><div class="card" id="lineBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   if(ME.can.addCompany){
     h+='<h2 style="margin-top:18px">会社を追加（運営会社だけ）</h2><div class="card"><div class="inl"><input id="cName" placeholder="会社名（例：◯◯不動産）">'
       +'<input id="cOwner" placeholder="社長のお名前（任意）"><button class="btn main" id="cGo">追加して招待コードを作る</button></div><div id="cOut"></div></div>'
@@ -1215,6 +1251,7 @@ function drawAcct(){
       };
     }).catch(function(er){ document.getElementById('selfOut').textContent=er.message; });
   };
+  drawLine();
   if(ME.can.invite){
     drawMembers();
     document.getElementById('iGo').onclick=function(){
@@ -1235,6 +1272,72 @@ function drawAcct(){
       document.getElementById('cName').value=''; document.getElementById('cOwner').value='';
     }).catch(function(er){ out.textContent=er.message; });
   };
+}
+/* ---------- 会社のLINE ---------- */
+var LINE_STEPS='<ol style="margin:6px 0 0 18px;padding:0;font-size:12px;color:var(--muted);line-height:1.7">'
+  +'<li>'+linkHtml('https://developers.line.biz/console/','LINE Developers を開く')+'で、会社のLINE公式アカウントの「Messaging API」チャネルを開く（なければ作る）</li>'
+  +'<li>「チャネル基本設定」にある<b>チャネルシークレット</b>（英数字32文字）をコピーして下に貼る</li>'
+  +'<li>「Messaging API設定」のいちばん下で<b>チャネルアクセストークン（長期）</b>を発行し、下に貼る</li>'
+  +'<li>LINE公式アカウントの「応答メッセージ（自動応答）」はオフにする（AIの返事と二重にならないように）</li></ol>';
+function drawLine(){
+  var box=document.getElementById('lineBox'); if(!box) return;
+  api('/api/line').then(function(r){
+    var h='';
+    if(r.channel){
+      h+='<div class="row"><span class="what"><b>'+esc(r.channel.name)+(r.channel.basicId?'（'+esc(r.channel.basicId)+'）':'')+'</b><span>つながっています'
+        +(r.channel.viaApp?'（この画面から接続）':'（開発用の設定から接続）')+'</span></span></div>';
+      if(r.channel.addFriendUrl) h+='<div class="row"><span class="what"><span>'+linkHtml(r.channel.addFriendUrl,'友だち追加のリンクを開く')+'（社員のスマホで開いて、友だちに追加してもらいます）</span></span></div>';
+      h+='<div class="inl">'+(r.myLineLinked?'<span class="state">あなたのLINEはつながっています</span>':'<button class="btn main" id="lnLink">自分のLINEとつなぐ</button>')
+        +(r.canManage?'<button class="btn sm" id="lnRe">別のLINEにつなぎ直す</button>':'')+'</div><div id="lnOut"></div><div id="lnForm"></div>';
+    } else {
+      h+='<div class="row"><span class="what"><b>まだつながっていません</b><span>'+(r.canManage?'下の手順で、会社のLINE公式アカウントをつなげます。':'オーナーか管理者がつなぐと、LINEからAIを使えるようになります。')+'</span></span></div><div id="lnForm"></div>';
+    }
+    box.innerHTML=h;
+    var lk=document.getElementById('lnLink'); if(lk) lk.onclick=lineLinkCode;
+    var re=document.getElementById('lnRe'); if(re) re.onclick=function(){ lineForm(r.webhookUrl); };
+    if(!r.channel && r.canManage) lineForm(r.webhookUrl);
+  }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+function lineForm(webhookUrl){
+  var f=document.getElementById('lnForm'); if(!f) return;
+  f.innerHTML='<div style="padding:4px 15px 12px">'+LINE_STEPS+'</div>'
+    +'<div class="fm" style="padding:0 15px 12px;max-width:520px">'
+    +'<label for="lnSec">チャネルシークレット</label><input type="password" id="lnSec" autocomplete="off" spellcheck="false">'
+    +'<label for="lnTok">チャネルアクセストークン（長期）</label><input type="password" id="lnTok" autocomplete="off" spellcheck="false">'
+    +'<label style="flex-direction:row;display:flex;gap:8px;align-items:center;font-size:13px;color:var(--text)"><input type="checkbox" id="lnHook" checked style="width:auto">Webhook URLをこのアプリに向ける（すでに別のURLが入っているときは、上書きする前に確認します）</label>'
+    +'<div class="state" style="overflow-wrap:anywhere">Webhook URL：'+esc(webhookUrl)+'</div>'
+    +'<div class="bar"><button class="btn main" id="lnGo">つなぐ</button><span class="state" id="lnSt"></span></div>'
+    +'<div class="state">シークレットとトークンは暗号化してサーバーの金庫に保存し、この画面やAIには二度と表示しません。</div></div>';
+  document.getElementById('lnGo').onclick=function(){ lineConnect(false); };
+}
+function lineConnect(overwrite){
+  var st=document.getElementById('lnSt'), sec=document.getElementById('lnSec').value, tok=document.getElementById('lnTok').value, hook=document.getElementById('lnHook').checked;
+  st.textContent='確認しています…';
+  api('/api/line-connect',{secret:sec, token:tok, setWebhook:hook, overwrite:overwrite}).then(function(r){
+    if(r.status==='confirm_overwrite'){
+      st.innerHTML='<span style="color:var(--bad)">「'+esc(r.bot.name)+'」には、すでに別のWebhook URLが入っています：'+esc(r.current)+'<br>上書きすると、今そのURLで動いている仕組みにはLINEのメッセージが届かなくなります。</span>'
+        +'<div class="bar"><button class="btn" id="lnOver">上書きしてつなぐ</button><button class="btn main" id="lnKeep">Webhookは変えずにつなぐ</button></div>';
+      document.getElementById('lnOver').onclick=function(){ if(confirm('今のWebhook URLを上書きします。よろしいですか？')) lineConnect(true); };
+      document.getElementById('lnKeep').onclick=function(){ document.getElementById('lnHook').checked=false; lineConnect(false); };
+      return;
+    }
+    document.getElementById('lnSec').value=''; document.getElementById('lnTok').value='';
+    var w=r.webhook, msg='「'+esc(r.bot.name)+'」をつなぎました。';
+    if(w.set && w.test==='ok') msg+='<br>Webhookの接続確認も成功しました。';
+    else if(w.set) msg+='<br><span style="color:var(--bad)">'+esc(w.detail||'接続確認に失敗しました')+'</span>';
+    else msg+='<br>Webhook URLは変えていません。LINE Developersで次のURLを設定してください：<br>'+esc(r.webhookUrl);
+    if(!w.active) msg+='<br><span style="color:var(--bad)">LINE Developersの「Messaging API設定」で「Webhookの利用」をオンにしてください。</span>';
+    st.innerHTML=msg;
+    setTimeout(drawLine, 4000);
+  }).catch(function(e){ st.textContent=e.message; });
+}
+function lineLinkCode(){
+  var out=document.getElementById('lnOut'); out.textContent='作っています…';
+  api('/api/line-link-code').then(function(r){
+    out.innerHTML='<div class="codebox"><div>あなたのLINEをつなぐコード（10分間・1回だけ）</div><div class="cd">'+esc(r.code)+'</div>'
+      +'<div class="state">LINEで「'+esc(r.botName)+'」を友だちに追加し、トークにこの6桁を送ってください。'
+      +(r.addFriendUrl?'<br>'+linkHtml(r.addFriendUrl,'友だち追加のリンクを開く'):'')+'</div></div>';
+  }).catch(function(e){ out.textContent=e.message; });
 }
 function alertBox(id,msg){ var b=document.getElementById(id); if(b) b.insertAdjacentHTML('afterbegin','<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(msg)+'</span></span></div>'); }
 function drawMembers(){
@@ -1477,8 +1580,155 @@ function jump(i){
   window.scrollTo(0,0);
 }
 
+
+/* ---------- 台帳（物件・顧客） ---------- */
+var LG={kind:'property', items:[], loaded:false};
+var LG_DEF={
+  property:{
+    statuses:['すべて','募集中','商談中','成約','取下げ'],
+    fields:[['title','物件名','text',1],['deal','取引','select',0,['売買','賃貸']],['kind','種別','select',0,['戸建','マンション','土地','アパート・一棟','事業用','その他']],
+      ['status','状況','select',0,['募集中','商談中','成約','取下げ']],['city','市区町村','text'],['address','所在地（続き）','text'],
+      ['price','価格（円。3980万円 の書き方も可）','text'],['rent','賃料（円／月）','text'],['buildingArea','建物・専有面積（㎡）','text'],['landArea','土地面積（㎡）','text'],
+      ['builtYear','築年（例 2008・平成20年）','text'],['layout','間取り','text'],['station','最寄駅','text'],['walkMin','駅徒歩（分）','text'],
+      ['yieldPct','表面利回り（%）','text'],['source','出典','select',0,['自社','レインズ転記','CSV取込','その他']],['note','備考','textarea',1]],
+    tpl:'物件名,取引,種別,市区町村,所在地,価格（万円）,賃料,建物面積,土地面積,築年,間取り,最寄駅,徒歩,利回り,状況,備考\n例）中区の中古マンション,売買,マンション,名古屋市中区,栄1丁目,3200,,65.2,,2008,3LDK,栄,5,,募集中,南向き\n'
+  },
+  customer:{
+    statuses:['すべて','新規','追客中','商談中','成約','休眠'],
+    fields:[['name','氏名','text',1],['kana','フリガナ','text'],['phone','電話（AIには渡しません）','text'],['email','メール（AIには渡しません）','text'],
+      ['want','希望','select',0,['購入','売却','賃貸','投資']],['status','状況','select',0,['新規','追客中','商談中','成約','休眠']],
+      ['budgetMin','予算の下限（円。3000万円 の書き方も可）','text'],['budgetMax','予算の上限','text'],['areas','希望エリア（読点区切り）','text'],['kinds','希望種別（例 マンション、戸建）','text'],
+      ['note','メモ','textarea',1]],
+    tpl:'氏名,フリガナ,電話,メール,希望,予算下限（万円）,予算上限（万円）,希望エリア,希望種別,状況,備考\n例）山田太郎,ヤマダタロウ,090-0000-0000,yamada@example.jp,購入,2500,3500,中区、千種区,マンション,追客中,週末に内見希望\n'
+  }
+};
+function lgMan(n){ if(n==null) return ''; return n>=1e8 ? (n/1e8).toFixed(n%1e8?2:0)+'億円' : Math.round(n/1e4).toLocaleString('ja-JP')+'万円'; }
+function lgKind(k){
+  LG.kind=k; document.getElementById('lgP').className='btn'+(k==='property'?' main':''); document.getElementById('lgC').className='btn'+(k==='customer'?' main':'');
+  document.getElementById('lgS').innerHTML=LG_DEF[k].statuses.map(function(x){ return '<option>'+x+'</option>'; }).join('');
+  document.getElementById('lgForm').innerHTML=''; document.getElementById('lgMsg').innerHTML='';
+  lgLoad();
+}
+function lgLoad(){
+  var list=document.getElementById('lgList');
+  list.innerHTML='<div class="row"><span class="what"><span>読み込んでいます…</span></span></div>';
+  api('/api/ledger',{kind:LG.kind, q:document.getElementById('lgQ').value, status:document.getElementById('lgS').value}).then(function(r){
+    LG.items=r.items||[]; lgDraw();
+  }).catch(function(e){ list.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+function lgDraw(){
+  var w=ME && ME.can && ME.can.ledgerWrite;
+  document.getElementById('lgW').style.display = w ? 'flex' : 'none';
+  if(!LG.items.length){ document.getElementById('lgList').innerHTML='<div class="row"><span class="what"><span>まだ登録がありません。「新しく登録」か「CSVを取り込む」から始めてください。</span></span></div>'; return; }
+  document.getElementById('lgList').innerHTML=LG.items.map(function(x){
+    var t, sub;
+    if(LG.kind==='property'){
+      t=x.title; sub=[x.deal==='賃貸'?(x.rent!=null?'賃料'+lgMan(x.rent)+'/月':''):lgMan(x.price), x.city?(x.city+(x.address||'')):'', x.station?(x.station+(x.walkMin!=null?' 徒歩'+x.walkMin+'分':'')):'', x.layout||'', x.buildingArea!=null?x.buildingArea+'㎡':'', x.builtYear?x.builtYear+'年築':'', x.yieldPct!=null?'利回り'+x.yieldPct+'%':''].filter(Boolean).join('・');
+      t='<span class="badge">'+esc(x.status)+'</span><span class="badge">'+esc(x.deal+'・'+x.kind)+'</span>'+esc(t);
+    } else {
+      sub=[(x.budgetMin!=null||x.budgetMax!=null)?'予算 '+lgMan(x.budgetMin)+'〜'+lgMan(x.budgetMax):'', x.areas?'エリア '+x.areas:'', x.kinds||'', x.phone||'', x.email||'', x.lastContactAt?'最終連絡 '+x.lastContactAt.slice(0,10):''].filter(Boolean).join('・');
+      t='<span class="badge">'+esc(x.status)+'</span><span class="badge">'+esc(x.want)+'</span>'+esc(x.name)+'様';
+    }
+    return '<div class="lrow" id="lr-'+esc(x.id)+'"><div class="lt"><b>'+t+'</b><span>'+esc(sub)+'</span>'+(x.note?'<span style="display:block;white-space:pre-wrap">'+esc(x.note.slice(-160))+'</span>':'')+'</div>'
+      +'<div class="lb"><button class="btn sm" data-match="'+esc(x.id)+'">'+(LG.kind==='property'?'合うお客様':'合う物件')+'</button>'
+      +(w?'<button class="btn sm" data-edit="'+esc(x.id)+'">編集</button>':'')+'</div><div id="lm-'+esc(x.id)+'" style="width:100%"></div></div>';
+  }).join('');
+}
+function lgForm(item){
+  var d=LG_DEF[LG.kind], v=item||{};
+  var h='<div class="card" style="margin-bottom:12px"><div class="lform">';
+  d.fields.forEach(function(f){
+    var val=v[f[0]]; if(val==null) val='';
+    if(f[0]==='price'||f[0]==='rent'||f[0]==='budgetMin'||f[0]==='budgetMax'){ val = val==='' ? '' : String(val); }
+    h+='<label class="'+(f[3]?'wide':'')+'">'+esc(f[1]);
+    if(f[2]==='select') h+='<select data-f="'+f[0]+'">'+f[4].map(function(o){ return '<option'+(o===val?' selected':'')+'>'+o+'</option>'; }).join('')+'</select>';
+    else if(f[2]==='textarea') h+='<textarea data-f="'+f[0]+'" rows="2">'+esc(val)+'</textarea>';
+    else h+='<input data-f="'+f[0]+'" value="'+esc(val)+'">';
+    h+='</label>';
+  });
+  h+='</div><div class="bar" style="padding:0 15px 12px"><button class="btn main" id="lgSave">保存する</button><button class="btn" id="lgCancel">やめる</button><span class="state" id="lgSt"></span></div></div>';
+  var box=document.getElementById('lgForm'); box.innerHTML=h; box.scrollIntoView({behavior:'smooth',block:'nearest'});
+  document.getElementById('lgCancel').onclick=function(){ box.innerHTML=''; };
+  document.getElementById('lgSave').onclick=function(){
+    var o={}; box.querySelectorAll('[data-f]').forEach(function(el){ o[el.getAttribute('data-f')]=el.value; });
+    document.getElementById('lgSt').textContent='保存しています…';
+    api('/api/ledger-save',{kind:LG.kind, id:item?item.id:null, item:o}).then(function(){ box.innerHTML=''; lgLoad(); })
+      .catch(function(e){ document.getElementById('lgSt').textContent=e.message; });
+  };
+}
+/* CSV：Shift_JIS と UTF-8 の両方を読み、ダブルクォートの中の改行・カンマにも対応 */
+function lgDecode(buf){
+  try{ return new TextDecoder('utf-8',{fatal:true}).decode(buf).replace(/^﻿/,''); }
+  catch(e){ return new TextDecoder('shift_jis').decode(buf); }
+}
+function lgCsv(text){
+  var rows=[], row=[], f='', q=false;
+  for(var i=0;i<text.length;i++){
+    var c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){ f+='"'; i++; } else q=false; } else f+=c; continue; }
+    if(c==='"') q=true; else if(c===','){ row.push(f); f=''; }
+    else if(c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n') i++; row.push(f); f=''; if(row.some(function(x){ return x.trim(); })) rows.push(row); row=[]; }
+    else f+=c;
+  }
+  row.push(f); if(row.some(function(x){ return x.trim(); })) rows.push(row);
+  return rows;
+}
+function lgImport(file){
+  var msg=document.getElementById('lgMsg');
+  msg.innerHTML='<div class="note">読み込んでいます…</div>';
+  file.arrayBuffer().then(function(buf){
+    var rows=lgCsv(lgDecode(buf));
+    if(rows.length<2) throw new Error('見出しの行と、データの行が必要です');
+    var head=rows[0].map(function(h){ return h.trim(); });
+    var data=rows.slice(1).filter(function(r){ return !/^例）/.test((r[0]||'').trim()); }).map(function(r){ var o={}; head.forEach(function(h,j){ o[h]=r[j]==null?'':r[j]; }); return o; });
+    if(!data.length) throw new Error('取り込むデータがありません');
+    if(!confirm((LG.kind==='property'?'物件':'お客様')+'を '+data.length+' 件取り込みます。よろしいですか？')) { msg.innerHTML=''; return; }
+    var total=0, errs=[], errCount=0, k=0;
+    function next(){
+      var chunk=data.slice(k,k+500);
+      if(!chunk.length){
+        msg.innerHTML='<div class="note">'+total+' 件を取り込みました。'+(errCount?'<br><span style="color:var(--bad)">取り込めなかった行：'+errCount+' 件</span><br>'+errs.slice(0,20).map(function(e){ return esc(e.line+'行目：'+e.reason); }).join('<br>'):'')+'</div>';
+        lgLoad(); return;
+      }
+      api('/api/ledger-import',{kind:LG.kind, rows:chunk, startLine:k+2}).then(function(r){ total+=r.inserted; errCount+=r.errorCount; errs=errs.concat(r.errors||[]); k+=500; next(); })
+        .catch(function(e){ msg.innerHTML='<div class="note warn">途中で止まりました（'+total+' 件まで取り込み済み）：'+esc(e.message)+'</div>'; lgLoad(); });
+    }
+    msg.innerHTML='<div class="note">取り込んでいます…</div>'; next();
+  }).catch(function(e){ msg.innerHTML='<div class="note warn">'+esc(e.message)+'</div>'; });
+}
+function lgInit(){
+  if(LG.loaded) return; LG.loaded=true;
+  document.getElementById('lgP').onclick=function(){ lgKind('property'); };
+  document.getElementById('lgC').onclick=function(){ lgKind('customer'); };
+  document.getElementById('lgGo').onclick=lgLoad;
+  document.getElementById('lgQ').addEventListener('keydown',function(e){ if(e.key==='Enter') lgLoad(); });
+  document.getElementById('lgS').onchange=lgLoad;
+  document.getElementById('lgNew').onclick=function(){ lgForm(null); };
+  document.getElementById('lgFile').onchange=function(e){ var f=e.target.files[0]; if(f) lgImport(f); e.target.value=''; };
+  document.getElementById('lgTpl').onclick=function(){
+    var blob=new Blob(['﻿'+LG_DEF[LG.kind].tpl],{type:'text/csv'}), a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download=(LG.kind==='property'?'物件台帳_見本':'顧客台帳_見本')+'.csv'; a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+  };
+  document.getElementById('lgList').onclick=function(e){
+    var t=e.target, id;
+    if((id=t.getAttribute && t.getAttribute('data-edit'))){ lgForm(LG.items.filter(function(x){ return x.id===id; })[0]); return; }
+    if((id=t.getAttribute && t.getAttribute('data-match'))){
+      var box=document.getElementById('lm-'+id); box.innerHTML='<div class="mt2">探しています…</div>';
+      api('/api/ledger-match',{kind:LG.kind, id:id}).then(function(r){
+        box.innerHTML = r.matches.length ? r.matches.map(function(m){
+          return '<div class="mt2"><b>'+esc(m.title)+'</b>（'+esc(m.sub)+'）<br><span class="ok">合う点：'+esc(m.reasons.join('・'))+'</span>'+(m.cautions.length?'<br><span class="ng">注意：'+esc(m.cautions.join('・'))+'</span>':'')+'</div>';
+        }).join('')+'<div class="mt2 state">予算・エリア・種別で計算した候補です。ご紹介の連絡は担当者が行ってください。</div>'
+          : '<div class="mt2">条件に合う相手は、台帳の中にいませんでした。</div>';
+      }).catch(function(er){ box.innerHTML='<div class="mt2 ng">'+esc(er.message)+'</div>'; });
+    }
+  };
+  lgKind('property');
+}
+
 function tab(i,b){
   if(i===2) sbLoad();
+  if(i===4) lgInit();
   var ns=document.querySelectorAll('nav button'), ss=document.querySelectorAll('section');
   for(var k=0;k<ns.length;k++) ns[k].className=(k===i?'on':'');
   for(var k=0;k<ss.length;k++) ss[k].className=(k===i?'on':'');
