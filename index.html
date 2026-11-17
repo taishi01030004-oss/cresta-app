@@ -115,6 +115,15 @@
   .lform .wide{grid-column:1/-1}
   .mt2{padding:8px 15px;border-top:1px dashed var(--line);font-size:13px}
   .mt2 .ok{color:var(--gold2)}.mt2 .ng{color:var(--bad)}
+  .hist{padding:6px 15px 10px;display:flex;flex-direction:column;gap:6px}
+  .hist .m{max-width:85%;padding:7px 10px;border-radius:10px;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+  .hist .in{align-self:flex-start;background:var(--bg);border:1px solid var(--line)}
+  .hist .out{align-self:flex-end;background:rgba(201,169,97,.18);border:1px solid var(--gold)}
+  .hist .t{display:block;font-size:10px;color:var(--muted);margin-top:3px}
+  .apv{padding:11px 15px;border-bottom:1px solid var(--line)}
+  .apv:last-child{border-bottom:0}
+  .apv .bd{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:6px 0}
+  .unread{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bad);margin-right:6px}
   .note{font-size:12px;color:var(--muted);padding:11px 15px;background:var(--panel);
     border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;margin-top:12px}
   .row{display:flex;gap:12px;padding:11px 15px;border-bottom:1px solid var(--line);align-items:baseline}
@@ -400,6 +409,8 @@
       <div class="row"><span class="when">10:41</span><span class="what"><b>物販係</b><span>楽天から1件、XとThreadsの案をつくる</span></span></div>
       <div class="row"><span class="when">5分ごと</span><span class="what"><b>タスクの通知</b><span>期限が近いものを知らせる</span></span></div>
     </div>
+    <h2>承認待ち（お客様への連絡など）</h2>
+    <div class="card" id="apv"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
     <h2>未処理</h2>
     <div class="card" id="pend"></div>
     <h2>接続と設定</h2>
@@ -411,6 +422,7 @@
     <div class="bar" style="margin-top:0">
       <button class="btn main" id="lgP" data-k="property">物件台帳</button>
       <button class="btn" id="lgC" data-k="customer">顧客台帳</button>
+      <button class="btn" id="lgI" data-k="inbox">LINE受信箱</button>
     </div>
     <div class="inl" style="padding:10px 0">
       <input id="lgQ" placeholder="キーワード（名前・エリア・駅・メモ）">
@@ -1014,11 +1026,14 @@ function feed(s){
 }
 
 /* ---------- 未処理 ---------- */
+var lastApv=-1;
 function pend(s){
+  var n=(s.counts&&s.counts.approvals)||0;
+  if(n!==lastApv){ lastApv=n; drawApprovals(); }
   var h='';
   h+='<div class="row"><span class="when">'+(s.counts&&s.counts.queued||0)+'件</span><span class="what"><b>順番待ちの仕事</b><span>これから処理されます</span></span></div>';
   h+='<div class="row"><span class="when">'+(s.counts&&s.counts.dead||0)+'件</span><span class="what"><b>失敗した仕事</b><span>再試行しても終わらなかったもの</span></span></div>';
-  h+='<div class="row"><span class="when">'+(s.counts&&s.counts.approvals||0)+'件</span><span class="what"><b>承認待ち</b><span>LINEで「承認 ◯◯」と返すと実行します</span></span></div>';
+  h+='<div class="row"><span class="when">'+(s.counts&&s.counts.approvals||0)+'件</span><span class="what"><b>承認待ち</b><span>上の「承認待ち」で内容を見て承認できます（LINEで「承認 ◯◯」でも可）</span></span></div>';
   h+='<div class="row"><span class="when">'+(s.counts&&s.counts.tasks||0)+'件</span><span class="what"><b>未完了のタスク</b><span></span></span></div>';
   document.getElementById('pend').innerHTML=h;
 }
@@ -1229,6 +1244,7 @@ function drawAcct(){
     +'</select><button class="btn main" id="iGo">招待コードを作る</button></div><div id="iOut"></div>';
   h+='</div>';
   h+='<h2 style="margin-top:18px">LINE公式アカウント</h2><div class="card" id="lineBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
+  h+='<h2 style="margin-top:18px">メール送信の設定</h2><div class="card" id="emBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   if(ME.can.addCompany){
     h+='<h2 style="margin-top:18px">会社を追加（運営会社だけ）</h2><div class="card"><div class="inl"><input id="cName" placeholder="会社名（例：◯◯不動産）">'
       +'<input id="cOwner" placeholder="社長のお名前（任意）"><button class="btn main" id="cGo">追加して招待コードを作る</button></div><div id="cOut"></div></div>'
@@ -1251,7 +1267,7 @@ function drawAcct(){
       };
     }).catch(function(er){ document.getElementById('selfOut').textContent=er.message; });
   };
-  drawLine();
+  drawLine(); drawEmail();
   if(ME.can.invite){
     drawMembers();
     document.getElementById('iGo').onclick=function(){
@@ -1273,6 +1289,123 @@ function drawAcct(){
     }).catch(function(er){ out.textContent=er.message; });
   };
 }
+
+/* ---------- お客様への連絡（承認制） ---------- */
+function fmtAt(iso){ var j=jst(iso); return (j.getMonth()+1)+'/'+j.getDate()+' '+z(j.getHours())+':'+z(j.getMinutes()); }
+function showHist(box, q){
+  if(!box) return; box.innerHTML='<div class="mt2">読み込んでいます…</div>';
+  api('/api/messages', q).then(function(r){
+    box.innerHTML = r.items.length ? '<div class="hist">'+r.items.map(function(m){
+      return '<div class="m '+m.direction+'">'+(m.subject?'<b>'+esc(m.subject)+'</b>\n':'')+rich(m.body)+'<span class="t">'+(m.direction==='in'?'受信':'送信')+'・'+(m.channel==='line'?'LINE':'メール')+'・'+fmtAt(m.createdAt)+'</span></div>';
+    }).join('')+'</div>' : '<div class="mt2">まだやり取りの記録はありません。</div>';
+  }).catch(function(e){ box.innerHTML='<div class="mt2 ng">'+esc(e.message)+'</div>'; });
+}
+function msgForm(c){
+  if(!c) return;
+  var box=document.getElementById('lgForm');
+  var h='<div class="card" style="margin-bottom:12px"><div class="row"><span class="what"><b>'+esc(c.name)+'様への連絡</b><span>送るのは、オーナー・管理者が承認した後です（この画面ではまだ送りません）</span></span></div>'
+    +'<div class="lform"><label>送り方<select id="mgCh"><option value="line"'+(c.lineUserId?'':' disabled')+'>LINE'+(c.lineUserId?'':'（未接続）')+'</option><option value="email"'+(c.email?'':' disabled')+'>メール'+(c.email?'':'（アドレスなし）')+'</option></select></label>'
+    +'<label class="wide" id="mgSubW">件名（メールのとき）<input id="mgSub"></label>'
+    +'<label class="wide">本文<textarea id="mgBody" rows="6"></textarea></label></div>'
+    +'<div class="bar" style="padding:0 15px 12px"><button class="btn main" id="mgGo">承認待ちに入れる</button><button class="btn" id="mgX">やめる</button><span class="state" id="mgSt"></span></div>'
+    +'<div class="note" style="margin:0 15px 12px">AIに下書きを頼むときは、上の指示欄に「'+esc(c.name)+'様に内見のお礼をLINEで送る下書きを作って」のように書いてください。</div></div>';
+  box.innerHTML=h; box.scrollIntoView({behavior:'smooth',block:'nearest'});
+  var ch=document.getElementById('mgCh'); if(!c.lineUserId && c.email) ch.value='email';
+  function sub(){ document.getElementById('mgSubW').style.display = ch.value==='email' ? '' : 'none'; } ch.onchange=sub; sub();
+  document.getElementById('mgX').onclick=function(){ box.innerHTML=''; };
+  document.getElementById('mgGo').onclick=function(){
+    var st=document.getElementById('mgSt'); st.textContent='登録しています…';
+    api('/api/outbox-draft',{customerId:c.id, channel:ch.value, subject:document.getElementById('mgSub').value, body:document.getElementById('mgBody').value}).then(function(r){
+      box.innerHTML='<div class="note">承認待ちに入れました（承認コード '+esc(r.code)+'）。「予定」タブの「承認待ち」で、オーナー・管理者が承認すると送られます。</div>';
+      lastApv=-1;
+    }).catch(function(e){ st.textContent=e.message; });
+  };
+}
+function inboxLoad(){
+  var list=document.getElementById('lgList');
+  list.innerHTML='<div class="row"><span class="what"><span>読み込んでいます…</span></span></div>';
+  api('/api/inbox').then(function(r){
+    LG.inbox=r.items||[];
+    if(!LG.inbox.length){ list.innerHTML='<div class="row"><span class="what"><span>まだお客様からのLINEはありません。会社のLINEを友だち追加したお客様がメッセージを送ると、ここに届きます（AIは自動では返事をしません）。</span></span></div>'; return; }
+    var w=ME&&ME.can&&ME.can.ledgerWrite;
+    list.innerHTML=LG.inbox.map(function(c){
+      return '<div class="lrow"><div class="lt"><b>'+(c.unread?'<span class="unread"></span>':'')+esc(c.displayName||'（名前不明のLINE）')
+        +(c.customerName?'<span class="badge" style="margin-left:6px">台帳：'+esc(c.customerName)+'様</span>':'')+'</b><span>'+esc((c.lastText||'').slice(0,80))+'・'+fmtAt(c.lastAt)+'</span></div>'
+        +'<div class="lb"><button class="btn sm" data-ihist="'+esc(c.id)+'">やり取り</button>'+(w?'<button class="btn sm" data-ilink="'+esc(c.id)+'">'+(c.customerId?'結びつけ直す':'台帳に結びつける')+'</button>':'')+'</div>'
+        +'<div id="lm-'+esc(c.id)+'" style="width:100%"></div></div>';
+    }).join('');
+  }).catch(function(e){ list.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+function inboxLinkForm(contactId){
+  var c=(LG.inbox||[]).filter(function(x){ return x.id===contactId; })[0]; if(!c) return;
+  var box=document.getElementById('lm-'+contactId); box.innerHTML='<div class="mt2">顧客台帳を読み込んでいます…</div>';
+  api('/api/ledger',{kind:'customer', status:'すべて'}).then(function(r){
+    box.innerHTML='<div class="inl"><select id="ilSel-'+esc(contactId)+'"><option value="">（新しいお客様として登録）</option>'
+      +r.items.map(function(x){ return '<option value="'+esc(x.id)+'">'+esc(x.name)+'様'+(x.lineUserId?'（LINEあり）':'')+'</option>'; }).join('')
+      +'</select><input id="ilName-'+esc(contactId)+'" placeholder="新しく登録するときの氏名" value="'+esc(c.displayName||'')+'">'
+      +'<button class="btn main" id="ilGo-'+esc(contactId)+'">結びつける</button></div><div class="mt2 state" id="ilSt-'+esc(contactId)+'"></div>';
+    document.getElementById('ilGo-'+contactId).onclick=function(){
+      var sel=document.getElementById('ilSel-'+contactId).value;
+      api('/api/inbox-link',{contactId:contactId, customerId:sel, newName:document.getElementById('ilName-'+contactId).value}).then(function(){ inboxLoad(); })
+        .catch(function(e){ document.getElementById('ilSt-'+contactId).textContent=e.message; });
+    };
+  }).catch(function(e){ box.innerHTML='<div class="mt2 ng">'+esc(e.message)+'</div>'; });
+}
+function drawApprovals(){
+  var box=document.getElementById('apv'); if(!box) return;
+  api('/api/approvals').then(function(r){
+    if(!r.items.length){ box.innerHTML='<div class="row"><span class="what"><span>承認待ちはありません。</span></span></div>'; return; }
+    box.innerHTML=r.items.map(function(a){
+      var head = a.type==='customer_message' ? esc(a.to)+'へ（'+(a.channel==='line'?'LINE':'メール')+'）' : esc(a.summary);
+      return '<div class="apv"><div><span class="badge">'+esc(a.code)+'</span><b>'+head+'</b></div>'
+        +(a.subject?'<div class="state">件名：'+esc(a.subject)+'</div>':'')
+        +(a.body?'<div class="bd">'+esc(a.body)+'</div>':'')
+        +'<div class="state">依頼：'+esc(a.by)+'・期限 '+fmtAt(a.expiresAt)+'</div>'
+        +(r.canDecide?'<div class="bar"><button class="btn main" data-apv="'+esc(a.code)+'" data-d="approved">承認して送る</button><button class="btn" data-apv="'+esc(a.code)+'" data-d="rejected">却下</button><span class="state" id="apSt-'+esc(a.code)+'"></span></div>'
+          :'<div class="state">承認できるのはオーナー・管理者です。</div>')+'</div>';
+    }).join('');
+  }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+document.addEventListener('click', function(e){
+  var t=e.target, code=t.getAttribute && t.getAttribute('data-apv'); if(!code) return;
+  var d=t.getAttribute('data-d');
+  if(d==='approved' && !confirm('この内容で送ります。送った後は取り消せません。よろしいですか？')) return;
+  var st=document.getElementById('apSt-'+code); if(st) st.textContent='処理しています…';
+  api('/api/approval-decide',{code:code, decision:d}).then(function(r){
+    if(st) st.textContent = r.decision==='approved' ? '承認しました。送信しています（結果は「やり取り」に残ります）' : '却下しました。送りません。';
+    setTimeout(function(){ lastApv=-1; drawApprovals(); }, 2500);
+  }).catch(function(er){ if(st) st.textContent=er.message; });
+});
+/* メール送信の設定（会社ごと） */
+function drawEmail(){
+  var box=document.getElementById('emBox'); if(!box) return;
+  api('/api/email-settings').then(function(r){
+    var h='<div class="row"><span class="what"><b>'+(r.from&&r.hasKey?'設定済み：'+esc((r.name||'')+' <'+r.from+'>'):'まだ設定されていません')+'</b>'
+      +'<span>お客様へのメールは、承認された1通ずつ、この送り主から送ります。送信サービスは Resend を使います（各社の契約・費用です）。</span></span></div>';
+    if(r.canManage){
+      h+='<div class="fm" style="padding:0 15px 12px;max-width:520px">'
+        +'<label for="emFrom">送り主のメールアドレス（Resendで確認済みのドメイン）</label><input id="emFrom" type="email" value="'+esc(r.from||'')+'">'
+        +'<label for="emName">送り主の名前（会社名など）</label><input id="emName" value="'+esc(r.name||'')+'">'
+        +'<label for="emKey">Resend のAPIキー'+(r.hasKey?'（変えるときだけ入力）':'')+'</label><input id="emKey" type="password" autocomplete="off" spellcheck="false">'
+        +'<div class="bar"><button class="btn main" id="emGo">保存する</button><span class="state" id="emSt"></span></div>'
+        +'<div class="inl" style="padding:6px 0 0"><input id="emTo" type="email" placeholder="テストの送り先（自分のアドレス）"><button class="btn sm" id="emTest">テストメールを送る</button></div>'
+        +'<div class="state">キーは暗号化してサーバーの金庫に保存し、画面やAIには表示しません。'+linkHtml('https://resend.com/','Resend のサイトを開く')+'</div></div>';
+    }
+    box.innerHTML=h;
+    if(!r.canManage) return;
+    document.getElementById('emGo').onclick=function(){
+      var st=document.getElementById('emSt'); st.textContent='保存しています…';
+      api('/api/email-settings',{save:{from:document.getElementById('emFrom').value, name:document.getElementById('emName').value, key:document.getElementById('emKey').value}})
+        .then(function(){ st.textContent='保存しました。'; setTimeout(drawEmail,1200); }).catch(function(e){ st.textContent=e.message; });
+    };
+    document.getElementById('emTest').onclick=function(){
+      var st=document.getElementById('emSt'); st.textContent='送っています…';
+      api('/api/email-test',{to:document.getElementById('emTo').value}).then(function(){ st.textContent='テストメールを送りました。届いたか確かめてください。'; })
+        .catch(function(e){ st.textContent=e.message; });
+    };
+  }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+
 /* ---------- 会社のLINE ---------- */
 var LINE_STEPS='<ol style="margin:6px 0 0 18px;padding:0;font-size:12px;color:var(--muted);line-height:1.7">'
   +'<li>'+linkHtml('https://developers.line.biz/console/','LINE Developers を開く')+'で、会社のLINE公式アカウントの「Messaging API」チャネルを開く（なければ作る）</li>'
@@ -1605,11 +1738,16 @@ var LG_DEF={
 function lgMan(n){ if(n==null) return ''; return n>=1e8 ? (n/1e8).toFixed(n%1e8?2:0)+'億円' : Math.round(n/1e4).toLocaleString('ja-JP')+'万円'; }
 function lgKind(k){
   LG.kind=k; document.getElementById('lgP').className='btn'+(k==='property'?' main':''); document.getElementById('lgC').className='btn'+(k==='customer'?' main':'');
+  document.getElementById('lgI').className='btn'+(k==='inbox'?' main':'');
+  var isInbox=(k==='inbox');
+  ['lgQ','lgS','lgGo'].forEach(function(id){ document.getElementById(id).style.display=isInbox?'none':''; });
+  if(isInbox){ document.getElementById('lgW').style.display='none'; document.getElementById('lgForm').innerHTML=''; document.getElementById('lgMsg').innerHTML=''; inboxLoad(); return; }
   document.getElementById('lgS').innerHTML=LG_DEF[k].statuses.map(function(x){ return '<option>'+x+'</option>'; }).join('');
   document.getElementById('lgForm').innerHTML=''; document.getElementById('lgMsg').innerHTML='';
   lgLoad();
 }
 function lgLoad(){
+  if(LG.kind==='inbox'){ inboxLoad(); return; }
   var list=document.getElementById('lgList');
   list.innerHTML='<div class="row"><span class="what"><span>読み込んでいます…</span></span></div>';
   api('/api/ledger',{kind:LG.kind, q:document.getElementById('lgQ').value, status:document.getElementById('lgS').value}).then(function(r){
@@ -1627,10 +1765,11 @@ function lgDraw(){
       t='<span class="badge">'+esc(x.status)+'</span><span class="badge">'+esc(x.deal+'・'+x.kind)+'</span>'+esc(t);
     } else {
       sub=[(x.budgetMin!=null||x.budgetMax!=null)?'予算 '+lgMan(x.budgetMin)+'〜'+lgMan(x.budgetMax):'', x.areas?'エリア '+x.areas:'', x.kinds||'', x.phone||'', x.email||'', x.lastContactAt?'最終連絡 '+x.lastContactAt.slice(0,10):''].filter(Boolean).join('・');
-      t='<span class="badge">'+esc(x.status)+'</span><span class="badge">'+esc(x.want)+'</span>'+esc(x.name)+'様';
+      t='<span class="badge">'+esc(x.status)+'</span><span class="badge">'+esc(x.want)+'</span>'+(x.lineUserId?'<span class="badge">LINEあり</span>':'')+esc(x.name)+'様';
     }
     return '<div class="lrow" id="lr-'+esc(x.id)+'"><div class="lt"><b>'+t+'</b><span>'+esc(sub)+'</span>'+(x.note?'<span style="display:block;white-space:pre-wrap">'+esc(x.note.slice(-160))+'</span>':'')+'</div>'
       +'<div class="lb"><button class="btn sm" data-match="'+esc(x.id)+'">'+(LG.kind==='property'?'合うお客様':'合う物件')+'</button>'
+      +(LG.kind==='customer'?'<button class="btn sm" data-hist="'+esc(x.id)+'">やり取り</button>'+(ME&&ME.can&&ME.can.draft?'<button class="btn sm" data-msg="'+esc(x.id)+'">連絡を作る</button>':''):'')
       +(w?'<button class="btn sm" data-edit="'+esc(x.id)+'">編集</button>':'')+'</div><div id="lm-'+esc(x.id)+'" style="width:100%"></div></div>';
   }).join('');
 }
@@ -1700,6 +1839,7 @@ function lgInit(){
   if(LG.loaded) return; LG.loaded=true;
   document.getElementById('lgP').onclick=function(){ lgKind('property'); };
   document.getElementById('lgC').onclick=function(){ lgKind('customer'); };
+  document.getElementById('lgI').onclick=function(){ lgKind('inbox'); };
   document.getElementById('lgGo').onclick=lgLoad;
   document.getElementById('lgQ').addEventListener('keydown',function(e){ if(e.key==='Enter') lgLoad(); });
   document.getElementById('lgS').onchange=lgLoad;
@@ -1713,6 +1853,10 @@ function lgInit(){
   document.getElementById('lgList').onclick=function(e){
     var t=e.target, id;
     if((id=t.getAttribute && t.getAttribute('data-edit'))){ lgForm(LG.items.filter(function(x){ return x.id===id; })[0]); return; }
+    if((id=t.getAttribute && t.getAttribute('data-hist'))){ showHist(document.getElementById('lm-'+id), {customerId:id}); return; }
+    if((id=t.getAttribute && t.getAttribute('data-msg'))){ msgForm(LG.items.filter(function(x){ return x.id===id; })[0]); return; }
+    if((id=t.getAttribute && t.getAttribute('data-ihist'))){ showHist(document.getElementById('lm-'+id), {contactId:id}); api('/api/inbox-read',{contactId:id}).catch(function(){}); return; }
+    if((id=t.getAttribute && t.getAttribute('data-ilink'))){ inboxLinkForm(id); return; }
     if((id=t.getAttribute && t.getAttribute('data-match'))){
       var box=document.getElementById('lm-'+id); box.innerHTML='<div class="mt2">探しています…</div>';
       api('/api/ledger-match',{kind:LG.kind, id:id}).then(function(r){
