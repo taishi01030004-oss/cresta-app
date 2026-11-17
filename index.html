@@ -1244,6 +1244,7 @@ function drawAcct(){
     +'</select><button class="btn main" id="iGo">招待コードを作る</button></div><div id="iOut"></div>';
   h+='</div>';
   h+='<h2 style="margin-top:18px">利用量とプラン</h2><div class="card" id="usBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
+  if(ME && ME.can && ME.can.addCompany) h+='<h2 style="margin-top:18px">請求（更新日の7日前に請求書を送る）</h2><div class="card" id="blBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   h+='<h2 style="margin-top:18px">会社の設定（AIが名乗る会社・地域・得意分野）</h2><div class="card" id="cpBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   h+='<h2 style="margin-top:18px">LINE公式アカウント</h2><div class="card" id="lineBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   h+='<h2 style="margin-top:18px">メール送信の設定</h2><div class="card" id="emBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
@@ -1269,7 +1270,7 @@ function drawAcct(){
       };
     }).catch(function(er){ document.getElementById('selfOut').textContent=er.message; });
   };
-  drawUsage(); drawProfile(); drawLine(); drawEmail();
+  drawUsage(); drawBilling(); drawProfile(); drawLine(); drawEmail();
   if(ME.can.invite){
     drawMembers();
     document.getElementById('iGo').onclick=function(){
@@ -1431,6 +1432,73 @@ function drawUsage(body){
       el.onchange=function(){ el.disabled=true; drawUsage({setPlan:{tenantId:el.getAttribute('data-plan'), plan:el.value}}); };
     });
   }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+
+/* ---------- 請求（運営会社のオーナーだけ） ---------- */
+var BILL=null;
+function yen(x){ return '¥'+Number(x||0).toLocaleString('ja-JP'); }
+function drawBilling(body){
+  var box=document.getElementById('blBox'); if(!box) return;
+  api('/api/billing', body).then(function(r){
+    BILL=r;
+    var is=r.issuer||{};
+    var h='<div class="row"><span class="what"><b>請求書を出す側（CRESTA）の情報</b><span>請求書に印刷されます。登録番号は「T」から始まる14文字です。</span></span></div>'
+      +'<div class="lform">'
+      +'<label>会社名<input id="isName" value="'+esc(is.name||'')+'" placeholder="株式会社CRESTA JAPAN"></label>'
+      +'<label>登録番号（インボイス）<input id="isReg" value="'+esc(is.registration||'')+'" placeholder="T1234567890123"></label>'
+      +'<label class="wide">住所<input id="isAddr" value="'+esc(is.address||'')+'"></label>'
+      +'<label class="wide">振込先<input id="isBank" value="'+esc(is.bank||'')+'" placeholder="〇〇銀行 〇〇支店 普通 1234567 カ）クレスタジャパン"></label>'
+      +'<label class="wide">連絡先（電話・メール）<input id="isCon" value="'+esc(is.contact||'')+'"></label>'
+      +'</div><div class="bar" style="padding:0 15px 12px"><button class="btn" id="isGo">保存する</button></div>';
+    if(!r.companies.length) h+='<div class="row"><span class="what"><span>まだお客様の会社がありません。</span></span></div>';
+    r.companies.forEach(function(c, i){
+      var b=c.billing||{};
+      var state = !c.priceYen ? '<span class="state">請求なし（'+esc(c.planLabel)+'）</span>'
+        : !c.renewal ? '<span class="state" style="color:var(--bad)">更新日を設定してください</span>'
+        : c.due ? '<span class="state" style="color:var(--gold,#c9a54a)">送る時期です（更新日 '+esc(c.renewal)+'）</span>'
+        : '<span class="state">'+esc(c.sendOn)+' に送る（更新日 '+esc(c.renewal)+'）</span>';
+      h+='<div class="row"><span class="what"><b>'+esc(c.name)+'　'+esc(c.planLabel)+(c.priceYen?'　'+yen(c.priceYen)+'（税別）':'')+'</b>'+state+'</span>'
+        +(c.invoice?'<button class="btn" data-inv="'+i+'">請求書の下書き</button>':'')+'</div>'
+        +'<div class="lform" style="padding-top:0">'
+        +'<label>更新日（毎月）<select data-bday="'+esc(c.tenantId)+'"><option value="">未設定</option>'+Array.from({length:28},function(_,k){ return '<option value="'+(k+1)+'"'+(b.day===k+1?' selected':'')+'>'+(k+1)+'日</option>'; }).join('')+'</select></label>'
+        +'<label>請求書の宛名<input data-bname="'+esc(c.tenantId)+'" value="'+esc(b.name||'')+'" placeholder="'+esc(c.name)+'"></label>'
+        +'<label class="wide">送り先メール<input data-bmail="'+esc(c.tenantId)+'" value="'+esc(b.email||'')+'"></label>'
+        +'<div class="bar"><button class="btn" data-bsave="'+esc(c.tenantId)+'">この会社を保存</button></div>'
+        +'</div>';
+    });
+    box.innerHTML=h;
+    document.getElementById('isGo').onclick=function(){
+      var v=function(id){ return document.getElementById(id).value; };
+      drawBilling({issuer:{name:v('isName'), registration:v('isReg'), address:v('isAddr'), bank:v('isBank'), contact:v('isCon')}});
+    };
+    Array.prototype.forEach.call(box.querySelectorAll('[data-bsave]'), function(el){
+      el.onclick=function(){
+        var id=el.getAttribute('data-bsave'), q=function(k){ return box.querySelector('[data-'+k+'="'+id+'"]').value; };
+        drawBilling({company:{tenantId:id, day:q('bday'), name:q('bname'), email:q('bmail')}});
+      };
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('[data-inv]'), function(el){
+      el.onclick=function(){ openInvoice(BILL.companies[Number(el.getAttribute('data-inv'))], BILL.issuer); };
+    });
+  }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+function openInvoice(c, is){
+  var v=c.invoice, to=(c.billing&&c.billing.name)||c.name, miss=[];
+  if(!is.name) miss.push('会社名'); if(!is.registration) miss.push('登録番号'); if(!is.bank) miss.push('振込先');
+  var css='body{font-family:"Hiragino Sans","Noto Sans JP",sans-serif;color:#111;max-width:720px;margin:32px auto;padding:0 24px}h1{text-align:center;letter-spacing:.5em;font-weight:600;border-bottom:3px solid #1f3d2e;padding-bottom:8px}'
+    +'table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid #999;padding:8px;font-size:14px}th{background:#eef3ef}.r{text-align:right}.top{display:flex;justify-content:space-between;gap:24px}.to{font-size:20px;border-bottom:1px solid #111;padding-bottom:4px}'
+    +'.total{font-size:22px;font-weight:700;border-bottom:3px double #111;display:inline-block;padding:4px 0}.warn{background:#fff3cd;padding:8px;margin-bottom:12px;font-size:13px}@media print{.warn,.noprint{display:none}}';
+  var h='<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>請求書 '+esc(v.number)+'</title><style>'+css+'</style></head><body>'
+    +(miss.length?'<div class="warn">未入力：'+miss.join('・')+'（「請求書を出す側の情報」で入力してから印刷してください）</div>':'')
+    +'<div class="noprint" style="text-align:right"><button onclick="print()">印刷・PDFで保存</button></div>'
+    +'<h1>請求書</h1><div class="top"><div><div class="to">'+esc(to)+' 御中</div><p>下記のとおりご請求申し上げます。</p>'
+    +'<div>ご請求金額（税込）</div><div class="total">'+yen(v.total)+'</div><p>お支払期限：'+esc(v.dueDate)+'</p></div>'
+    +'<div style="font-size:13px;text-align:right">請求書番号：'+esc(v.number)+'<br>発行日：'+esc(v.issueDate)+'<br><br><b>'+esc(is.name||'【会社名】')+'</b><br>'+esc(is.address||'')+'<br>登録番号：'+esc(is.registration||'【未入力】')+'<br>'+esc(is.contact||'')+'</div></div>'
+    +'<table><tr><th>内容</th><th>数量</th><th>単価（税別）</th><th>金額（税別）</th></tr><tr><td>'+esc(v.item)+'</td><td class="r">1</td><td class="r">'+yen(v.subtotal)+'</td><td class="r">'+yen(v.subtotal)+'</td></tr></table>'
+    +'<table style="width:50%;margin-left:auto"><tr><th>小計（10%対象）</th><td class="r">'+yen(v.subtotal)+'</td></tr><tr><th>消費税（10%）</th><td class="r">'+yen(v.tax)+'</td></tr><tr><th>合計</th><td class="r"><b>'+yen(v.total)+'</b></td></tr></table>'
+    +'<p><b>お振込先</b><br>'+esc(is.bank||'【振込先：未入力】')+'<br>※振込手数料はご負担くださいますようお願いいたします。</p></body></html>';
+  var w=window.open('','_blank'); if(!w){ alert('ポップアップが止められました。許可してください。'); return; }
+  w.document.open(); w.document.write(h); w.document.close();
 }
 
 /* ---------- 会社の設定 ---------- */
