@@ -1243,6 +1243,7 @@ function drawAcct(){
     +['member','admin','viewer'].concat(ME.member.role==='owner'?['owner']:[]).map(function(r){ return '<option value="'+r+'">'+ROLE_OPT[r]+'</option>'; }).join('')
     +'</select><button class="btn main" id="iGo">招待コードを作る</button></div><div id="iOut"></div>';
   h+='</div>';
+  h+='<h2 style="margin-top:18px">会社の設定（AIが名乗る会社・地域・得意分野）</h2><div class="card" id="cpBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   h+='<h2 style="margin-top:18px">LINE公式アカウント</h2><div class="card" id="lineBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   h+='<h2 style="margin-top:18px">メール送信の設定</h2><div class="card" id="emBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   if(ME.can.addCompany){
@@ -1267,7 +1268,7 @@ function drawAcct(){
       };
     }).catch(function(er){ document.getElementById('selfOut').textContent=er.message; });
   };
-  drawLine(); drawEmail();
+  drawProfile(); drawLine(); drawEmail();
   if(ME.can.invite){
     drawMembers();
     document.getElementById('iGo').onclick=function(){
@@ -1402,6 +1403,38 @@ function drawEmail(){
       var st=document.getElementById('emSt'); st.textContent='送っています…';
       api('/api/email-test',{to:document.getElementById('emTo').value}).then(function(){ st.textContent='テストメールを送りました。届いたか確かめてください。'; })
         .catch(function(e){ st.textContent=e.message; });
+    };
+  }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+
+/* ---------- 会社の設定 ---------- */
+function drawProfile(){
+  var box=document.getElementById('cpBox'); if(!box) return;
+  api('/api/company-profile').then(function(r){
+    var p=r.profile||{}, dis=r.canManage?'':' disabled';
+    var chk=function(name, list, sel){ return list.map(function(x){ return '<label style="flex-direction:row;display:inline-flex;gap:4px;align-items:center;margin:0 10px 4px 0;font-size:13px;color:var(--text)"><input type="checkbox" data-'+name+'="'+esc(x)+'"'+(sel.indexOf(x)>=0?' checked':'')+dis+' style="width:auto">'+esc(x)+'</label>'; }).join(''); };
+    var biz=r.choices.business.slice(); (p.business||[]).forEach(function(b){ if(biz.indexOf(b)<0) biz.push(b); });
+    box.innerHTML='<div class="lform">'
+      +'<label>AIが名乗る会社名<input id="cpName" value="'+esc(p.displayName||'')+'" placeholder="'+esc(r.name)+'"'+dis+'></label>'
+      +'<label>主な都道府県<input id="cpPref" value="'+esc(p.prefecture||'')+'" placeholder="例：愛知県"'+dis+'></label>'
+      +'<label class="wide">主な市区町村（読点区切り）<input id="cpCity" value="'+esc(p.cities||'')+'" placeholder="例：名古屋市中区、名古屋市千種区"'+dis+'></label>'
+      +'<label class="wide">扱う業務<span>'+chk('biz', biz, p.business||[])+'</span></label>'
+      +'<label class="wide">会社の強み・特徴（ここに書いたことだけをAIが使います。実績や数字はAIが作りません）<textarea id="cpStr" rows="3"'+dis+'>'+esc(p.strengths||'')+'</textarea></label>'
+      +'<label>言葉づかい<select id="cpTone"'+dis+'>'+r.choices.tones.map(function(t){ return '<option'+(t===p.tone?' selected':'')+'>'+t+'</option>'; }).join('')+'</select></label>'
+      +'<label>ホームページ<input id="cpWeb" value="'+esc(p.website||'')+'" placeholder="https://"'+dis+'></label>'
+      +'<label>宅建業の免許番号<input id="cpLic" value="'+esc(p.license||'')+'"'+dis+'></label>'
+      +'<label>ブランドの色<input id="cpCol" value="'+esc(p.colors||'')+'" placeholder="例：紺×白"'+dis+'></label>'
+      +'<label class="wide">使う部署（オフにした部署には、司令塔が仕事を渡しません）<span>'+chk('dep', r.choices.departments, p.departments||[])+'</span></label>'
+      +'<label class="wide">AIへの補足（社内ルールなど）<textarea id="cpNote" rows="2"'+dis+'>'+esc(p.notes||'')+'</textarea></label>'
+      +'</div>'+(r.canManage?'<div class="bar" style="padding:0 15px 12px"><button class="btn main" id="cpGo">保存する</button><span class="state" id="cpSt"></span></div>':'<div class="state" style="padding:0 15px 12px">変更できるのはオーナー・管理者です。</div>');
+    if(!r.canManage) return;
+    document.getElementById('cpGo').onclick=function(){
+      var v=function(id){ return document.getElementById(id).value; };
+      var picked=function(name){ return Array.prototype.map.call(box.querySelectorAll('[data-'+name+']:checked'), function(el){ return el.getAttribute('data-'+name); }); };
+      var st=document.getElementById('cpSt'); st.textContent='保存しています…';
+      api('/api/company-profile',{save:{displayName:v('cpName'), prefecture:v('cpPref'), cities:v('cpCity'), business:picked('biz'), strengths:v('cpStr'),
+        tone:v('cpTone'), website:v('cpWeb'), license:v('cpLic'), colors:v('cpCol'), departments:picked('dep'), notes:v('cpNote')}})
+        .then(function(){ st.textContent='保存しました。次の依頼から、AIがこの設定で答えます。'; }).catch(function(e){ st.textContent=e.message; });
     };
   }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
 }
