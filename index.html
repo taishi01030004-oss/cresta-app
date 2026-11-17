@@ -1243,6 +1243,7 @@ function drawAcct(){
     +['member','admin','viewer'].concat(ME.member.role==='owner'?['owner']:[]).map(function(r){ return '<option value="'+r+'">'+ROLE_OPT[r]+'</option>'; }).join('')
     +'</select><button class="btn main" id="iGo">招待コードを作る</button></div><div id="iOut"></div>';
   h+='</div>';
+  h+='<h2 style="margin-top:18px">利用量とプラン</h2><div class="card" id="usBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   h+='<h2 style="margin-top:18px">会社の設定（AIが名乗る会社・地域・得意分野）</h2><div class="card" id="cpBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   h+='<h2 style="margin-top:18px">LINE公式アカウント</h2><div class="card" id="lineBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   h+='<h2 style="margin-top:18px">メール送信の設定</h2><div class="card" id="emBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
@@ -1268,7 +1269,7 @@ function drawAcct(){
       };
     }).catch(function(er){ document.getElementById('selfOut').textContent=er.message; });
   };
-  drawProfile(); drawLine(); drawEmail();
+  drawUsage(); drawProfile(); drawLine(); drawEmail();
   if(ME.can.invite){
     drawMembers();
     document.getElementById('iGo').onclick=function(){
@@ -1404,6 +1405,31 @@ function drawEmail(){
       api('/api/email-test',{to:document.getElementById('emTo').value}).then(function(){ st.textContent='テストメールを送りました。届いたか確かめてください。'; })
         .catch(function(e){ st.textContent=e.message; });
     };
+  }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+
+/* ---------- 利用量とプラン ---------- */
+function drawUsage(body){
+  var box=document.getElementById('usBox'); if(!box) return;
+  var n=function(x){ return Number(x||0).toLocaleString('ja-JP'); };
+  var lim=function(x){ return x===null||x===undefined?'上限なし':n(x)+'件'; };
+  api('/api/usage', body).then(function(r){
+    var p=r.plan, used=r.month.runs, pct=p.monthlyRuns? Math.min(100, Math.round(used*100/p.monthlyRuns)) : 0;
+    var h='<div class="row"><span class="what"><b>プラン：'+esc(p.label)+'</b><span>今月の上限 '+lim(p.monthlyRuns)+'／1日の上限 '+n(p.dailyRuns)+'件／メンバー '+(p.members===null?'上限なし':n(p.members)+'人まで')+'</span></span></div>'
+      +'<div class="row"><span class="what"><b>今月のAIへの依頼：'+n(used)+'件'+(p.monthlyRuns?'（上限の'+pct+'%）':'')+'</b>'
+      +(p.monthlyRuns?'<span style="display:block;height:8px;border-radius:4px;background:rgba(255,255,255,.12);margin-top:6px;overflow:hidden"><span style="display:block;height:100%;width:'+pct+'%;background:'+(pct>=90?'var(--bad)':'var(--gold,#c9a54a)')+'"></span></span>':'')
+      +'<span>今日：'+n(r.today)+'件／AIが読んだ量 '+n(r.month.inputTokens)+'・書いた量 '+n(r.month.outputTokens)+'（トークン、今月）</span></span></div>';
+    if(r.companies){
+      h+='<div class="row"><span class="what"><b>全社の利用状況（今月）</b><span>運営会社のオーナーだけに見えます。料金（円）はまだ決めていません。上限の数は仮の値です。</span></span></div>';
+      r.companies.forEach(function(c){
+        var sel=c.plan==='platform'?'<span class="state">運営会社</span>':'<select data-plan="'+esc(c.tenantId)+'">'+r.plans.map(function(x){ return '<option value="'+x.id+'"'+(x.id===c.plan?' selected':'')+'>'+esc(x.label)+'</option>'; }).join('')+'</select>';
+        h+='<div class="row"><span class="what"><b>'+esc(c.name)+'</b><span>依頼 '+n(c.runs)+'件／メンバー '+n(c.members)+'人／トークン '+n(c.inputTokens+c.outputTokens)+'</span></span>'+sel+'</div>';
+      });
+    }
+    box.innerHTML=h;
+    Array.prototype.forEach.call(box.querySelectorAll('[data-plan]'), function(el){
+      el.onchange=function(){ el.disabled=true; drawUsage({setPlan:{tenantId:el.getAttribute('data-plan'), plan:el.value}}); };
+    });
   }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
 }
 
