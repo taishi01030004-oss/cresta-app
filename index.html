@@ -1372,8 +1372,16 @@ function drawApprovals(){
 document.addEventListener('click', function(e){
   var t=e.target, code=t.getAttribute && t.getAttribute('data-apv'); if(!code) return;
   var d=t.getAttribute('data-d');
-  if(d==='approved' && !confirm('この内容で送ります。送った後は取り消せません。よろしいですか？')) return;
-  var st=document.getElementById('apSt-'+code); if(st) st.textContent='処理しています…';
+  var st=document.getElementById('apSt-'+code);
+  // 確認は小窓（confirm）を使わず、ボタンを2回押してもらう（小窓が出ないブラウザがあるため）
+  if(d==='approved' && t.getAttribute('data-sure')!=='1'){
+    t.setAttribute('data-sure','1'); t.textContent='本当に送る（もう一度押す）';
+    if(st) st.textContent='送った後は取り消せません。内容を確かめて、もう一度押してください。';
+    setTimeout(function(){ if(t.isConnected && t.getAttribute('data-sure')==='1'){ t.removeAttribute('data-sure'); t.textContent='承認して送る'; if(st) st.textContent=''; } }, 8000);
+    return;
+  }
+  t.disabled=true;
+  if(st) st.textContent='処理しています…';
   api('/api/approval-decide',{code:code, decision:d}).then(function(r){
     if(st) st.textContent = r.decision==='approved' ? '承認しました。送信しています（結果は「やり取り」に残ります）' : '却下しました。送りません。';
     setTimeout(function(){ lastApv=-1; drawApprovals(); }, 2500);
@@ -1497,7 +1505,7 @@ function openInvoice(c, is){
     +'<table><tr><th>内容</th><th>数量</th><th>単価（税別）</th><th>金額（税別）</th></tr><tr><td>'+esc(v.item)+'</td><td class="r">1</td><td class="r">'+yen(v.subtotal)+'</td><td class="r">'+yen(v.subtotal)+'</td></tr></table>'
     +'<table style="width:50%;margin-left:auto"><tr><th>小計（10%対象）</th><td class="r">'+yen(v.subtotal)+'</td></tr><tr><th>消費税（10%）</th><td class="r">'+yen(v.tax)+'</td></tr><tr><th>合計</th><td class="r"><b>'+yen(v.total)+'</b></td></tr></table>'
     +'<p><b>お振込先</b><br>'+esc(is.bank||'【振込先：未入力】')+'<br>※振込手数料はご負担くださいますようお願いいたします。</p></body></html>';
-  var w=window.open('','_blank'); if(!w){ alert('ポップアップが止められました。許可してください。'); return; }
+  var w=window.open('','_blank'); if(!w){ var bx=document.getElementById('blBox'); if(bx) bx.insertAdjacentHTML('afterbegin','<div class="note warn">請求書の画面を開けませんでした。ChromeやSafariでこのアプリを開いてから、もう一度押してください。</div>'); return; }
   w.document.open(); w.document.write(h); w.document.close();
 }
 
@@ -1577,7 +1585,10 @@ function lineConnect(overwrite){
     if(r.status==='confirm_overwrite'){
       st.innerHTML='<span style="color:var(--bad)">「'+esc(r.bot.name)+'」には、すでに別のWebhook URLが入っています：'+esc(r.current)+'<br>上書きすると、今そのURLで動いている仕組みにはLINEのメッセージが届かなくなります。</span>'
         +'<div class="bar"><button class="btn" id="lnOver">上書きしてつなぐ</button><button class="btn main" id="lnKeep">Webhookは変えずにつなぐ</button></div>';
-      document.getElementById('lnOver').onclick=function(){ if(confirm('今のWebhook URLを上書きします。よろしいですか？')) lineConnect(true); };
+      document.getElementById('lnOver').onclick=function(){
+        var b=this; if(b.getAttribute('data-sure')==='1'){ lineConnect(true); return; }
+        b.setAttribute('data-sure','1'); b.textContent='本当に上書きする（もう一度押す）';
+      };
       document.getElementById('lnKeep').onclick=function(){ document.getElementById('lnHook').checked=false; lineConnect(false); };
       return;
     }
@@ -1948,7 +1959,6 @@ function lgImport(file){
     var head=rows[0].map(function(h){ return h.trim(); });
     var data=rows.slice(1).filter(function(r){ return !/^例）/.test((r[0]||'').trim()); }).map(function(r){ var o={}; head.forEach(function(h,j){ o[h]=r[j]==null?'':r[j]; }); return o; });
     if(!data.length) throw new Error('取り込むデータがありません');
-    if(!confirm((LG.kind==='property'?'物件':'お客様')+'を '+data.length+' 件取り込みます。よろしいですか？')) { msg.innerHTML=''; return; }
     var total=0, errs=[], errCount=0, k=0;
     function next(){
       var chunk=data.slice(k,k+500);
@@ -1959,7 +1969,11 @@ function lgImport(file){
       api('/api/ledger-import',{kind:LG.kind, rows:chunk, startLine:k+2}).then(function(r){ total+=r.inserted; errCount+=r.errorCount; errs=errs.concat(r.errors||[]); k+=500; next(); })
         .catch(function(e){ msg.innerHTML='<div class="note warn">途中で止まりました（'+total+' 件まで取り込み済み）：'+esc(e.message)+'</div>'; lgLoad(); });
     }
-    msg.innerHTML='<div class="note">取り込んでいます…</div>'; next();
+    // 確認は小窓（confirm）を使わず、画面のボタンで（小窓が出ないブラウザがあるため）
+    msg.innerHTML='<div class="note">'+(LG.kind==='property'?'物件':'お客様')+'を '+data.length+' 件取り込みます。よろしいですか？　'
+      +'<button class="btn main" id="lgYes">取り込む</button> <button class="btn" id="lgNo">やめる</button></div>';
+    document.getElementById('lgNo').onclick=function(){ msg.innerHTML=''; };
+    document.getElementById('lgYes').onclick=function(){ msg.innerHTML='<div class="note">取り込んでいます…</div>'; next(); };
   }).catch(function(e){ msg.innerHTML='<div class="note warn">'+esc(e.message)+'</div>'; });
 }
 function lgInit(){
