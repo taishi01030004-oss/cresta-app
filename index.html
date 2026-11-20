@@ -477,6 +477,7 @@
       <button class="btn" id="lgGo">探す</button>
       <span id="lgW" style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn main" id="lgNew">＋ 新しく登録</button>
+        <label class="btn main" id="lgDocW" style="cursor:pointer">📄 資料から登録（PDF・写真）<input type="file" id="lgDoc" accept="application/pdf,image/jpeg,image/png,image/webp" style="display:none"></label>
         <label class="btn" style="cursor:pointer">CSVを取り込む<input type="file" id="lgFile" accept=".csv,text/csv" style="display:none"></label>
         <button class="btn sm" id="lgTpl">見本のCSV</button>
       </span>
@@ -2141,6 +2142,7 @@ function lgTabs(k){
 }
 function lgKind(k){
   LG.kind=k; lgTabs(k);
+  document.getElementById('lgDocW').style.display = k==='property' ? '' : 'none';
   var isInbox=(k==='inbox');
   ['lgQ','lgS','lgGo'].forEach(function(id){ document.getElementById(id).style.display=isInbox?'none':''; });
   if(isInbox){ document.getElementById('lgW').style.display='none'; document.getElementById('lgForm').innerHTML=''; document.getElementById('lgMsg').innerHTML=''; inboxLoad(); return; }
@@ -2190,9 +2192,12 @@ function lgDraw(){
       +(w?'<button class="btn sm" data-edit="'+esc(x.id)+'">編集</button>':'')+'</div><div id="lm-'+esc(x.id)+'" style="width:100%"></div></div>';
   }).join('');
 }
-function lgForm(item){
-  var d=LG_DEF[LG.kind], v=item||{};
-  var h='<div class="card" style="margin-bottom:12px"><div class="lform">';
+function lgForm(item, extra){
+  var d=LG_DEF[LG.kind], v=item||{}, isNew=!(item&&item.id);
+  extra=extra||{};
+  var h='<div class="card" style="margin-bottom:12px">';
+  if(extra.file) h+='<div class="row"><span class="what"><b>「'+esc(extra.file.name)+'」から'+extra.filled+'項目を読み取りました</b><span>AIが読み取った内容です。資料と見比べて、違うところは直してから保存してください。空欄は資料に書いていなかった項目です。</span></span></div>';
+  h+='<div class="lform">';
   d.fields.forEach(function(f){
     var val=v[f[0]]; if(val==null) val='';
     if(f[0]==='price'||f[0]==='rent'||f[0]==='budgetMin'||f[0]==='budgetMax'){ val = val==='' ? '' : String(val); }
@@ -2202,15 +2207,52 @@ function lgForm(item){
     else h+='<input data-f="'+f[0]+'" value="'+esc(val)+'">';
     h+='</label>';
   });
-  h+='</div><div class="bar" style="padding:0 15px 12px"><button class="btn main" id="lgSave">保存する</button><button class="btn" id="lgCancel">やめる</button><span class="state" id="lgSt"></span></div></div>';
+  h+='</div>';
+  var dkeys=Object.keys(extra.details||{});
+  if(dkeys.length){
+    var lab={}; CRM_DETAIL.forEach(function(x){ lab[x[0]]=x[1]; });
+    h+='<div class="row"><span class="what"><b>詳しい情報（一緒に保存します）</b></span></div><div class="lform" id="lgDet">'+dkeys.map(function(k){ return '<label>'+esc(lab[k]||k)+'<input data-dk="'+k+'" value="'+esc(extra.details[k])+'"></label>'; }).join('')+'</div>';
+  }
+  if(LG.kind==='property') h+='<div class="inl" style="padding:0 15px 10px"><label class="btn" style="cursor:pointer">📷 写真を選ぶ<input type="file" id="lgPh" accept="image/jpeg,image/png,image/webp" multiple style="display:none"></label><span class="state" id="lgPhN">'
+    +(extra.file?'元の資料は「'+(extra.file.type==='application/pdf'?'資料':'図面')+'」として物件に付けます。':'')+'写真は保存のあとに入れます。</span></div>';
+  h+='<div class="bar" style="padding:0 15px 12px"><button class="btn main" id="lgSave">保存する</button><button class="btn" id="lgCancel">やめる</button><span class="state" id="lgSt"></span></div></div>';
   var box=document.getElementById('lgForm'); box.innerHTML=h; box.scrollIntoView({behavior:'smooth',block:'nearest'});
+  var photos=[];
+  var ph=document.getElementById('lgPh');
+  if(ph) ph.onchange=function(e){ photos=Array.prototype.slice.call(e.target.files); document.getElementById('lgPhN').textContent='写真'+photos.length+'枚を選びました（保存のあとに入れます）。'; };
   document.getElementById('lgCancel').onclick=function(){ box.innerHTML=''; };
   document.getElementById('lgSave').onclick=function(){
     var o={}; box.querySelectorAll('[data-f]').forEach(function(el){ o[el.getAttribute('data-f')]=el.value; });
-    document.getElementById('lgSt').textContent='保存しています…';
-    api('/api/ledger-save',{kind:LG.kind, id:item?item.id:null, item:o}).then(function(){ box.innerHTML=''; lgLoad(); })
-      .catch(function(e){ document.getElementById('lgSt').textContent=e.message; });
+    var det=null; if(document.getElementById('lgDet')){ det={}; box.querySelectorAll('[data-dk]').forEach(function(el){ det[el.getAttribute('data-dk')]=el.value; }); }
+    var st=document.getElementById('lgSt'), btn=this; st.textContent='保存しています…'; btn.disabled=true;
+    var kind=LG.kind;
+    api('/api/ledger-save',{kind:kind, id:isNew?null:item.id, item:o}).then(function(r){
+      var pid=r.item&&r.item.id;
+      if(kind!=='property' || !pid || (!det && !extra.file && !photos.length)){ box.innerHTML=''; lgLoad(); return; }
+      var chain=Promise.resolve();
+      if(det) chain=chain.then(function(){ return api('/api/crm-property-extra',{id:pid, details:det}); });
+      if(extra.file) chain=chain.then(function(){ return crmUploadFiles(pid, [extra.file], extra.file.type==='application/pdf'?'資料':'図面', function(m){ st.textContent=m; }); });
+      if(photos.length) chain=chain.then(function(){ return crmUploadFiles(pid, photos, '写真', function(m){ st.textContent=m; }); });
+      return chain.then(function(){ box.innerHTML=''; CRM.back=function(){ lgKind('property'); }; crmProperty(pid); })
+        .catch(function(e){ st.textContent='物件は保存しました。ただし：'+e.message; btn.disabled=false; isNew=false; item={id:pid}; });
+    }).catch(function(e){ st.textContent=e.message; btn.disabled=false; });
   };
+}
+/* 資料（販売図面のPDF・写真）を読み取って、登録の画面に入れる */
+function lgFromDoc(file){
+  var msg=document.getElementById('lgMsg');
+  if(file.size>6*1024*1024 && file.type==='application/pdf'){ msg.innerHTML='<div class="card"><div class="row"><span class="what"><span style="color:var(--bad)">PDFは6MBまでにしてください。</span></span></div></div>'; return; }
+  msg.innerHTML='<div class="card"><div class="row"><span class="what"><b>「'+esc(file.name)+'」を読み取っています…</b><span>AIが資料を読んでいます。30秒〜1分ほどかかります。</span></span></div></div>';
+  crmShrink(file).then(function(g){
+    return new Promise(function(ok,ng){ var fr=new FileReader(); fr.onload=function(){ ok({g:g, data:String(fr.result)}); }; fr.onerror=function(){ ng(new Error('ファイルを読めませんでした')); }; fr.readAsDataURL(g); });
+  }).then(function(x){
+    return api('/api/crm-doc-read',{name:file.name, mime:x.g.type, data:x.data}).then(function(r){
+      msg.innerHTML='';
+      var item={}; Object.keys(r.property).forEach(function(k){ if(r.property[k]!=null) item[k]=r.property[k]; });
+      delete item.id;
+      lgForm(item, {file:x.g, details:r.details||{}, filled:r.filled});
+    });
+  }).catch(function(e){ msg.innerHTML='<div class="card"><div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div></div>'; });
 }
 /* CSV：Shift_JIS と UTF-8 の両方を読み、ダブルクォートの中の改行・カンマにも対応 */
 function lgDecode(buf){
@@ -2269,6 +2311,7 @@ function lgInit(){
   document.getElementById('lgQ').addEventListener('keydown',function(e){ if(e.key==='Enter') lgLoad(); });
   document.getElementById('lgS').onchange=lgLoad;
   document.getElementById('lgNew').onclick=function(){ lgForm(null); };
+  document.getElementById('lgDoc').onchange=function(e){ var f=e.target.files[0]; if(f) lgFromDoc(f); e.target.value=''; };
   document.getElementById('lgFile').onchange=function(e){ var f=e.target.files[0]; if(f) lgImport(f); e.target.value=''; };
   document.getElementById('lgTpl').onclick=function(){
     var blob=new Blob(['﻿'+LG_DEF[LG.kind].tpl],{type:'text/csv'}), a=document.createElement('a');
@@ -2479,21 +2522,28 @@ function crmShrink(file){
     img.src=u;
   });
 }
-function crmUpload(files){
-  var pid=CRM.p.property.id, st=document.getElementById('pfSt'), kind=document.getElementById('pfKind').value, list=Array.prototype.slice.call(files), n=0;
+/* 物件にファイルを入れる（1つずつ。写真は小さくしてから） */
+function crmUploadFiles(pid, files, kind, say){
+  var list=Array.prototype.slice.call(files), n=0;
   function next(){
-    if(!list.length){ st.textContent=n+'件入れました。'; setTimeout(function(){ crmProperty(pid); }, 600); return; }
-    var f=list.shift(); st.textContent='入れています…（'+f.name+'）';
-    crmShrink(f).then(function(g){
+    if(!list.length) return Promise.resolve(n);
+    var f=list.shift(); say('入れています…（'+(n+1)+'件目：'+f.name+'）');
+    return crmShrink(f).then(function(g){
       return api('/api/crm-file-upload',{propertyId:pid, mime:g.type, size:g.size, kind:kind}).then(function(u){
         return fetch(u.url,{method:'PUT', headers:{'content-type':g.type}, body:g}).then(function(res){
           if(!res.ok) throw new Error('アップロードに失敗しました（'+res.status+'）');
-          return api('/api/crm-file-done',{propertyId:pid, path:u.path, name:f.name, mime:g.type, size:g.size, kind:kind});
+          return api('/api/crm-file-done',{propertyId:pid, path:u.path, name:f.name||'写真.jpg', mime:g.type, size:g.size, kind:kind});
         });
       });
-    }).then(function(){ n++; next(); }).catch(function(e){ st.textContent=e.message; });
+    }).then(function(){ n++; return next(); });
   }
-  next();
+  return next();
+}
+function crmUpload(files){
+  var pid=CRM.p.property.id, st=document.getElementById('pfSt'), kind=document.getElementById('pfKind').value;
+  crmUploadFiles(pid, files, kind, function(m){ st.textContent=m; })
+    .then(function(n){ st.textContent=n+'件入れました。'; setTimeout(function(){ crmProperty(pid); }, 600); })
+    .catch(function(e){ st.textContent=e.message; });
 }
 
 /* 案内の一覧 */
