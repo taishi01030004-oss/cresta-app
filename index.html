@@ -422,6 +422,8 @@
   <section id="s3">
     <h2 style="margin-top:0">承認待ち（お客様への連絡など）</h2>
     <div class="card" id="apv"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
+    <h2>Googleカレンダー（これから2週間）</h2>
+    <div class="card" id="gcEv"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
     <h2>未処理</h2>
     <div class="card" id="pend"></div>
     <h2>毎日ひとりでに動くもの</h2>
@@ -458,7 +460,7 @@
   <section id="s5">
     <div class="jumps" id="setJumps">
       <button onclick="setJump('会社とメンバー')">メンバー</button><button onclick="setJump('利用量とプラン')">プラン</button><button onclick="setJump('請求')">請求</button>
-      <button onclick="setJump('会社の設定')">会社の設定</button><button onclick="setJump('LINE公式アカウント')">LINE</button><button onclick="setJump('メール')">メール</button><button onclick="setJump('接続と設定')">接続</button>
+      <button onclick="setJump('会社の設定')">会社の設定</button><button onclick="setJump('LINE公式アカウント')">LINE</button><button onclick="setJump('メール')">メール</button><button onclick="setJump('Googleカレンダー')">カレンダー</button><button onclick="setJump('接続と設定')">接続</button>
     </div>
     <h2 style="margin-top:6px">会社とメンバー</h2>
     <div id="acct"><div class="card"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div></div>
@@ -607,6 +609,15 @@ function logout(){
   if(a && CONF && CONF.anonKey) fetch(CONF.supabaseUrl + '/auth/v1/logout?scope=local', {method:'POST', headers:{apikey:CONF.anonKey, authorization:'Bearer '+a.access}}).catch(function(){});
   location.reload();
 }
+/* Googleカレンダーをつないで戻ってきたとき（#gcal=ok / ng） */
+var GCAL_FLASH=null;
+(function(){
+  var gm=/^#gcal=(ok|ng)(?:&m=(.*))?/.exec(location.hash||'');
+  if(!gm) return;
+  var msg=''; try{ msg=decodeURIComponent(gm[2]||''); }catch(e){}
+  GCAL_FLASH={ok:gm[1]==='ok', msg:msg};
+  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){ location.hash=''; }
+})();
 /* 招待リンク（#signup=コード）で開いたときは、登録画面にコードを入れておく */
 (function(){
   // 査定書の共有リンク（#report=…）：ログインなしで査定書だけを表示する
@@ -635,6 +646,7 @@ function open_(s){
   loadSkills().catch(function(){});
   setInterval(poll, 4000);
   setInterval(clock, 1000); clock();
+  if(GCAL_FLASH){ tab(5); setTimeout(function(){ setJump('Googleカレンダー'); }, 800); }
 }
 function clock(){
   var j = jst();
@@ -1291,6 +1303,7 @@ function drawAcct(){
   h+='<h2 style="margin-top:18px">会社の設定（AIが名乗る会社・地域・得意分野）</h2><div class="card" id="cpBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   h+='<h2 style="margin-top:18px">LINE公式アカウント</h2><div class="card" id="lineBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   h+='<h2 style="margin-top:18px">メール送信の設定</h2><div class="card" id="emBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
+  h+='<h2 style="margin-top:18px">Googleカレンダー</h2><div class="card" id="gcBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   if(ME.can.addCompany){
     h+='<h2 style="margin-top:18px">会社を追加（運営会社だけ）</h2><div class="card"><div class="inl"><input id="cName" placeholder="会社名（例：◯◯不動産）">'
       +'<input id="cOwner" placeholder="社長のお名前（任意）"><button class="btn main" id="cGo">追加して招待コードを作る</button></div><div id="cOut"></div></div>'
@@ -1313,7 +1326,7 @@ function drawAcct(){
       };
     }).catch(function(er){ document.getElementById('selfOut').textContent=er.message; });
   };
-  drawUsage(); drawBilling(); drawProfile(); drawLine(); drawEmail();
+  drawUsage(); drawBilling(); drawProfile(); drawLine(); drawEmail(); drawGcal();
   if(ME.can.invite){
     drawMembers();
     document.getElementById('iGo').onclick=function(){
@@ -1403,12 +1416,12 @@ function drawApprovals(){
   api('/api/approvals').then(function(r){
     if(!r.items.length){ box.innerHTML='<div class="row"><span class="what"><span>承認待ちはありません。</span></span></div>'; return; }
     box.innerHTML=r.items.map(function(a){
-      var head = a.type==='customer_message' ? esc(a.to)+'へ（'+(a.channel==='line'?'LINE':'メール')+'）' : esc(a.summary);
+      var head = a.type==='customer_message' ? esc(a.to)+'へ（'+(a.channel==='line'?'LINE':'メール')+'）' : a.type==='calendar_event' ? '📅 Googleカレンダーに予定を入れる' : esc(a.summary);
       return '<div class="apv"><div><span class="badge">'+esc(a.code)+'</span><b>'+head+'</b></div>'
         +(a.subject?'<div class="state">件名：'+esc(a.subject)+'</div>':'')
         +(a.body?'<div class="bd">'+esc(a.body)+'</div>':'')
         +'<div class="state">依頼：'+esc(a.by)+'・期限 '+fmtAt(a.expiresAt)+'</div>'
-        +(r.canDecide?'<div class="bar"><button class="btn main" data-apv="'+esc(a.code)+'" data-d="approved">承認して送る</button><button class="btn" data-apv="'+esc(a.code)+'" data-d="rejected">却下</button><span class="state" id="apSt-'+esc(a.code)+'"></span></div>'
+        +(r.canDecide?'<div class="bar"><button class="btn main" data-apv="'+esc(a.code)+'" data-d="approved" data-lb="'+(a.type==='calendar_event'?'入れる':'送る')+'">承認して'+(a.type==='calendar_event'?'入れる':'送る')+'</button><button class="btn" data-apv="'+esc(a.code)+'" data-d="rejected">却下</button><span class="state" id="apSt-'+esc(a.code)+'"></span></div>'
           :'<div class="state">承認できるのはオーナー・管理者です。</div>')+'</div>';
     }).join('');
   }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
@@ -1419,15 +1432,17 @@ document.addEventListener('click', function(e){
   var st=document.getElementById('apSt-'+code);
   // 確認は小窓（confirm）を使わず、ボタンを2回押してもらう（小窓が出ないブラウザがあるため）
   if(d==='approved' && t.getAttribute('data-sure')!=='1'){
-    t.setAttribute('data-sure','1'); t.textContent='本当に送る（もう一度押す）';
-    if(st) st.textContent='送った後は取り消せません。内容を確かめて、もう一度押してください。';
-    setTimeout(function(){ if(t.isConnected && t.getAttribute('data-sure')==='1'){ t.removeAttribute('data-sure'); t.textContent='承認して送る'; if(st) st.textContent=''; } }, 8000);
+    var lb=t.getAttribute('data-lb')||'送る';
+    t.setAttribute('data-sure','1'); t.textContent='本当に'+lb+'（もう一度押す）';
+    if(st) st.textContent=lb==='送る'?'送った後は取り消せません。内容を確かめて、もう一度押してください。':'内容（日時・名前）を確かめて、もう一度押してください。';
+    setTimeout(function(){ if(t.isConnected && t.getAttribute('data-sure')==='1'){ t.removeAttribute('data-sure'); t.textContent='承認して'+lb; if(st) st.textContent=''; } }, 8000);
     return;
   }
   t.disabled=true;
   if(st) st.textContent='処理しています…';
   api('/api/approval-decide',{code:code, decision:d}).then(function(r){
-    if(st) st.textContent = r.decision==='approved' ? '承認しました。送信しています（結果は「やり取り」に残ります）' : '却下しました。送りません。';
+    if(st) st.textContent = r.decision==='approved' ? (t.getAttribute('data-lb')==='入れる'?'承認しました。カレンダーに入れています。':'承認しました。送信しています（結果は「やり取り」に残ります）') : '却下しました。送りません。';
+    if(r.decision==='approved' && t.getAttribute('data-lb')==='入れる') setTimeout(drawGcalEvents, 5000);
     setTimeout(function(){ lastApv=-1; drawApprovals(); }, 2500);
   }).catch(function(er){ if(st) st.textContent=er.message; });
 });
@@ -1457,6 +1472,92 @@ function drawEmail(){
       var st=document.getElementById('emSt'); st.textContent='送っています…';
       api('/api/email-test',{to:document.getElementById('emTo').value}).then(function(){ st.textContent='テストメールを送りました。届いたか確かめてください。'; })
         .catch(function(e){ st.textContent=e.message; });
+    };
+  }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+
+/* ---------- Googleカレンダー ---------- */
+function gcWhen(e){
+  var d=function(s){ var j=e.allDay?new Date(s+'T12:00:00+09:00'):jst(s); return (j.getMonth()+1)+'/'+j.getDate()+'('+'日月火水木金土'[e.allDay?j.getDay():j.getDay()]+')'; };
+  if(e.allDay) return d(e.start)+(e.end&&e.end!==e.start?'〜'+d(e.end):'')+' 終日';
+  var a=jst(e.start), b=jst(e.end);
+  return d(e.start)+' '+z(a.getHours())+':'+z(a.getMinutes())+'〜'+z(b.getHours())+':'+z(b.getMinutes());
+}
+function drawGcal(){
+  var box=document.getElementById('gcBox'); if(!box) return;
+  api('/api/gcal').then(function(r){
+    var h='';
+    if(GCAL_FLASH){ h+='<div class="row"><span class="what"><b style="color:'+(GCAL_FLASH.ok?'var(--ok,#3fae6a)':'var(--bad)')+'">'+esc(GCAL_FLASH.msg||(GCAL_FLASH.ok?'つながりました':'つなげませんでした'))+'</b></span></div>'; GCAL_FLASH=null; }
+    h+='<div class="row"><span class="what"><b>'+(r.connected?'つながっています：'+esc(r.email||'Googleアカウント'):'まだつながっていません')+'</b>'
+      +'<span>会社のGoogleカレンダーを1つつなぐと、「予定」タブに予定が並び、LINEやアプリで「明日の予定」と聞けます。AIが予定を入れるときは、承認されてから入ります。</span></span></div>';
+    if(!r.serverReady){
+      h+='<div class="row"><span class="what" style="overflow-wrap:anywhere;min-width:0"><b>準備中</b><span>サーバーにGoogleのキー（GOOGLE_CLIENT_ID・GOOGLE_CLIENT_SECRET）がまだ入っていません。</span>'
+        +(r.redirectUri?'<span>Google Cloud に登録する「リダイレクトURI」：<br><code style="word-break:break-all">'+esc(r.redirectUri)+'</code> <button class="btn sm" data-copy="'+esc(r.redirectUri)+'">コピー</button></span>':'')+'</span></div>';
+    } else if(r.canManage){
+      h+='<div class="bar" style="padding:0 15px 12px"><button class="btn main" id="gcGo">'+(r.connected?'つなぎ直す':'Googleカレンダーをつなぐ')+'</button>'
+        +(r.connected?'<button class="btn" id="gcOff">外す</button>':'')+'<span class="state" id="gcSt"></span></div>'
+        +'<div class="state" style="padding:0 15px 12px">Googleの画面で「このアプリはGoogleで確認されていません」と出たら、「詳細」→「（安全でないページ）に移動」で進めます（自社用のアプリのため）。鍵はサーバーの金庫に保存し、画面やAIには出しません。</div>';
+    } else {
+      h+='<div class="state" style="padding:0 15px 12px">つなぐ・外すのは、オーナー・管理者です。</div>';
+    }
+    box.innerHTML=h;
+    box.onclick=function(e){
+      var c=e.target.getAttribute && e.target.getAttribute('data-copy');
+      if(c){ (navigator.clipboard?navigator.clipboard.writeText(c):Promise.reject()).then(function(){ e.target.textContent='コピーしました'; }).catch(function(){ e.target.textContent='長押しでコピーしてください'; }); }
+    };
+    var go=document.getElementById('gcGo');
+    if(go) go.onclick=function(){
+      var st=document.getElementById('gcSt'); st.textContent='Googleの画面を開いています…'; go.disabled=true;
+      api('/api/gcal-start',{}).then(function(x){ location.href=x.url; }).catch(function(er){ st.textContent=er.message; go.disabled=false; });
+    };
+    var off=document.getElementById('gcOff');
+    if(off) off.onclick=function(){
+      var st=document.getElementById('gcSt');
+      if(off.getAttribute('data-sure')!=='1'){ off.setAttribute('data-sure','1'); off.textContent='本当に外す（もう一度押す）'; st.textContent='外すと、予定の表示と追加が止まります（カレンダーの予定は消えません）。'; return; }
+      off.disabled=true; st.textContent='外しています…';
+      api('/api/gcal-disconnect',{}).then(function(){ drawGcal(); drawGcalEvents(); }).catch(function(er){ st.textContent=er.message; off.disabled=false; });
+    };
+  }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+function drawGcalEvents(){
+  var box=document.getElementById('gcEv'); if(!box) return;
+  api('/api/gcal',{events:true}).then(function(r){
+    if(!r.connected){
+      box.innerHTML='<div class="row"><span class="what"><span>Googleカレンダーはまだつながっていません。'+(r.canManage?'「設定」タブの「Googleカレンダー」からつなげます。':'オーナー・管理者につないでもらってください。')+'</span></span></div>';
+      return;
+    }
+    var h='';
+    if(r.eventsError) h+='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(r.eventsError)+'</span></span></div>';
+    else if(!(r.events||[]).length) h+='<div class="row"><span class="what"><span>これから2週間の予定はありません。</span></span></div>';
+    (r.events||[]).forEach(function(e){
+      h+='<div class="row"><span class="when" style="min-width:150px">'+esc(gcWhen(e))+'</span><span class="what"><b>'+esc(e.title)+'</b>'+(e.location?'<span>'+esc(e.location)+'</span>':'')+'</span>'
+        +(e.link?linkHtml(e.link,'開く'):'')+'</div>';
+    });
+    if(r.canAdd){
+      h+='<details style="padding:4px 15px 12px"><summary style="cursor:pointer">＋ 予定を入れる</summary><div class="fm" style="max-width:520px">'
+        +'<label for="geT">予定の名前（例：山田様 内見）</label><input id="geT" maxlength="100">'
+        +'<label for="geD">日付</label><input id="geD" type="date">'
+        +'<label><input type="checkbox" id="geA" style="width:auto"> 終日</label>'
+        +'<div class="inl" id="geTm"><input id="geS" type="time" value="10:00"> 〜 <input id="geE" type="time" value="11:00"></div>'
+        +'<label for="geL">場所（なくても可）</label><input id="geL" maxlength="200">'
+        +'<label for="geM">メモ（なくても可・お客様の電話番号などは書かない）</label><input id="geM" maxlength="1000">'
+        +'<div class="bar"><button class="btn main" id="geGo">カレンダーに入れる</button><span class="state" id="geSt"></span></div>'
+        +'<div class="state">オーナー・管理者が入れると、すぐに入ります。それ以外の人が入れると、承認待ちになります。</div></div></details>';
+    }
+    box.innerHTML=h;
+    var go=document.getElementById('geGo'); if(!go) return;
+    var dd=document.getElementById('geD'); var j=jst(); dd.value=j.getFullYear()+'-'+z(j.getMonth()+1)+'-'+z(j.getDate());
+    document.getElementById('geA').onchange=function(){ document.getElementById('geTm').style.display=this.checked?'none':'flex'; };
+    go.onclick=function(){
+      var st=document.getElementById('geSt'), d=dd.value, all=document.getElementById('geA').checked;
+      var ev={title:document.getElementById('geT').value, start: all?d:d+'T'+document.getElementById('geS').value, end: all?d:d+'T'+document.getElementById('geE').value,
+        location:document.getElementById('geL').value, description:document.getElementById('geM').value};
+      go.disabled=true; st.textContent='登録しています…';
+      api('/api/gcal-add',{event:ev}).then(function(x){
+        st.textContent = x.added ? 'カレンダーに入れています…' : '承認待ちにしました（コード '+x.code+'）。オーナー・管理者が承認すると入ります。';
+        lastApv=-1; drawApprovals();
+        setTimeout(drawGcalEvents, x.added?5000:3000);
+      }).catch(function(er){ st.textContent=er.message; go.disabled=false; });
     };
   }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
 }
@@ -2173,6 +2274,7 @@ function lgInit(){
 function tab(i){
   if(i===2) sbLoad();
   if(i===4) lgInit();
+  if(i===3) drawGcalEvents();
   var ns=document.querySelectorAll('nav button'), ss=document.querySelectorAll('section');
   for(var k=0;k<ns.length;k++) ns[k].className=((ns[k].getAttribute('data-tabs')||'').split(',').indexOf(String(i))>=0?'on':'');
   for(var k=0;k<ss.length;k++) ss[k].className=(ss[k].id==='s'+i?'on':'');
