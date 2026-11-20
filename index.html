@@ -399,8 +399,8 @@
     <button class="on" data-tabs="0" onclick="tab(0)">いま</button>
     <button data-tabs="1,2" onclick="tab(1)">会話</button>
     <button data-tabs="3" onclick="tab(3)">予定</button>
-    <button data-tabs="4" onclick="tab(4)">顧客</button>
-    <button data-tabs="6" onclick="tab(6)">物件</button>
+    <button data-tabs="4" onclick="tab(4)">顧客管理</button>
+    <button data-tabs="6" onclick="tab(6)">物件管理</button>
     <button data-tabs="5" onclick="tab(5)">設定</button>
   </nav>
 
@@ -469,9 +469,17 @@
 
   <section id="s4">
     <div class="bar lgtabs" style="margin-top:0">
-      <button class="btn" id="lgT">今日の追客</button>
       <button class="btn" id="lgC" data-k="customer">顧客一覧</button>
+      <button class="btn" id="dA" data-dg="customer" data-ds="申込">申込一覧</button>
+      <button class="btn" id="dK" data-dg="customer" data-ds="契約">契約一覧</button>
+      <button class="btn" id="dS" data-dg="customer" data-ds="決済前">決済前顧客</button>
+      <button class="btn" id="dD" data-dg="customer" data-ds="完了">取引完了顧客</button>
+      <button class="btn" id="lgT">今日の追客</button>
       <button class="btn main" id="lgP" data-k="property">物件一覧</button>
+      <button class="btn" id="pA" data-dg="property" data-ds="申込">申込中物件</button>
+      <button class="btn" id="pK" data-dg="property" data-ds="契約">契約中物件</button>
+      <button class="btn" id="pS" data-dg="property" data-ds="決済前">決済待ち物件</button>
+      <button class="btn" id="pD" data-dg="property" data-ds="完了">取引完了物件</button>
       <button class="btn" id="lgV">案内</button>
       <button class="btn" id="lgI" data-k="inbox">LINE受信箱</button>
       <button class="btn" id="lgN">反響の取り込み</button>
@@ -2249,10 +2257,12 @@ var LG_DEF={
 };
 function lgMan(n){ if(n==null) return ''; return n>=1e8 ? (n/1e8).toFixed(n%1e8?2:0)+'億円' : Math.round(n/1e4).toLocaleString('ja-JP')+'万円'; }
 function lgTabs(k){
-  [['lgT','today'],['lgC','customer'],['lgP','property'],['lgV','viewings'],['lgI','inbox'],['lgN','inquiry']].forEach(function(x){
+  [['lgT','today'],['lgC','customer'],['lgP','property'],['lgV','viewings'],['lgI','inbox'],['lgN','inquiry'],
+   ['dA','customer:申込'],['dK','customer:契約'],['dS','customer:決済前'],['dD','customer:完了'],
+   ['pA','property:申込'],['pK','property:契約'],['pS','property:決済前'],['pD','property:完了']].forEach(function(x){
     document.getElementById(x[0]).className='btn'+(x[1]===k?' main':'');
   });
-  var crm=(k==='today'||k==='viewings'||k==='inquiry'||k==='detail');
+  var crm=(k==='today'||k==='viewings'||k==='inquiry'||k==='detail'||k.indexOf(':')>0);
   document.getElementById('crmView').style.display=crm?'':'none';
   ['lgBar','lgList','lgMsg','lgForm'].forEach(function(id){ document.getElementById(id).style.display=crm?'none':''; });
 }
@@ -2421,6 +2431,7 @@ function lgInit(){
   document.getElementById('lgT').onclick=crmToday;
   document.getElementById('lgV').onclick=crmViewings;
   document.getElementById('lgN').onclick=crmInquiry;
+  Array.prototype.forEach.call(document.querySelectorAll('[data-dg]'), function(b){ b.onclick=function(){ crmDeals(b.getAttribute('data-ds'), b.getAttribute('data-dg')); }; });
   document.getElementById('crmView').onclick=crmClick;
   document.getElementById('crmView').onchange=crmChange;
   document.getElementById('lgGo').onclick=lgLoad;
@@ -2576,6 +2587,7 @@ function crmCustomer(id){
     h+='<div class="card crm-sec"><h4>お客様の情報</h4><div class="facts">'+facts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>'
       +'<div class="facts"><div><small>電話</small>'+(c.phone?'<a class="lk" href="tel:'+esc(c.phone.replace(/[^0-9+]/g,''))+'">'+esc(c.phone)+'</a>':'—')+'</div><div><small>メール</small>'+(c.email?'<a class="lk" href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'—')+'</div></div>'
       +(c.note?'<div class="state" style="white-space:pre-wrap;margin-top:8px">'+esc(c.note)+'</div>':'')+'</div>';
+    h+=crmDealCard(r.deals||[], w, {customerId:c.id}, 'customer');
     var DST={pending:'承認待ち', approved:'送信中', executed:'送信済み', rejected:'却下', expired:'期限切れ', failed:'送れなかった'};
     var dr=r.drafts||[];
     h+='<div class="card crm-sec"><h4>作った連絡（'+dr.length+'件・新しい順）</h4>'+(dr.length?dr.map(function(d,i){
@@ -2623,12 +2635,90 @@ function crmProperty(id){
     if(r.owner) h+='<div class="card crm-sec"><h4>'+(p.deal==='賃貸'?'貸主さん':'売主さん')+'（社内だけ・AIには渡しません）</h4><div class="lform one" style="padding:0" id="poF">'+CRM_OWNER.map(function(o){
       return '<label>'+esc(o[1])+(o[0]==='memo'?'<textarea data-ok="memo" rows="2">'+esc(r.owner.memo||'')+'</textarea>':'<input data-ok="'+o[0]+'" value="'+esc(r.owner[o[0]]||'')+'">')+'</label>';
     }).join('')+'</div><div class="bar"><button class="btn main sm" data-posave="1">保存する</button><span class="state" id="poSt"></span></div></div>';
+    h+=crmDealCard(r.deals||[], w, {propertyId:p.id}, 'property');
     h+='<div class="card crm-sec"><h4>案内した記録（'+r.viewings.length+'件）</h4>'+(r.viewings.length?r.viewings.map(function(v){
       return '<div style="padding:4px 0;font-size:13.5px;cursor:pointer" data-c="'+esc(v.customerId)+'"><b>'+esc(crmWhen(v.at))+'</b> '+esc(v.customer||'')+'様 <span class="badge">'+esc(v.status)+'</span>'+(v.reaction?' <span class="state">'+esc(v.reaction)+'</span>':'')+(v.feedback?'<div class="state">'+esc(v.feedback)+'</div>':'')+'</div>';
     }).join(''):'<div class="state">まだありません。</div>')+'</div>';
     h+='</div></div>';
     crmBox().innerHTML=h; window.scrollTo(0,0);
   }).catch(function(e){ crmBox().innerHTML=crmErr(e); });
+}
+
+/* ---------- 取引（申込 → 契約 → 決済前 → 取引完了） ---------- */
+var DEAL_LABEL={'申込':'申込','契約':'契約','決済前':'決済前','完了':'取引完了','キャンセル':'キャンセル'};
+var DEAL_HELP={'申込':'申込を受けたもの（契約の前）','契約':'契約の準備中（契約日まで）','決済前':'契約が済み、決済・引渡しを待っているもの','完了':'決済・引渡しが済んだもの'};
+var DEAL_TITLE={customer:{'申込':'申込一覧','契約':'契約一覧','決済前':'決済前顧客','完了':'取引完了顧客'}, property:{'申込':'申込中物件','契約':'契約中物件','決済前':'決済待ち物件','完了':'取引完了物件'}};
+function dDate(iso){ return iso ? crmWhen(iso) : '—'; }
+function dYen(n){ return n==null ? '—' : lgMan(n); }
+function crmDealLine(d, side){
+  var who = side==='property' ? '<span class="nm">'+esc(d.property||'（物件なし）')+'</span><span class="state">'+esc(d.customer)+'様</span>'
+                              : '<span class="nm">'+esc(d.customer)+'様</span><span class="state">'+esc(d.property||'（物件なし）')+'</span>';
+  return '<div class="crm-row" style="cursor:default;flex-wrap:wrap">'+who+'<span class="badge">'+esc(DEAL_LABEL[d.stage]||d.stage)+'</span>'
+    +'<span class="state">申込 '+esc(d.appliedAt?d.appliedAt.slice(5).replace('-','/'):'—')+'・契約 '+esc(dDate(d.contractAt))+'・決済 '+esc(dDate(d.settleAt))+'</span>'
+    +'<span class="state">金額 '+esc(dYen(d.price))+'・売上 '+esc(dYen(d.fee))+'</span>'
+    +'<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">'
+    +(side!=='customer-detail'?'<button class="btn sm" data-dopen-c="'+esc(d.customerId)+'">お客様</button>':'')
+    +(d.propertyId&&side!=='property-detail'?'<button class="btn sm" data-dopen-p="'+esc(d.propertyId)+'">物件</button>':'')
+    +(CRM.dealWrite?'<button class="btn sm main" data-dedit="'+esc(d.id)+'">段階・日にちを変える</button>':'')+'</span>'
+    +'<div id="df-'+esc(d.id)+'" style="width:100%"></div></div>';
+}
+function crmDealCard(deals, w, preset, side){
+  CRM.dealWrite=w; CRM.dealMap=CRM.dealMap||{}; deals.forEach(function(d){ CRM.dealMap[d.id]=d; });
+  CRM.dealPreset=preset; CRM.dealReload=function(){ if(preset.customerId) crmCustomer(preset.customerId); else crmProperty(preset.propertyId); };
+  return '<div class="card crm-sec"><h4>取引（'+deals.length+'件）</h4>'
+    +(deals.length?deals.map(function(d){ return crmDealLine(d, side+'-detail'); }).join(''):'<div class="state">まだありません。申込を受けたら「＋ 申込を登録」から入れてください。</div>')
+    +(w?'<div class="bar"><button class="btn sm main" data-dnew="1">＋ 申込を登録</button></div><div id="df-new"></div>':'')+'</div>';
+}
+function crmDeals(stage, side){
+  lgTabs(side+':'+stage); crmWait(); CRM.back=function(){ crmDeals(stage, side); }; CRM.dealPreset={}; CRM.dealReload=CRM.back;
+  api('/api/crm-deals',{stage:stage}).then(function(r){
+    CRM.dealWrite=r.canWrite; CRM.dealMap={}; r.items.forEach(function(d){ CRM.dealMap[d.id]=d; });
+    var c=r.counts||{};
+    var h='<div class="card"><div class="row"><span class="what"><b>'+esc(DEAL_TITLE[side][stage])+'（'+r.items.length+'件）</b><span>'+esc(DEAL_HELP[stage])+'。お客様・物件は1回だけ登録し、取引の段階で一覧が分かれます。</span>'
+      +'<span class="state">申込 '+(c['申込']||0)+'・契約 '+(c['契約']||0)+'・決済前 '+(c['決済前']||0)+'・取引完了 '+(c['完了']||0)+'</span></span>'
+      +(r.canWrite?'<button class="btn sm main" data-dnew="1">＋ 申込を登録</button>':'')+'</div><div id="df-new"></div>';
+    if(!r.items.length) h+='<div class="crm-row" style="cursor:default"><span>この段階の取引はありません。</span></div>';
+    h+=r.items.map(function(d){ return crmDealLine(d, side); }).join('')+'</div>';
+    h+='<div class="note">段階を進めると、お客様・物件の状態も自動で変わります（進行中＝商談中、取引完了＝成約）。契約日・決済日を入れると、Googleカレンダーにも入ります（オーナー・管理者が入れたときはすぐ、それ以外は承認待ち）。</div>';
+    crmBox().innerHTML=h;
+  }).catch(function(e){ crmBox().innerHTML=crmErr(e); });
+}
+function crmDealForm(id){
+  var d=id==='new'?null:CRM.dealMap[id], box=document.getElementById('df-'+id);
+  if(!box) return;
+  if(box.innerHTML){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="state">読み込んでいます…</div>';
+  crmLists().then(function(L){
+    var pre=CRM.dealPreset||{}, cid=d?d.customerId:(pre.customerId||''), pid=d?(d.propertyId||''):(pre.propertyId||'');
+    var stages=d?['申込','契約','決済前','完了','キャンセル']:['申込','契約','決済前','完了'];
+    box.innerHTML='<div class="lform" style="padding:8px 0 0">'
+      +'<label>お客様<select data-df="customerId"'+(d?' disabled':'')+'>'+crmOpts(L.customers,cid,'（選んでください）')+'</select></label>'
+      +'<label>物件<select data-df="propertyId"'+(d?' disabled':'')+'>'+crmOpts(L.properties,pid,'（なし）')+'</select></label>'
+      +'<label>段階<select data-df="stage">'+stages.map(function(x){ return '<option value="'+x+'"'+((d?d.stage:'申込')===x?' selected':'')+'>'+esc(DEAL_LABEL[x])+'</option>'; }).join('')+'</select></label>'
+      +'<label>申込日<input type="date" data-df="appliedAt" value="'+esc(d&&d.appliedAt||'')+'"></label>'
+      +'<label>契約日時<input type="datetime-local" data-df="contractAt" value="'+esc(d?jstInput(d.contractAt):'')+'"></label>'
+      +'<label>決済日時（引渡し）<input type="datetime-local" data-df="settleAt" value="'+esc(d?jstInput(d.settleAt):'')+'"></label>'
+      +'<label>取引金額（円・万も可）<input data-df="price" inputmode="numeric" value="'+esc(d&&d.price!=null?String(d.price):'')+'" placeholder="例 3500万"></label>'
+      +'<label>手数料など自社の売上（円）<input data-df="fee" inputmode="numeric" value="'+esc(d&&d.fee!=null?String(d.fee):'')+'" placeholder="例 1221000"></label>'
+      +'<label class="wide">メモ<textarea data-df="note" rows="2">'+esc(d&&d.note||'')+'</textarea></label></div>'
+      +'<div class="bar"><button class="btn main sm" data-dsave="'+esc(id)+'">保存する</button><span class="state" id="dfs-'+esc(id)+'">契約日・決済日はGoogleカレンダーにも入ります。</span></div>';
+  }).catch(function(e){ box.innerHTML='<div class="state">'+esc(e.message)+'</div>'; });
+}
+function crmDealMsg(r){
+  var m={added:'カレンダーに入れました', changed:'カレンダーの予定を変えました', deleted:'カレンダーから消しました', pending:'カレンダーは承認待ちです', not_connected:'Googleカレンダーがつながっていないため、カレンダーには入れていません', error:'カレンダーに入れられませんでした'};
+  var parts=(r.calendar||[]).map(function(c){ return c.which+'：'+(m[c.result]||c.result)+(c.code&&c.result==='pending'?'（コード '+c.code+'）':'')+(c.error?'（'+c.error+'）':''); });
+  return '保存しました。'+(parts.length?parts.join('／'):'');
+}
+function crmDealSave(id, btn){
+  var box=document.getElementById('df-'+id), st=document.getElementById('dfs-'+id), d=id==='new'?null:CRM.dealMap[id], val={};
+  Array.prototype.forEach.call(box.querySelectorAll('[data-df]'), function(el){ val[el.getAttribute('data-df')]=el.value; });
+  if(d){ val.customerId=d.customerId; val.propertyId=d.propertyId; }
+  if(!val.propertyId) val.propertyId=null;
+  btn.disabled=true; st.textContent='保存しています…';
+  api('/api/crm-deal', d?{id:id, deal:val}:{deal:val}).then(function(r){
+    st.textContent=crmDealMsg(r); CRM.lists=null;
+    setTimeout(function(){ (CRM.dealReload||CRM.back||crmToday)(); }, 1800);
+  }).catch(function(er){ st.textContent=er.message; btn.disabled=false; });
 }
 
 /* 写真を小さくしてから入れる（長い辺2000px・JPEG） */
@@ -2733,6 +2823,11 @@ function crmClick(e){
   if(!t.getAttribute) return;
   var row=t.closest ? t.closest('[data-c]') : null;
   if(t.getAttribute('data-back')){ (CRM.back||crmToday)(); return; }
+  if(t.getAttribute('data-dnew')){ crmDealForm('new'); return; }
+  if((a=t.getAttribute('data-dedit'))){ crmDealForm(a); return; }
+  if((a=t.getAttribute('data-dsave'))){ crmDealSave(a, t); return; }
+  if((a=t.getAttribute('data-dopen-c'))){ crmCustomer(a); return; }
+  if((a=t.getAttribute('data-dopen-p'))){ crmProperty(a); return; }
   if((a=t.getAttribute('data-qn'))){ var d=t.getAttribute('data-d'); document.getElementById(a).value = d==='' ? '' : jstPlus(Number(d), '10:00'); return; }
   if((a=t.getAttribute('data-ak'))){ Array.prototype.forEach.call(document.querySelectorAll('#caKind button'), function(b){ b.className='btn sm'+(b===t?' main':''); }); return; }
   if(t.getAttribute('data-arec')){
@@ -2820,11 +2915,11 @@ var LG_GROUP=null;
 function lgGroup(g){
   var first=!LG.loaded;
   lgInit();
-  ['lgT','lgC','lgV','lgN','lgI'].forEach(function(id){ document.getElementById(id).style.display = g==='customer' ? '' : 'none'; });
-  document.getElementById('lgP').style.display = g==='property' ? '' : 'none';
+  ['lgT','lgC','lgV','lgN','lgI','dA','dK','dS','dD'].forEach(function(id){ document.getElementById(id).style.display = g==='customer' ? '' : 'none'; });
+  ['lgP','pA','pK','pS','pD'].forEach(function(id){ document.getElementById(id).style.display = g==='property' ? '' : 'none'; });
   if(LG_GROUP===g && !first) return;
   LG_GROUP=g;
-  if(g==='property') lgKind('property'); else crmToday();
+  if(g==='property') lgKind('property'); else lgKind('customer');
 }
 /* 設定の中の見出しへ移動する */
 function setJump(label){
