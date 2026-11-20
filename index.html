@@ -119,6 +119,10 @@
   .xc summary:before{content:'▸';color:var(--muted)} .xc[open] summary:before{content:'▾'}
   .xq{flex:1;font-weight:600;overflow-wrap:anywhere} .xt{font-size:11px;color:var(--muted);white-space:nowrap}
   .xa{padding:2px 14px 12px 14px;line-height:1.7;overflow-wrap:anywhere;border-top:1px dashed var(--line);margin:0 0 0;padding-top:10px}
+  .xc summary{flex-wrap:wrap}
+  .xp{flex-basis:100%;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:18px}
+  .xc[open] .xp{display:none}
+  .xd{font-size:12px;color:var(--gold,#c9a54a);margin:16px 0 4px;font-weight:600}
   .xa hr{border:0;border-top:1px dashed var(--line);margin:10px 0}
   .lcard{padding:14px 15px}
   .lcard .lt b{font-size:15px;margin-bottom:2px}
@@ -418,6 +422,7 @@
     <textarea id="q" placeholder="指示でも質問でも。例：明日16時に山田様へ電話、で登録して"></textarea>
     <div class="bar"><button class="btn main" id="send">送る</button><span class="state" id="ss"></span></div>
     <div class="note" style="margin-top:0">LINEと同じ司令塔AIです。1回ごとのやり取りが、新しい順に並びます。返事まで20秒ほどかかることがあります。</div>
+    <div class="inl" style="padding:6px 0 0"><input id="msgQ" style="flex:1;max-width:460px" placeholder="過去の会話を探す（例：山田、査定、相場）"><span class="state" id="msgN"></span></div>
     <div id="msgs"></div>
   </section>
 
@@ -1122,11 +1127,34 @@ function pend(s){
 
 /* ---------- 会話 ---------- */
 var localMsgs = [];
+var MSG_SIG='', MSG_OPEN={}, MSG_MORE=30;
 function chat(s){
   if(sending) return;
-  localMsgs = (s.chat||[]).slice();
+  var next=(s.chat||[]).slice(), sig=next.length+':'+(next.length?String(next[next.length-1].content).length:0);
+  if(sig===MSG_SIG) return;  // 変わっていなければ描き直さない（開いたカードが閉じないように）
+  MSG_SIG=sig; localMsgs=next;
   drawMsgs();
 }
+/* 答えの1行目（記号を外して短く） */
+function msgPreview(t){ return String(t||'').replace(/[#*_`>|【】\[\]]/g,'').replace(/https?:\/\/\S+/g,'（リンク）').replace(/\s+/g,' ').trim().slice(0,90); }
+function msgDay(at){
+  if(!at) return '';
+  var j=jst(at), t=jst(), y=jst(new Date(Date.now()-86400000));
+  var k=function(d){ return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate(); };
+  if(k(j)===k(t)) return '今日';
+  if(k(j)===k(y)) return '昨日';
+  return (j.getMonth()+1)+'月'+j.getDate()+'日（'+'日月火水木金土'[j.getDay()]+'）';
+}
+(function(){
+  var q=document.getElementById('msgQ'); if(!q) return;
+  q.oninput=function(){ MSG_MORE=30; drawMsgs(); };
+  document.getElementById('msgs').addEventListener('toggle', function(e){
+    var k=e.target.getAttribute && e.target.getAttribute('data-k'); if(k) MSG_OPEN[k]=e.target.open;
+  }, true);
+  document.getElementById('msgs').addEventListener('click', function(e){
+    if(e.target.id==='msgMore'){ MSG_MORE+=30; drawMsgs(); }
+  });
+})();
 /* 1回ごとのやり取り（依頼＋答え）をカードにして、新しい順に並べる。古いものはたたんでおく */
 function drawMsgs(){
   var pairs=[], cur=null;
@@ -1135,12 +1163,25 @@ function drawMsgs(){
     else if(m.role==='assistant'){ if(!cur){ cur={q:'', a:[], at:''}; pairs.push(cur); } cur.a.push(m.content); }
   });
   var box=document.getElementById('msgs');
-  if(!pairs.length){ box.innerHTML='<div class="xc"><div class="xa">こんにちは。何でも聞いてください。</div></div>'; return; }
-  box.innerHTML=pairs.slice().reverse().map(function(p, i){
+  if(!pairs.length){ box.innerHTML='<div class="xc"><div class="xa">こんにちは。何でも聞いてください。</div></div>'; document.getElementById('msgN').textContent=''; return; }
+  var word=(document.getElementById('msgQ').value||'').trim().toLowerCase();
+  var list=pairs.slice().reverse();
+  if(word) list=list.filter(function(p){ return (p.q+' '+p.a.join(' ')).toLowerCase().indexOf(word)>=0; });
+  document.getElementById('msgN').textContent = word ? list.length+'件見つかりました' : '全'+pairs.length+'件（新しい順）';
+  var h='', day=null;
+  list.slice(0, MSG_MORE).forEach(function(p, i){
+    var d=msgDay(p.at);
+    if(d && d!==day){ h+='<div class="xd">'+esc(d)+'</div>'; day=d; }
+    var key=(p.at||'')+'|'+(p.q||'').slice(0,40);
+    var open = key in MSG_OPEN ? MSG_OPEN[key] : (!word && i===0);
     var ans=p.a.length ? p.a.map(function(a){ return rich(a); }).join('<hr>') : '<span class="state">考えています…</span>';
-    var when=p.at?'<span class="xt">'+fmtAt(p.at)+'</span>':'';
-    return '<details class="xc"'+(i<3?' open':'')+'><summary><span class="xq">'+esc((p.q||'（依頼なし）').slice(0,120))+'</span>'+when+'</summary><div class="xa">'+ans+'</div></details>';
-  }).join('');
+    var when=p.at?'<span class="xt">'+esc(fmtAt(p.at).replace(/^.*?(\d+:\d+)$/,'$1'))+'</span>':'';
+    var prev=p.a.length ? '<span class="xp">'+esc(msgPreview(p.a[p.a.length-1]))+'</span>' : '';
+    h+='<details class="xc" data-k="'+esc(key)+'"'+(open?' open':'')+'><summary><span class="xq">'+esc((p.q||'（依頼なし）').slice(0,120))+'</span>'+when+prev+'</summary><div class="xa">'+ans+'</div></details>';
+  });
+  if(list.length>MSG_MORE) h+='<div class="bar"><button class="btn" id="msgMore">もっと前を見る（あと'+(list.length-MSG_MORE)+'件）</button></div>';
+  if(!list.length) h='<div class="state" style="padding:10px 0">見つかりませんでした。</div>';
+  box.innerHTML=h;
 }
 var sending=false;
 document.getElementById('send').onclick = function(){
@@ -1148,7 +1189,7 @@ document.getElementById('send').onclick = function(){
   var st=document.getElementById('ss'), btn=document.getElementById('send');
   if(!text || sending) return;
   sending=true; btn.disabled=true; st.textContent='考えています…';
-  localMsgs.push({role:'user',content:text}); drawMsgs(); ta.value='';
+  localMsgs.push({role:'user',content:text, at:new Date().toISOString()}); MSG_OPEN={}; drawMsgs(); ta.value='';
   runAndWait('/api/chat', text, function(sec){ st.textContent='考えています…（'+sec+'秒）'; }).then(function(r){
     localMsgs.push({role:'assistant',content:showResult(r)}); drawMsgs();
     st.textContent=''; btn.disabled=false; sending=false;
@@ -2535,6 +2576,14 @@ function crmCustomer(id){
     h+='<div class="card crm-sec"><h4>お客様の情報</h4><div class="facts">'+facts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>'
       +'<div class="facts"><div><small>電話</small>'+(c.phone?'<a class="lk" href="tel:'+esc(c.phone.replace(/[^0-9+]/g,''))+'">'+esc(c.phone)+'</a>':'—')+'</div><div><small>メール</small>'+(c.email?'<a class="lk" href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'—')+'</div></div>'
       +(c.note?'<div class="state" style="white-space:pre-wrap;margin-top:8px">'+esc(c.note)+'</div>':'')+'</div>';
+    var DST={pending:'承認待ち', approved:'送信中', executed:'送信済み', rejected:'却下', expired:'期限切れ', failed:'送れなかった'};
+    var dr=r.drafts||[];
+    h+='<div class="card crm-sec"><h4>作った連絡（'+dr.length+'件・新しい順）</h4>'+(dr.length?dr.map(function(d,i){
+      return '<details class="xc" style="margin:6px 0"'+(i===0?' open':'')+'><summary><span class="xq" style="font-weight:500;font-size:13.5px">'+esc(d.createdAt?crmWhen(d.createdAt):'')+'　'+esc(d.channel)
+        +(d.subject?'「'+esc(d.subject)+'」':'')+'</span><span class="badge">'+esc(DST[d.status]||d.status)+'</span></summary>'
+        +'<div class="xa" style="white-space:pre-wrap;font-size:13.5px">'+esc(d.body)+(d.note&&d.status!=='executed'?'<div class="state" style="margin-top:6px">'+esc(d.note)+'</div>':'')
+        +'<div class="state" style="margin-top:6px">作った人：'+esc(d.by||'')+(d.status==='pending'?'　承認は「予定」タブの承認待ち、またはLINEで「承認 '+esc(d.code)+'」':'')+'</div></div></details>';
+    }).join(''):'<div class="state">まだありません。「連絡を作る」や、AIに「〇〇様にメールを作って」と頼むと、ここに残ります。</div>')+'</div>';
     h+='<div class="card crm-sec"><h4>案内（'+r.viewings.length+'件）</h4>'+(r.viewings.length?r.viewings.map(function(v){
       return '<div style="padding:4px 0;font-size:13.5px"><b>'+esc(crmWhen(v.at))+'</b> '+esc(v.property)+' <span class="badge">'+esc(v.status)+'</span>'+(v.reaction?' <span class="state">'+esc(v.reaction)+'</span>':'')+(v.feedback?'<div class="state">'+esc(v.feedback)+'</div>':'')+'</div>';
     }).join(''):'<div class="state">まだありません。</div>');
