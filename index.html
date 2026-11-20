@@ -1301,6 +1301,7 @@ function drawWho(){
   }
   if(ME.legacy) h+='<span style="color:var(--bad)">合言葉で入っています</span>';
   h+='<button class="gl" id="outBtn" style="margin-left:auto">ログアウト</button>';
+  if(ME.company.isDemo) h+='<div style="flex-basis:100%;margin-top:6px;padding:8px 12px;border:1px solid var(--gold,#c9a54a);border-radius:8px;color:var(--gold,#c9a54a);font-size:13px">見本の会社です。物件・お客様などのデータはすべて架空です。お客様への送信・LINE・Googleカレンダーへの反映はしません（承認しても記録だけ）。</div>';
   b.innerHTML=h;
   document.getElementById('outBtn').onclick=logout;
   var sel=document.getElementById('coSel');
@@ -1336,6 +1337,9 @@ function drawAcct(){
   h+='<h2 style="margin-top:18px">LINE公式アカウント</h2><div class="card" id="lineBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   h+='<h2 style="margin-top:18px">メール送信の設定</h2><div class="card" id="emBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   h+='<h2 style="margin-top:18px">Googleカレンダー</h2><div class="card" id="gcBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
+  if(ME.can.demo){
+    h+='<h2 style="margin-top:18px">見本の会社（営業用のデモ）</h2><div class="card" id="dmBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
+  }
   if(ME.can.addCompany){
     h+='<h2 style="margin-top:18px">会社を追加（運営会社だけ）</h2><div class="card"><div class="inl"><input id="cName" placeholder="会社名（例：◯◯不動産）">'
       +'<input id="cOwner" placeholder="社長のお名前（任意）"><button class="btn main" id="cGo">追加して招待コードを作る</button></div><div id="cOut"></div></div>'
@@ -1358,7 +1362,7 @@ function drawAcct(){
       };
     }).catch(function(er){ document.getElementById('selfOut').textContent=er.message; });
   };
-  drawUsage(); drawBilling(); drawProfile(); drawLine(); drawEmail(); drawGcal();
+  drawUsage(); drawBilling(); drawProfile(); drawLine(); drawEmail(); drawGcal(); drawDemo();
   if(ME.can.invite){
     drawMembers();
     document.getElementById('iGo').onclick=function(){
@@ -1448,12 +1452,12 @@ function drawApprovals(){
   api('/api/approvals').then(function(r){
     if(!r.items.length){ box.innerHTML='<div class="row"><span class="what"><span>承認待ちはありません。</span></span></div>'; return; }
     box.innerHTML=r.items.map(function(a){
-      var head = a.type==='customer_message' ? esc(a.to)+'へ（'+(a.channel==='line'?'LINE':'メール')+'）' : a.type==='calendar_event' ? '📅 Googleカレンダーに予定を入れる' : esc(a.summary);
+      var head = a.type==='customer_message' ? esc(a.to)+'へ（'+(a.channel==='line'?'LINE':'メール')+'）' : a.type==='calendar_event' ? '📅 Googleカレンダーに予定を入れる' : a.type==='calendar_event_update' ? '📅 Googleカレンダーの予定を変える' : a.type==='calendar_event_delete' ? '📅 Googleカレンダーの予定を消す' : esc(a.summary);
       return '<div class="apv"><div><span class="badge">'+esc(a.code)+'</span><b>'+head+'</b></div>'
         +(a.subject?'<div class="state">件名：'+esc(a.subject)+'</div>':'')
         +(a.body?'<div class="bd">'+esc(a.body)+'</div>':'')
         +'<div class="state">依頼：'+esc(a.by)+'・期限 '+fmtAt(a.expiresAt)+'</div>'
-        +(r.canDecide?'<div class="bar"><button class="btn main" data-apv="'+esc(a.code)+'" data-d="approved" data-lb="'+(a.type==='calendar_event'?'入れる':'送る')+'">承認して'+(a.type==='calendar_event'?'入れる':'送る')+'</button><button class="btn" data-apv="'+esc(a.code)+'" data-d="rejected">却下</button><span class="state" id="apSt-'+esc(a.code)+'"></span></div>'
+        +(r.canDecide?'<div class="bar"><button class="btn main" data-apv="'+esc(a.code)+'" data-d="approved" data-lb="'+aLb(a.type)+'">承認して'+aLb(a.type)+'</button><button class="btn" data-apv="'+esc(a.code)+'" data-d="rejected">却下</button><span class="state" id="apSt-'+esc(a.code)+'"></span></div>'
           :'<div class="state">承認できるのはオーナー・管理者です。</div>')+'</div>';
     }).join('');
   }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
@@ -1473,8 +1477,9 @@ document.addEventListener('click', function(e){
   t.disabled=true;
   if(st) st.textContent='処理しています…';
   api('/api/approval-decide',{code:code, decision:d}).then(function(r){
-    if(st) st.textContent = r.decision==='approved' ? (t.getAttribute('data-lb')==='入れる'?'承認しました。カレンダーに入れています。':'承認しました。送信しています（結果は「やり取り」に残ります）') : '却下しました。送りません。';
-    if(r.decision==='approved' && t.getAttribute('data-lb')==='入れる') setTimeout(drawGcalEvents, 5000);
+    var lbx=t.getAttribute('data-lb');
+    if(st) st.textContent = r.decision==='approved' ? (lbx!=='送る'?'承認しました。カレンダーに反映しています。':'承認しました。送信しています（結果は「やり取り」に残ります）') : '却下しました。';
+    if(r.decision==='approved' && lbx!=='送る') setTimeout(drawGcalEvents, 5000);
     setTimeout(function(){ lastApv=-1; drawApprovals(); }, 2500);
   }).catch(function(er){ if(st) st.textContent=er.message; });
 });
@@ -1536,7 +1541,36 @@ function drawEmail(){
   }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
 }
 
+/* ---------- 見本の会社（運営会社のオーナーだけ） ---------- */
+function drawDemo(){
+  var box=document.getElementById('dmBox'); if(!box) return;
+  api('/api/demo',{action:'status'}).then(function(r){
+    var h='<div class="row"><span class="what"><b>'+(r.demo?'見本の会社があります：'+esc(r.demo.name):'まだ見本の会社はありません')+'</b>'
+      +'<span>架空の物件10件・お客様8人・対応の記録・案内の予定が入った会社です。営業先で画面を見せるときに使います。外へは何も送りません。</span></span></div>'
+      +'<div class="bar" style="padding:0 15px 12px">'
+      +(r.demo?'<button class="btn main" data-dm="invite">見本の会社に入るための招待コードを出す</button><button class="btn" data-dm="reset">見本のデータを入れ直す</button>'
+              :'<button class="btn main" data-dm="create">見本の会社を作る</button>')
+      +'<span class="state" id="dmSt"></span></div><div id="dmOut" style="padding:0 15px 12px"></div>';
+    box.innerHTML=h;
+    box.onclick=function(e){
+      var a=e.target.getAttribute && e.target.getAttribute('data-dm'); if(!a) return;
+      var st=document.getElementById('dmSt');
+      if(a==='reset' && e.target.getAttribute('data-sure')!=='1'){ e.target.setAttribute('data-sure','1'); e.target.textContent='本当に入れ直す（もう一度押す）'; st.textContent='見本の会社の物件・お客様・記録を全部消して、最初の状態に戻します。'; return; }
+      e.target.disabled=true; st.textContent='しています…';
+      api('/api/demo',{action:a}).then(function(x){
+        st.textContent = a==='reset' ? '入れ直しました（物件'+x.seeded.properties+'件・お客様'+x.seeded.customers+'人）。' : a==='create' ? '作りました（物件'+x.seeded.properties+'件・お客様'+x.seeded.customers+'人）。' : '';
+        if(x.invite) document.getElementById('dmOut').innerHTML='<div class="mt2">招待コード：<b style="font-size:18px;letter-spacing:1px">'+esc(x.invite.code)+'</b> <button class="btn sm" data-copy="'+esc(x.invite.code)+'">コピー</button>'
+          +'<div class="state" style="margin-top:6px">ログイン画面の「招待コードをお持ちの方」でこのコードを使います（期限 '+esc(x.invite.expiresAt.slice(0,10))+'・1回だけ）。<br>'
+          +'このアプリのログインをすでに持っている人は、そのメールアドレスとパスワードで登録すると、上の会社名の切り替えで「見本の会社」と行き来できます。持っていない人は、新しく登録したログインで入ると見本の会社が開きます（例：crestajapan.info+demo@gmail.com のように「+demo」を付けたアドレスでも登録でき、メールはいつもの受信箱に届きます）。</div></div>';
+        if(a==='create') setTimeout(drawDemo, 1500);
+      }).catch(function(er){ st.textContent=er.message; e.target.disabled=false; });
+    };
+  }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+
 /* ---------- Googleカレンダー ---------- */
+function aLb(type){ return type==='calendar_event'?'入れる':type==='calendar_event_update'?'変える':type==='calendar_event_delete'?'消す':'送る'; }
+var GC_EV=[];
 function gcWhen(e){
   var d=function(s){ var j=e.allDay?new Date(s+'T12:00:00+09:00'):jst(s); return (j.getMonth()+1)+'/'+j.getDate()+'('+'日月火水木金土'[e.allDay?j.getDay():j.getDay()]+')'; };
   if(e.allDay) return d(e.start)+(e.end&&e.end!==e.start?'〜'+d(e.end):'')+' 終日';
@@ -1579,6 +1613,43 @@ function drawGcal(){
     };
   }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
 }
+/* 予定の変更・削除（オーナー・管理者はすぐ反映、それ以外は承認待ち） */
+function gcRowClick(e){
+  var t=e.target, i;
+  if(!t.getAttribute) return;
+  if((i=t.getAttribute('data-gcd'))!=null){
+    var ev=GC_EV[+i];
+    if(t.getAttribute('data-sure')!=='1'){ t.setAttribute('data-sure','1'); t.textContent='本当に削除'; setTimeout(function(){ if(t.isConnected){ t.removeAttribute('data-sure'); t.textContent='削除'; } }, 6000); return; }
+    t.disabled=true;
+    api('/api/gcal-change',{action:'delete', eventId:ev.id, before:gcWhen(ev)+' '+ev.title}).then(function(x){
+      t.textContent = x.done ? '削除しています…' : '承認待ち（'+x.code+'）';
+      setTimeout(function(){ lastApv=-1; drawApprovals(); drawGcalEvents(); }, x.done?4000:800);
+    }).catch(function(er){ t.textContent=er.message; });
+    return;
+  }
+  if((i=t.getAttribute('data-gce'))!=null){
+    var ev2=GC_EV[+i], f=document.getElementById('gcf-'+i);
+    if(f.innerHTML){ f.innerHTML=''; return; }
+    var d0=ev2.allDay?ev2.start:jstInput(ev2.start).slice(0,10), s0=ev2.allDay?'10:00':jstInput(ev2.start).slice(11), e0=ev2.allDay?'11:00':jstInput(ev2.end).slice(11);
+    f.innerHTML='<div class="fm" style="max-width:520px;padding:6px 0 4px">'
+      +'<label>予定の名前</label><input data-ge="title" maxlength="100" value="'+esc(ev2.title)+'">'
+      +'<label>日付</label><input data-ge="date" type="date" value="'+esc(d0)+'">'
+      +'<label><input type="checkbox" data-ge="allDay" style="width:auto"'+(ev2.allDay?' checked':'')+'> 終日</label>'
+      +'<div class="inl"><input data-ge="s" type="time" value="'+esc(s0)+'"> 〜 <input data-ge="e" type="time" value="'+esc(e0)+'"></div>'
+      +'<label>場所</label><input data-ge="location" maxlength="200" value="'+esc(ev2.location||'')+'">'
+      +'<div class="bar"><button class="btn main sm" data-gcs="'+i+'">この内容に変える</button><span class="state" id="gcs-'+i+'"></span></div></div>';
+    return;
+  }
+  if((i=t.getAttribute('data-gcs'))!=null){
+    var ev3=GC_EV[+i], box=document.getElementById('gcf-'+i), v={};
+    box.querySelectorAll('[data-ge]').forEach(function(el){ v[el.getAttribute('data-ge')] = el.type==='checkbox' ? el.checked : el.value; });
+    var st=document.getElementById('gcs-'+i); t.disabled=true; st.textContent='変えています…';
+    api('/api/gcal-change',{action:'update', eventId:ev3.id, before:gcWhen(ev3)+' '+ev3.title,
+      event:{title:v.title, start:v.allDay?v.date:v.date+'T'+v.s, end:v.allDay?v.date:v.date+'T'+v.e, location:v.location}})
+      .then(function(x){ st.textContent = x.done ? 'カレンダーを変えています…' : '承認待ちにしました（コード '+x.code+'）。'; setTimeout(function(){ lastApv=-1; drawApprovals(); drawGcalEvents(); }, x.done?4000:1500); })
+      .catch(function(er){ st.textContent=er.message; t.disabled=false; });
+  }
+}
 function drawGcalEvents(){
   var box=document.getElementById('gcEv'); if(!box) return;
   api('/api/gcal',{events:true}).then(function(r){
@@ -1589,9 +1660,12 @@ function drawGcalEvents(){
     var h='';
     if(r.eventsError) h+='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(r.eventsError)+'</span></span></div>';
     else if(!(r.events||[]).length) h+='<div class="row"><span class="what"><span>これから2週間の予定はありません。</span></span></div>';
-    (r.events||[]).forEach(function(e){
-      h+='<div class="row"><span class="when" style="min-width:150px">'+esc(gcWhen(e))+'</span><span class="what"><b>'+esc(e.title)+'</b>'+(e.location?'<span>'+esc(e.location)+'</span>':'')+'</span>'
-        +(e.link?linkHtml(e.link,'開く'):'')+'</div>';
+    GC_EV=r.events||[];
+    GC_EV.forEach(function(e,i){
+      h+='<div class="row" style="flex-wrap:wrap"><span class="when" style="min-width:150px">'+esc(gcWhen(e))+'</span><span class="what"><b>'+esc(e.title)+'</b>'+(e.location?'<span>'+esc(e.location)+'</span>':'')+'</span>'
+        +'<span style="display:flex;gap:6px;align-items:center">'+(e.link?linkHtml(e.link,'開く'):'')
+        +(r.canAdd?'<button class="btn sm" data-gce="'+i+'">変更</button><button class="btn sm" data-gcd="'+i+'">削除</button>':'')+'</span>'
+        +'<div id="gcf-'+i+'" style="flex-basis:100%"></div></div>';
     });
     if(r.canAdd){
       h+='<details style="padding:4px 15px 12px"><summary style="cursor:pointer">＋ 予定を入れる</summary><div class="fm" style="max-width:520px">'
@@ -1605,6 +1679,7 @@ function drawGcalEvents(){
         +'<div class="state">オーナー・管理者が入れると、すぐに入ります。それ以外の人が入れると、承認待ちになります。</div></div></details>';
     }
     box.innerHTML=h;
+    box.onclick=gcRowClick;
     var go=document.getElementById('geGo'); if(!go) return;
     var dd=document.getElementById('geD'); var j=jst(); dd.value=j.getFullYear()+'-'+z(j.getMonth()+1)+'-'+z(j.getDate());
     document.getElementById('geA').onchange=function(){ document.getElementById('geTm').style.display=this.checked?'none':'flex'; };
