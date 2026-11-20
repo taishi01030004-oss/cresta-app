@@ -108,6 +108,24 @@
   .lrow .lt b{display:block;font-size:14px;overflow-wrap:anywhere}
   .lrow .lt span{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
   .lrow .lb{display:flex;gap:6px;flex-wrap:wrap}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;margin:0 0 12px;gap:2px}
+  .seg button{border:0;background:transparent;color:var(--muted);padding:6px 14px;border-radius:999px;font:inherit;font-size:13px;cursor:pointer}
+  .seg button.on{background:var(--gold2,#c9a54a);color:#10221a;font-weight:600}
+  .jumps{display:flex;gap:6px;flex-wrap:wrap;position:sticky;top:0;z-index:5;background:var(--bg,#0f241b);padding:6px 0 8px;margin-bottom:4px}
+  .jumps button{border:1px solid var(--line);background:transparent;color:var(--text);padding:5px 12px;border-radius:999px;font:inherit;font-size:12.5px;cursor:pointer}
+  .xc{border:1px solid var(--line);border-radius:12px;margin:10px 0;background:rgba(255,255,255,.03)}
+  .xc summary{cursor:pointer;padding:10px 14px;display:flex;gap:10px;align-items:baseline;list-style:none}
+  .xc summary::-webkit-details-marker{display:none}
+  .xc summary:before{content:'▸';color:var(--muted)} .xc[open] summary:before{content:'▾'}
+  .xq{flex:1;font-weight:600;overflow-wrap:anywhere} .xt{font-size:11px;color:var(--muted);white-space:nowrap}
+  .xa{padding:2px 14px 12px 14px;line-height:1.7;overflow-wrap:anywhere;border-top:1px dashed var(--line);margin:0 0 0;padding-top:10px}
+  .xa hr{border:0;border-top:1px dashed var(--line);margin:10px 0}
+  .lcard{padding:14px 15px}
+  .lcard .lt b{font-size:15px;margin-bottom:2px}
+  .facts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 14px;margin-top:8px}
+  .facts div{font-size:13px;overflow-wrap:anywhere} .facts small{display:block;font-size:10.5px;color:var(--muted)}
+  .lnote{display:block;white-space:pre-wrap;font-size:12px;color:var(--muted);margin-top:6px;border-left:2px solid var(--line);padding-left:8px}
+  .bubble{display:inline-block;margin-top:6px;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.06);font-size:13px;max-width:100%;overflow-wrap:anywhere}
   .badge{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin-right:4px;color:var(--gold2)}
   .lform{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;padding:12px 15px}
   .lform label{font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
@@ -348,11 +366,11 @@
   </div>
 
   <nav>
-    <button class="on" onclick="tab(0,this)">いま</button>
-    <button onclick="tab(1,this)">会話</button>
-    <button onclick="tab(2,this)">助成金</button>
-    <button onclick="tab(3,this)">予定</button>
-    <button onclick="tab(4,this)">台帳</button>
+    <button class="on" data-tabs="0" onclick="tab(0)">いま</button>
+    <button data-tabs="1,2" onclick="tab(1)">会話</button>
+    <button data-tabs="3" onclick="tab(3)">予定</button>
+    <button data-tabs="4" onclick="tab(4)">台帳</button>
+    <button data-tabs="5" onclick="tab(5)">設定</button>
   </nav>
 
   <section class="on" id="s0">
@@ -368,14 +386,16 @@
   </section>
 
   <section id="s1">
-    <div class="msgs" id="msgs"></div>
+    <div class="seg"><button class="on" onclick="tab(1)">会話</button><button onclick="tab(2)">助成金・補助金</button></div>
     <div class="chips" id="chips"></div>
     <textarea id="q" placeholder="指示でも質問でも。例：明日16時に山田様へ電話、で登録して"></textarea>
     <div class="bar"><button class="btn main" id="send">送る</button><span class="state" id="ss"></span></div>
-    <div class="note">LINEと同じ司令塔AIです。会話は記録に残り、タスク登録などもここからできます。返事まで20秒ほどかかることがあります。</div>
+    <div class="note" style="margin-top:0">LINEと同じ司令塔AIです。1回ごとのやり取りが、新しい順に並びます。返事まで20秒ほどかかることがあります。</div>
+    <div id="msgs"></div>
   </section>
 
   <section id="s2">
+    <div class="seg"><button onclick="tab(1)">会話</button><button class="on" onclick="tab(2)">助成金・補助金</button></div>
     <div class="intro">
       <b>助成金・補助金 提案AI</b>
       <span>事業内容や取り組みたいことを入力すると、利用できる可能性がある支援制度と、その活用方法を提案します。公式サイトをWEB検索で確認してから答えます。</span>
@@ -400,8 +420,10 @@
   </section>
 
   <section id="s3">
-    <h2>会社とメンバー</h2>
-    <div id="acct"><div class="card"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div></div>
+    <h2 style="margin-top:0">承認待ち（お客様への連絡など）</h2>
+    <div class="card" id="apv"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
+    <h2>未処理</h2>
+    <div class="card" id="pend"></div>
     <h2>毎日ひとりでに動くもの</h2>
     <div class="card">
       <div class="row"><span class="when">6:56</span><span class="what"><b>画像係</b><span>Canvaで投稿画像を3案つくる</span></span></div>
@@ -409,13 +431,6 @@
       <div class="row"><span class="when">10:41</span><span class="what"><b>物販係</b><span>楽天から1件、XとThreadsの案をつくる</span></span></div>
       <div class="row"><span class="when">5分ごと</span><span class="what"><b>タスクの通知</b><span>期限が近いものを知らせる</span></span></div>
     </div>
-    <h2>承認待ち（お客様への連絡など）</h2>
-    <div class="card" id="apv"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
-    <h2>未処理</h2>
-    <div class="card" id="pend"></div>
-    <h2>接続と設定</h2>
-    <div class="card" id="conn"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
-    <div class="note">「未接続」の機能は、AIに頼んでも実行されません。実行したように表示することもありません。</div>
   </section>
 
   <section id="s4">
@@ -438,6 +453,18 @@
     <div id="lgForm"></div>
     <div class="card" id="lgList"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
     <div class="note">お客様の電話番号・メールアドレスは、この画面だけで表示し、AIには渡しません。REINS・ATBBは自動で取りに行きません。それぞれのサイトから手でダウンロードしたCSVを「CSVを取り込む」から入れられます（文字コードはShift_JIS・UTF-8のどちらでも可）。</div>
+  </section>
+
+  <section id="s5">
+    <div class="jumps" id="setJumps">
+      <button onclick="setJump('会社とメンバー')">メンバー</button><button onclick="setJump('利用量とプラン')">プラン</button><button onclick="setJump('請求')">請求</button>
+      <button onclick="setJump('会社の設定')">会社の設定</button><button onclick="setJump('LINE公式アカウント')">LINE</button><button onclick="setJump('メール')">メール</button><button onclick="setJump('接続と設定')">接続</button>
+    </div>
+    <h2 style="margin-top:6px">会社とメンバー</h2>
+    <div id="acct"><div class="card"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div></div>
+    <h2>接続と設定</h2>
+    <div class="card" id="conn"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
+    <div class="note">「未接続」の機能は、AIに頼んでも実行されません。実行したように表示することもありません。</div>
   </section>
 </div>
 
@@ -1056,15 +1083,20 @@ function chat(s){
   localMsgs = (s.chat||[]).slice();
   drawMsgs();
 }
+/* 1回ごとのやり取り（依頼＋答え）をカードにして、新しい順に並べる。古いものはたたんでおく */
 function drawMsgs(){
-  var h='';
+  var pairs=[], cur=null;
   localMsgs.forEach(function(m){
-    if(m.role!=='user' && m.role!=='assistant') return;
-    h+='<div class="msg '+(m.role==='user'?'me':'ai')+'">'+rich(m.content)+'</div>';
+    if(m.role==='user'){ cur={q:m.content, a:[], at:m.at||m.createdAt||''}; pairs.push(cur); }
+    else if(m.role==='assistant'){ if(!cur){ cur={q:'', a:[], at:''}; pairs.push(cur); } cur.a.push(m.content); }
   });
   var box=document.getElementById('msgs');
-  box.innerHTML = h || '<div class="msg ai">こんにちは。何でも聞いてください。</div>';
-  box.scrollIntoView({block:'end'});
+  if(!pairs.length){ box.innerHTML='<div class="xc"><div class="xa">こんにちは。何でも聞いてください。</div></div>'; return; }
+  box.innerHTML=pairs.slice().reverse().map(function(p, i){
+    var ans=p.a.length ? p.a.map(function(a){ return rich(a); }).join('<hr>') : '<span class="state">考えています…</span>';
+    var when=p.at?'<span class="xt">'+fmtAt(p.at)+'</span>':'';
+    return '<details class="xc"'+(i<3?' open':'')+'><summary><span class="xq">'+esc((p.q||'（依頼なし）').slice(0,120))+'</span>'+when+'</summary><div class="xa">'+ans+'</div></details>';
+  }).join('');
 }
 var sending=false;
 document.getElementById('send').onclick = function(){
@@ -1343,8 +1375,9 @@ function inboxLoad(){
     if(!LG.inbox.length){ list.innerHTML='<div class="row"><span class="what"><span>まだお客様からのLINEはありません。会社のLINEを友だち追加したお客様がメッセージを送ると、ここに届きます（AIは自動では返事をしません）。</span></span></div>'; return; }
     var w=ME&&ME.can&&ME.can.ledgerWrite;
     list.innerHTML=LG.inbox.map(function(c){
-      return '<div class="lrow"><div class="lt"><b>'+(c.unread?'<span class="unread"></span>':'')+esc(c.displayName||'（名前不明のLINE）')
-        +(c.customerName?'<span class="badge" style="margin-left:6px">台帳：'+esc(c.customerName)+'様</span>':'')+'</b><span>'+esc((c.lastText||'').slice(0,80))+'・'+fmtAt(c.lastAt)+'</span></div>'
+      return '<div class="lrow lcard"><div class="lt"><b>'+(c.unread?'<span class="unread"></span>':'')+esc(c.displayName||'（名前不明のLINE）')
+        +(c.customerName?'<span class="badge" style="margin-left:6px">台帳：'+esc(c.customerName)+'様</span>':'<span class="badge" style="margin-left:6px">台帳にまだいない</span>')+'</b>'
+        +'<div class="bubble">'+esc((c.lastText||'').slice(0,140))+'</div><span class="xt">'+fmtAt(c.lastAt)+'</span></div>'
         +'<div class="lb"><button class="btn sm" data-ihist="'+esc(c.id)+'">やり取り</button>'+(w?'<button class="btn sm" data-ilink="'+esc(c.id)+'">'+(c.customerId?'結びつけ直す':'台帳に結びつける')+'</button>':'')+'</div>'
         +'<div id="lm-'+esc(c.id)+'" style="width:100%"></div></div>';
     }).join('');
@@ -1911,8 +1944,7 @@ document.getElementById('aSend').onclick = function(){
 };
 
 function jump(i){
-  var ns=document.querySelectorAll('nav button');
-  if(ns[i]) ns[i].click();
+  tab(i);
   window.scrollTo(0,0);
 }
 
@@ -1970,7 +2002,19 @@ function lgDraw(){
       sub=[(x.budgetMin!=null||x.budgetMax!=null)?'予算 '+lgMan(x.budgetMin)+'〜'+lgMan(x.budgetMax):'', x.areas?'エリア '+x.areas:'', x.kinds||'', x.phone||'', x.email||'', x.lastContactAt?'最終連絡 '+x.lastContactAt.slice(0,10):''].filter(Boolean).join('・');
       t='<span class="badge">'+esc(x.status)+'</span><span class="badge">'+esc(x.want)+'</span>'+(x.lineUserId?'<span class="badge">LINEあり</span>':'')+esc(x.name)+'様';
     }
-    return '<div class="lrow" id="lr-'+esc(x.id)+'"><div class="lt"><b>'+t+'</b><span>'+esc(sub)+'</span>'+(x.note?'<span style="display:block;white-space:pre-wrap">'+esc(x.note.slice(-160))+'</span>':'')+'</div>'
+    var facts=[];
+    if(LG.kind==='property'){
+      facts=[['価格', x.deal==='賃貸'?(x.rent!=null?lgMan(x.rent)+'/月':'—'):(x.price!=null?lgMan(x.price):'—')], ['所在地', x.city?(x.city+(x.address||'')):'—'],
+        ['間取り・面積', [x.layout, x.buildingArea!=null?x.buildingArea+'㎡':'', x.landArea!=null?'土地'+x.landArea+'㎡':''].filter(Boolean).join('／')||'—'],
+        ['駅', x.station?(x.station+(x.walkMin!=null?' 徒歩'+x.walkMin+'分':'')):'—'], ['築年', x.builtYear?x.builtYear+'年':'—']];
+      if(x.yieldPct!=null) facts.push(['利回り', x.yieldPct+'%']);
+    } else {
+      facts=[['予算', (x.budgetMin!=null||x.budgetMax!=null)?lgMan(x.budgetMin)+'〜'+lgMan(x.budgetMax):'—'], ['希望エリア', x.areas||'—'], ['種別', x.kinds||'—'],
+        ['連絡先', [x.phone, x.email].filter(Boolean).join('／')||'—'], ['最終連絡', x.lastContactAt?x.lastContactAt.slice(0,10):'—']];
+    }
+    return '<div class="lrow lcard" id="lr-'+esc(x.id)+'"><div class="lt"><b>'+t+'</b>'
+      +'<div class="facts">'+facts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>'
+      +(x.note?'<span class="lnote">'+esc(x.note.slice(-160))+'</span>':'')+'</div>'
       +'<div class="lb"><button class="btn sm" data-match="'+esc(x.id)+'">'+(LG.kind==='property'?'合うお客様':'合う物件')+'</button>'
       +(LG.kind==='property'?'<button class="btn sm" data-apr="'+esc(x.id)+'">査定書</button>':'')
       +(LG.kind==='customer'?'<button class="btn sm" data-hist="'+esc(x.id)+'">やり取り</button>'+(ME&&ME.can&&ME.can.draft?'<button class="btn sm" data-msg="'+esc(x.id)+'">連絡を作る</button>':''):'')
@@ -2126,12 +2170,17 @@ function lgInit(){
   lgKind('property');
 }
 
-function tab(i,b){
+function tab(i){
   if(i===2) sbLoad();
   if(i===4) lgInit();
   var ns=document.querySelectorAll('nav button'), ss=document.querySelectorAll('section');
-  for(var k=0;k<ns.length;k++) ns[k].className=(k===i?'on':'');
-  for(var k=0;k<ss.length;k++) ss[k].className=(k===i?'on':'');
+  for(var k=0;k<ns.length;k++) ns[k].className=((ns[k].getAttribute('data-tabs')||'').split(',').indexOf(String(i))>=0?'on':'');
+  for(var k=0;k<ss.length;k++) ss[k].className=(ss[k].id==='s'+i?'on':'');
+}
+/* 設定の中の見出しへ移動する */
+function setJump(label){
+  var hs=document.querySelectorAll('#s5 h2');
+  for(var k=0;k<hs.length;k++){ if(hs[k].textContent.indexOf(label)===0){ hs[k].scrollIntoView({behavior:'smooth', block:'start'}); return; } }
 }
 
 </script>
