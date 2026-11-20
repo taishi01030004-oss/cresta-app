@@ -1558,7 +1558,7 @@ function detailHtml(r){
     +'<div class="top"><div>作成日：'+esc(d.checkedOn)+'</div><div style="text-align:right"><b>'+esc(is.name||'')+'</b>'+(is.license?'<br>'+esc(is.license):'')+(r.staff?'<br>担当：'+esc(r.staff):'')+'</div></div>'
     +'<h3>1. 対象の物件</h3><table><tr><th style="width:28%">物件名</th><td>'+esc(p.title)+'</td></tr><tr><th>概要</th><td>'+esc(spec)+'</td></tr>'+(p.price!=null?'<tr><th>現在の売出価格</th><td>'+man(p.price)+'</td></tr>':'')+'</table>'
     +'<div class="box">査定価格<div class="big">'+man(d.mid)+'</div><span class="small">'+esc(d.weights)+'</span></div>'
-    +'<h3>2. 売り出し価格のご提案</h3><div class="plan">'+d.plans.map(function(x){ return '<div>'+esc(x.label)+'<b>'+man(x.price)+'</b><span class="small">'+esc(x.note)+'</span></div>'; }).join('')+'</div>'
+    +(d.gapWarn?'<p style="border:1px solid #c9a54a;background:#fff8e6;padding:8px;font-size:12.5px">⚠ '+esc(d.gapWarn)+'</p>':'')+'<h3>2. 売り出し価格のご提案</h3><div class="plan">'+d.plans.map(function(x){ return '<div>'+esc(x.label)+'<b>'+man(x.price)+'</b><span class="small">'+esc(x.note)+'</span></div>'; }).join('')+'</div>'
     +'<h3>3. 取引事例をもとにした価格</h3><table><tr><th style="width:40%">周辺の取引（'+esc(a.basis)+'）</th><td>'+man(a.mid)+'（幅 '+man(a.low)+'〜'+man(a.high)+'）<br>㎡単価の中央値 '+yen(a.perSqmMid)+'/㎡ × '+a.area+'㎡</td></tr>'
     +'<tr><th>物件ごとの条件による補正</th><td>'+(d.adjust.lines.length? d.adjust.lines.map(function(l){ return esc(l.label)+'：'+esc(l.choice)+'（'+(l.adj>0?'+':'')+l.adj+'%）'; }).join('<br>') : '（条件の入力なし）')+'<br><b>合計 '+(d.adjust.pct>=0?'+':'')+d.adjust.pct+'%</b>（社内の目安。小さな補正は合計±30%まで）</td></tr>'
     +'<tr><th>補正後の価格</th><td><b>'+man(d.compareValue)+'</b></td></tr></table>'
