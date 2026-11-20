@@ -341,6 +341,77 @@
   .pp.ng .bb{background:#F6D6D0}
   .office.calm .pp,.office.calm .pp *{transition:none!important;animation:none!important}
   @media (prefers-reduced-motion: reduce){ .office .pp,.office .pp *{transition:none!important;animation:none!important} }
+  /* ---- 3列（左：メニュー／中央：画面／右：司令塔AI） ---- */
+  .wrap.wide{max-width:none;padding:0}
+  .wrap.wide footer{display:none}
+  #app .topbar{position:sticky;top:0;z-index:30;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 18px;display:flex;align-items:center;gap:12px;flex-wrap:nowrap;height:56px}
+  #app .topbar .clock{margin-left:auto}
+  #app .topbar h1{white-space:nowrap}
+  #app .who{padding:6px 18px 0}
+  .shell{display:grid;grid-template-columns:200px minmax(0,1fr) 400px;align-items:start}
+  .side{position:sticky;top:56px;height:calc(100vh - 56px);overflow:auto;border-right:1px solid var(--line);padding:14px 10px;background:var(--bg)}
+  .side nav{display:flex;flex-direction:column;gap:2px;margin:0;border:0}
+  .side nav button{text-align:left;border:0;border-left:3px solid transparent;border-radius:8px;padding:10px 12px;font-size:14.5px;color:var(--muted)}
+  .side nav button:hover{color:var(--text)}
+  .side nav button.on{background:var(--panel);border-left-color:var(--gold);color:var(--gold);border-bottom:0}
+  .side .sub{font-size:11px;color:var(--muted);padding:12px 12px 0}
+  .mid{padding:16px 22px 60px;min-width:0}
+  .chatp{position:sticky;top:56px;height:calc(100vh - 56px);border-left:1px solid var(--line);display:flex;flex-direction:column;background:var(--bg);min-width:0}
+  .cph{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .cph b{color:var(--gold2);font-size:14px}
+  .cph .state{font-size:11px}
+  .cph .sp{margin-left:auto}
+  .cpb{flex:1;overflow-y:auto;padding:12px 14px;overscroll-behavior:contain}
+  .cpb .msgs{margin-bottom:10px}
+  .cpb .msg{font-size:13.5px;max-width:94%}
+  .cpb .ans{margin:0 0 12px}
+  .cpb .reqs{margin:0}
+  .cpf{border-top:1px solid var(--line);padding:10px 14px 12px;background:var(--bg)}
+  .cpf textarea{min-height:58px;max-height:170px}
+  .cpf .chips{margin-bottom:6px}
+  .cpf .chips button{font-size:11.5px;padding:3px 10px}
+  .cpend{font-size:12.5px;margin-top:6px}
+  .cpend.ng{color:var(--bad)}
+  .qb{align-self:flex-end;background:var(--gold);color:#0A2E22;border-radius:12px;padding:8px 12px;font-size:13.5px;white-space:pre-wrap;word-break:break-word;max-width:90%;margin:0 0 6px auto;width:fit-content}
+  .only-mid,.only-narrow{display:none}
+  .chatfab{display:none;position:fixed;right:16px;bottom:16px;z-index:40;background:var(--gold);color:#0A2E22;border:0;border-radius:999px;padding:12px 18px;font:inherit;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.35);cursor:pointer}
+  .scrim{display:none}
+  .home-sch .row{cursor:default}
+  .home-sch .row[data-hc]{cursor:pointer}
+  .home-sch .row[data-hc]:hover b{color:var(--gold)}
+  .home-sch .day{padding:8px 15px 2px;font-size:12px;color:var(--gold2);font-weight:600}
+  .sales-tbl{width:100%;border-collapse:collapse;font-size:13px}
+  .sales-tbl th,.sales-tbl td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  .sales-tbl th:first-child,.sales-tbl td:first-child{text-align:left}
+  .sales-tbl th{color:var(--muted);font-weight:500}
+  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+  .kpi div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .kpi small{display:block;color:var(--muted);font-size:11.5px}
+  .kpi b{font-size:20px;color:var(--gold2);font-variant-numeric:tabular-nums}
+  .bar-m{height:8px;border-radius:4px;background:var(--gold);display:inline-block;vertical-align:middle}
+  .bar-e{height:8px;border-radius:4px;background:var(--line);display:inline-block;vertical-align:middle}
+  @media (max-width:1180px){
+    .shell{grid-template-columns:190px minmax(0,1fr)}
+    .chatp{position:fixed;top:0;right:0;bottom:0;height:100%;width:min(430px,100vw);z-index:60;transform:translateX(105%);transition:transform .2s;box-shadow:-8px 0 30px rgba(0,0,0,.35)}
+    body.chat-open .chatp{transform:none}
+    .only-mid{display:inline-block}
+    .chatfab{display:block}
+    body.chat-open .chatfab{display:none}
+    body.chat-open .scrim,body.menu-open .scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50}
+  }
+  @media (max-width:760px){
+    .shell{grid-template-columns:minmax(0,1fr)}
+    .side{position:fixed;top:0;left:0;bottom:0;height:100%;width:250px;z-index:60;transform:translateX(-105%);transition:transform .2s}
+    body.menu-open .side{transform:none}
+    .only-narrow{display:inline-block}
+    .mid{padding:12px 12px 90px}
+    #app .topbar{padding:10px 12px;gap:8px}
+    #app .topbar h1{font-size:15px}
+    #app .topbar .clock{font-size:12px}
+    #chatBtn{display:none}
+    .home-sch .row .when{min-width:0!important;flex:0 0 auto}
+  }
+  .home-sch .badge,.badge{white-space:nowrap}
 </style>
 </head>
 <body>
@@ -378,56 +449,65 @@
 </div>
 
 <div id="app" style="display:none">
-  <header>
+  <header class="topbar">
+    <button class="btn sm only-narrow" id="menuBtn" aria-label="メニューを開く">☰</button>
     <h1>CRESTA <span>AI ORGANIZATION</span></h1>
     <div class="clock" id="clk">--:--:--</div>
-    <div class="sub" id="sub">6部門・18名</div>
+    <button class="btn sm main only-mid" id="chatBtn">司令塔AI</button>
   </header>
   <div class="who" id="whoBar"></div>
-  <div class="ask">
-    <div class="ttl">司令塔AIへの指示</div>
-    <textarea id="aQ" placeholder="やりたいこと・聞きたいことを書いてください。司令塔AIが担当の部署に振り分けます"></textarea>
-    <div class="bar">
-      <button class="btn main" id="aSend">送る</button>
-      <span class="state" id="aState"></span>
-    </div>
-    <div class="reqs" id="aReqs"></div>
-    <div id="aOut"></div>
-  </div>
-
-  <nav>
-    <button class="on" data-tabs="0" onclick="tab(0)">いま</button>
-    <button data-tabs="1,2" onclick="tab(1)">会話</button>
-    <button data-tabs="3" onclick="tab(3)">予定</button>
-    <button data-tabs="4" onclick="tab(4)">顧客管理</button>
-    <button data-tabs="6" onclick="tab(6)">物件管理</button>
-    <button data-tabs="5" onclick="tab(5)">設定</button>
-  </nav>
-
+  <div class="shell">
+  <aside class="side" id="side">
+    <nav>
+      <button class="on" data-tabs="0,3" onclick="tab(0)">ホーム</button>
+      <button data-tabs="4" onclick="tab(4)">顧客管理</button>
+      <button data-tabs="6" onclick="tab(6)">物件管理</button>
+      <button data-tabs="7" onclick="tab(7)">業者一覧</button>
+      <button data-tabs="8" onclick="tab(8)">売上一覧</button>
+      <button data-tabs="1,2" onclick="tab(1)">会話履歴</button>
+      <button data-tabs="5" onclick="tab(5)">設定</button>
+    </nav>
+    <div class="sub" id="sub">6部門・18名</div>
+  </aside>
+  <main class="mid">
   <section class="on" id="s0">
+    <h2 style="margin-top:0">予定</h2>
+    <div class="card home-sch" id="homeSch"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
+    <details id="gcMore" style="margin-top:8px"><summary style="cursor:pointer;font-size:13px;color:var(--muted)">Googleカレンダーの予定を変更・追加する</summary>
+      <div class="card" id="gcEv" style="margin-top:8px"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
+    </details>
+    <h2>承認待ち（お客様への連絡など）</h2>
+    <div class="card" id="apv"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
+    <h2>未処理</h2>
+    <div class="card" id="pend"></div>
+    <h2>AI組織のようす</h2>
     <div class="now"><b id="nowt">読み込んでいます…</b><span id="nows"></span></div>
     <div class="bar" style="margin:0 0 6px"><span class="state" id="mtgNow">中央テーブル：会議はありません</span>
       <button class="btn sm motion" id="motionBtn" aria-pressed="false">動きを減らす</button></div>
     <div class="office" id="office"></div>
     <div class="mlist" id="mtgList" aria-live="polite"></div>
-    <div class="oleg">中央テーブルに集まるのは、上の指示欄の依頼で実際に呼ばれた担当だけです。吹き出しは、その担当が実際にしている処理を表しています。机を押すと、その部署のスキル（できること・未接続のこと）が見られます。コーヒーを取りに行くなどの動きは雰囲気の演出です。</div>
+    <div class="oleg">中央テーブルに集まるのは、右の司令塔AIへの依頼で実際に呼ばれた担当だけです。吹き出しは、その担当が実際にしている処理を表しています。机を押すと、その部署のスキル（できること・未接続のこと）が見られます。コーヒーを取りに行くなどの動きは雰囲気の演出です。</div>
     <h2>直近の動き</h2>
     <div class="card feed" id="feed"></div>
     <div class="note">「本物」はLINEとタスクの処理です。画像係と物販係はClaude側の予約で動くため、ここでは時刻で表示しています。</div>
+    <h2>毎日ひとりでに動くもの</h2>
+    <div class="card">
+      <div class="row"><span class="when">6:56</span><span class="what"><b>画像係</b><span>Canvaで投稿画像を3案つくる</span></span></div>
+      <div class="row"><span class="when">8:00</span><span class="what"><b>今日のタスク</b><span>その日の予定をLINEに送る</span></span></div>
+      <div class="row"><span class="when">10:41</span><span class="what"><b>物販係</b><span>楽天から1件、XとThreadsの案をつくる</span></span></div>
+      <div class="row"><span class="when">5分ごと</span><span class="what"><b>タスクの通知</b><span>期限が近いものを知らせる</span></span></div>
+    </div>
   </section>
 
   <section id="s1">
-    <div class="seg"><button class="on" onclick="tab(1)">会話</button><button onclick="tab(2)">助成金・補助金</button></div>
-    <div class="chips" id="chips"></div>
-    <textarea id="q" placeholder="指示でも質問でも。例：明日16時に山田様へ電話、で登録して"></textarea>
-    <div class="bar"><button class="btn main" id="send">送る</button><span class="state" id="ss"></span></div>
-    <div class="note" style="margin-top:0">LINEと同じ司令塔AIです。1回ごとのやり取りが、新しい順に並びます。返事まで20秒ほどかかることがあります。</div>
-    <div class="inl" style="padding:6px 0 0"><input id="msgQ" style="flex:1;max-width:460px" placeholder="過去の会話を探す（例：山田、査定、相場）"><span class="state" id="msgN"></span></div>
-    <div id="msgs"></div>
+    <div class="seg"><button class="on" onclick="tab(1)">会話履歴</button><button onclick="tab(2)">助成金・補助金</button></div>
+    <div class="note" style="margin-top:0">右の会話パネルで「会話を終わる」を押すと、その会話がここに保存されます。新しい順に並び、押すと中身が開きます。</div>
+    <div class="inl" style="padding:6px 0 10px"><input id="hsQ" style="flex:1;max-width:460px" placeholder="過去の会話を探す（例：山田、査定、相場）"><button class="btn" id="hsGo">探す</button><span class="state" id="hsN"></span></div>
+    <div id="hsList"><div class="state">読み込んでいます…</div></div>
   </section>
 
   <section id="s2">
-    <div class="seg"><button onclick="tab(1)">会話</button><button class="on" onclick="tab(2)">助成金・補助金</button></div>
+    <div class="seg"><button onclick="tab(1)">会話履歴</button><button class="on" onclick="tab(2)">助成金・補助金</button></div>
     <div class="intro">
       <b>助成金・補助金 提案AI</b>
       <span>事業内容や取り組みたいことを入力すると、利用できる可能性がある支援制度と、その活用方法を提案します。公式サイトをWEB検索で確認してから答えます。</span>
@@ -451,21 +531,7 @@
     </div>
   </section>
 
-  <section id="s3">
-    <h2 style="margin-top:0">承認待ち（お客様への連絡など）</h2>
-    <div class="card" id="apv"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
-    <h2>Googleカレンダー（これから2週間）</h2>
-    <div class="card" id="gcEv"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
-    <h2>未処理</h2>
-    <div class="card" id="pend"></div>
-    <h2>毎日ひとりでに動くもの</h2>
-    <div class="card">
-      <div class="row"><span class="when">6:56</span><span class="what"><b>画像係</b><span>Canvaで投稿画像を3案つくる</span></span></div>
-      <div class="row"><span class="when">8:00</span><span class="what"><b>今日のタスク</b><span>その日の予定をLINEに送る</span></span></div>
-      <div class="row"><span class="when">10:41</span><span class="what"><b>物販係</b><span>楽天から1件、XとThreadsの案をつくる</span></span></div>
-      <div class="row"><span class="when">5分ごと</span><span class="what"><b>タスクの通知</b><span>期限が近いものを知らせる</span></span></div>
-    </div>
-  </section>
+
 
   <section id="s4">
     <div class="bar lgtabs" style="margin-top:0">
@@ -502,6 +568,25 @@
     <div class="note">お客様の電話番号・メールアドレスは、この画面だけで表示し、AIには渡しません。REINS・ATBBは自動で取りに行きません。それぞれのサイトから手でダウンロードしたCSVを「CSVを取り込む」から入れられます（文字コードはShift_JIS・UTF-8のどちらでも可）。</div>
   </section>
 
+  <section id="s7">
+    <div class="inl" style="padding:0 0 10px">
+      <input id="vdQ" placeholder="業者名・担当者・メモで探す">
+      <select id="vdK"><option value="">すべての種類</option></select>
+      <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="vdAll" style="width:auto"> 使わない業者も出す</label>
+      <button class="btn" id="vdGo">探す</button>
+      <button class="btn main" id="vdNew">＋ 業者を登録</button>
+    </div>
+    <div id="vdForm"></div>
+    <div class="card" id="vdList"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
+    <div class="note">司法書士・銀行・リフォーム会社など、取引でお世話になる会社を登録しておけます。取引をやめた業者は消さずに「使わない」にしてください。</div>
+  </section>
+
+  <section id="s8">
+    <div class="inl" style="padding:0 0 10px"><button class="btn sm" id="slPrev">← 前の年</button><b id="slY" style="font-size:16px"></b><button class="btn sm" id="slNext">次の年 →</button></div>
+    <div id="slBox"><div class="state">読み込んでいます…</div></div>
+    <div class="note">売上は、顧客管理・物件管理の「取引」に入れた「自社の売上（手数料など）」を、決済日の月で数えています。取引完了＝売上、契約・決済前＝見込みです。金額を直すときは、その取引の「段階・日にちを変える」から直してください。</div>
+  </section>
+
   <section id="s5">
     <div class="jumps" id="setJumps">
       <button onclick="setJump('会社とメンバー')">メンバー</button><button onclick="setJump('利用量とプラン')">プラン</button><button onclick="setJump('請求')">請求</button>
@@ -513,6 +598,25 @@
     <div class="card" id="conn"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
     <div class="note">「未接続」の機能は、AIに頼んでも実行されません。実行したように表示することもありません。</div>
   </section>
+  </main>
+  <aside class="chatp" id="chatp" aria-label="司令塔AIとの会話">
+    <div class="cph"><b>司令塔AI</b><span class="state" id="cpInfo"></span>
+      <span class="sp"></span><button class="btn sm" id="chatEnd">会話を終わる</button><button class="btn sm only-mid" id="chatClose" aria-label="閉じる">✕</button></div>
+    <div class="cpb" id="cpBody">
+      <div class="msgs" id="cpLog"></div>
+      <div id="aOut"></div>
+      <div class="reqs" id="aReqs"></div>
+    </div>
+    <div class="cpf">
+      <div class="chips" id="chips"></div>
+      <textarea id="aQ" placeholder="やりたいこと・聞きたいことを書いてください（Enterで改行、⌘＋Enterで送る）"></textarea>
+      <div class="bar" style="margin-top:6px"><button class="btn main" id="aSend">送る</button><span class="state" id="aState"></span></div>
+      <div class="cpend" id="cpEndMsg"></div>
+    </div>
+  </aside>
+  </div>
+  <div class="scrim" id="scrim"></div>
+  <button class="chatfab" id="chatFab">司令塔AI</button>
 </div>
 
 <div class="skov" id="skov" onclick="if(event.target===this)skClose()">
@@ -685,9 +789,11 @@ var opened=false, ME=null;
 function open_(s){
   document.getElementById('gate').style.display='none';
   document.getElementById('app').style.display='block';
+  document.querySelector('.wrap').classList.add('wide');
   paint(s);
   if(opened) return;
   opened=true;
+  cpRestore(s); drawHome();
   loadSkills().catch(function(){});
   setInterval(poll, 4000);
   setInterval(clock, 1000); clock();
@@ -1133,18 +1239,25 @@ function pend(s){
   document.getElementById('pend').innerHTML=h;
 }
 
-/* ---------- 会話 ---------- */
-var localMsgs = [];
-var MSG_SIG='', MSG_OPEN={}, MSG_MORE=30;
-function chat(s){
-  if(sending) return;
-  var next=(s.chat||[]).slice(), sig=next.length+':'+(next.length?String(next[next.length-1].content).length:0);
-  if(sig===MSG_SIG) return;  // 変わっていなければ描き直さない（開いたカードが閉じないように）
-  MSG_SIG=sig; localMsgs=next;
-  drawMsgs();
+/* ---------- 司令塔AIの会話パネル（右側） ----------
+   パネルの中だけがスクロールし、入力欄はいつも下にある。メニューを切り替えても会話はそのまま。
+   「会話を終わる」：サーバーで保存できたのを確かめてから、パネルを空にして会話履歴へ移る。失敗したら何も消さない。 */
+var CP_DIRTY=false, CP_ENDING=false;
+function chat(s){ /* 画面の会話は右のパネルにある（最初に1回だけ復元する） */ }
+function cpScroll(){ var b=document.getElementById('cpBody'); if(b) setTimeout(function(){ b.scrollTop=b.scrollHeight; }, 30); }
+function cpRestore(s){
+  var log=document.getElementById('cpLog'), list=(s&&s.chat)||[];
+  if(!list.length){ log.innerHTML='<div class="msg ai">こんにちは。何でも聞いてください。<br>例：「明日の予定は？」「山田様に合う物件は？」「中区の戸建の相場」</div>'; CP_DIRTY=false; cpEndState(); return; }
+  var h='<div class="state" style="text-align:center;font-size:11.5px">前回の続き（'+esc(msgDay(list[0].at))+'から）</div>';
+  list.forEach(function(m){ h+= m.role==='user' ? '<div class="qb">'+esc(m.content)+'</div>' : '<div class="ans"><div class="txt">'+rich(m.content)+'</div></div>'; });
+  log.innerHTML=h; CP_DIRTY=true; cpEndState(); cpScroll();
 }
-/* 答えの1行目（記号を外して短く） */
-function msgPreview(t){ return String(t||'').replace(/[#*_`>|【】\[\]]/g,'').replace(/https?:\/\/\S+/g,'（リンク）').replace(/\s+/g,' ').trim().slice(0,90); }
+function cpEndState(){
+  var b=document.getElementById('chatEnd'); if(!b) return;
+  var busy=reqRunning().length>0;
+  b.disabled = CP_ENDING || busy || !CP_DIRTY;
+  b.title = busy ? '考え中の依頼が終わってから押せます' : (!CP_DIRTY ? 'まだ会話がありません' : 'いまの会話を会話履歴に保存して、新しい会話を始めます');
+}
 function msgDay(at){
   if(!at) return '';
   var j=jst(at), t=jst(), y=jst(new Date(Date.now()-86400000));
@@ -1153,71 +1266,84 @@ function msgDay(at){
   if(k(j)===k(y)) return '昨日';
   return (j.getMonth()+1)+'月'+j.getDate()+'日（'+'日月火水木金土'[j.getDay()]+'）';
 }
-(function(){
-  var q=document.getElementById('msgQ'); if(!q) return;
-  q.oninput=function(){ MSG_MORE=30; drawMsgs(); };
-  document.getElementById('msgs').addEventListener('toggle', function(e){
-    var k=e.target.getAttribute && e.target.getAttribute('data-k'); if(k) MSG_OPEN[k]=e.target.open;
-  }, true);
-  document.getElementById('msgs').addEventListener('click', function(e){
-    if(e.target.id==='msgMore'){ MSG_MORE+=30; drawMsgs(); }
-  });
-})();
-/* 1回ごとのやり取り（依頼＋答え）をカードにして、新しい順に並べる。古いものはたたんでおく */
-function drawMsgs(){
-  var pairs=[], cur=null;
-  localMsgs.forEach(function(m){
-    if(m.role==='user'){ cur={q:m.content, a:[], at:m.at||m.createdAt||''}; pairs.push(cur); }
-    else if(m.role==='assistant'){ if(!cur){ cur={q:'', a:[], at:''}; pairs.push(cur); } cur.a.push(m.content); }
-  });
-  var box=document.getElementById('msgs');
-  if(!pairs.length){ box.innerHTML='<div class="xc"><div class="xa">こんにちは。何でも聞いてください。</div></div>'; document.getElementById('msgN').textContent=''; return; }
-  var word=(document.getElementById('msgQ').value||'').trim().toLowerCase();
-  var list=pairs.slice().reverse();
-  if(word) list=list.filter(function(p){ return (p.q+' '+p.a.join(' ')).toLowerCase().indexOf(word)>=0; });
-  document.getElementById('msgN').textContent = word ? list.length+'件見つかりました' : '全'+pairs.length+'件（新しい順）';
-  var h='', day=null;
-  list.slice(0, MSG_MORE).forEach(function(p, i){
-    var d=msgDay(p.at);
-    if(d && d!==day){ h+='<div class="xd">'+esc(d)+'</div>'; day=d; }
-    var key=(p.at||'')+'|'+(p.q||'').slice(0,40);
-    var open = key in MSG_OPEN ? MSG_OPEN[key] : (!word && i===0);
-    var ans=p.a.length ? p.a.map(function(a){ return rich(a); }).join('<hr>') : '<span class="state">考えています…</span>';
-    var when=p.at?'<span class="xt">'+esc(fmtAt(p.at).replace(/^.*?(\d+:\d+)$/,'$1'))+'</span>':'';
-    var prev=p.a.length ? '<span class="xp">'+esc(msgPreview(p.a[p.a.length-1]))+'</span>' : '';
-    h+='<details class="xc" data-k="'+esc(key)+'"'+(open?' open':'')+'><summary><span class="xq">'+esc((p.q||'（依頼なし）').slice(0,120))+'</span>'+when+prev+'</summary><div class="xa">'+ans+'</div></details>';
-  });
-  if(list.length>MSG_MORE) h+='<div class="bar"><button class="btn" id="msgMore">もっと前を見る（あと'+(list.length-MSG_MORE)+'件）</button></div>';
-  if(!list.length) h='<div class="state" style="padding:10px 0">見つかりませんでした。</div>';
-  box.innerHTML=h;
-}
-var sending=false;
-document.getElementById('send').onclick = function(){
-  var ta=document.getElementById('q'), text=ta.value.trim();
-  var st=document.getElementById('ss'), btn=document.getElementById('send');
-  if(!text || sending) return;
-  sending=true; btn.disabled=true; st.textContent='考えています…';
-  localMsgs.push({role:'user',content:text, at:new Date().toISOString()}); MSG_OPEN={}; drawMsgs(); ta.value='';
-  runAndWait('/api/chat', text, function(sec){ st.textContent='考えています…（'+sec+'秒）'; }).then(function(r){
-    localMsgs.push({role:'assistant',content:showResult(r)}); drawMsgs();
-    st.textContent=''; btn.disabled=false; sending=false;
+function chatEnd(){
+  var msg=document.getElementById('cpEndMsg'), b=document.getElementById('chatEnd');
+  if(reqRunning().length){ msg.className='cpend ng'; msg.textContent='考え中の依頼があります。終わってから押してください。'; return; }
+  CP_ENDING=true; cpEndState(); msg.className='cpend'; msg.textContent='会話を保存しています…';
+  api('/api/chat-end',{}).then(function(r){
+    CP_ENDING=false;
+    if(r.saved){
+      // 保存できたので、パネルを空にして新しい会話にする
+      document.getElementById('aOut').innerHTML=''; REQS=REQS.filter(function(q){ return !q.final; }); drawReqs();
+      document.getElementById('cpLog').innerHTML='<div class="msg ai">新しい会話です。前の会話は「会話履歴」に保存しました。</div>';
+      CP_DIRTY=false; cpEndState(); msg.textContent='';
+      HS_OPEN=r.session&&r.session.id; tab(1); closeDrawers();
+      return;
+    }
+    if(r.empty){ msg.className='cpend'; msg.textContent='保存する会話がありませんでした。'; CP_DIRTY=false; cpEndState(); return; }
+    throw new Error(r.error||'保存できませんでした');
   }).catch(function(e){
-    st.textContent = (e.message==='unauth') ? 'ログインが切れました。画面を再読み込みしてください。' : 'うまくいきませんでした。もう一度試してください。';
-    btn.disabled=false; sending=false;
+    CP_ENDING=false; cpEndState();
+    msg.className='cpend ng';
+    msg.innerHTML=esc(e.message==='unauth'?'ログインが切れました。再読み込みしてください。':(e.message||'保存できませんでした'))+'　会話はそのまま残っています。<button class="btn sm" id="cpRetry">もう一度</button>';
+    var rt=document.getElementById('cpRetry'); if(rt) rt.onclick=chatEnd;
   });
-};
+}
+document.getElementById('chatEnd').onclick=chatEnd;
+document.getElementById('aQ').addEventListener('keydown', function(e){ if(e.key==='Enter' && (e.metaKey||e.ctrlKey)){ e.preventDefault(); document.getElementById('aSend').click(); } });
+/* 狭い画面：メニューと会話パネルを開け閉めする */
+function closeDrawers(){ document.body.classList.remove('chat-open'); document.body.classList.remove('menu-open'); }
+document.getElementById('chatBtn').onclick=function(){ document.body.classList.add('chat-open'); cpScroll(); };
+document.getElementById('chatFab').onclick=function(){ document.body.classList.add('chat-open'); cpScroll(); setTimeout(function(){ document.getElementById('aQ').focus(); }, 250); };
+document.getElementById('chatClose').onclick=closeDrawers;
+document.getElementById('menuBtn').onclick=function(){ document.body.classList.toggle('menu-open'); };
+document.getElementById('scrim').onclick=closeDrawers;
+
+/* ---------- 会話履歴（保存した会話。新しい順） ---------- */
+var HS_OPEN=null, HS_ITEMS=[];
+function hsLoad(more){
+  var box=document.getElementById('hsList'), q=document.getElementById('hsQ').value.trim();
+  if(!more) box.innerHTML='<div class="state">読み込んでいます…</div>';
+  var body={q:q}; if(more && HS_ITEMS.length) body.before=HS_ITEMS[HS_ITEMS.length-1].endedAt;
+  api('/api/chat-sessions',body).then(function(r){
+    HS_ITEMS = more ? HS_ITEMS.concat(r.items) : r.items;
+    document.getElementById('hsN').textContent = q ? HS_ITEMS.length+'件見つかりました' : '';
+    if(!HS_ITEMS.length){ box.innerHTML='<div class="card"><div class="row"><span class="what"><span>'+(q?'見つかりませんでした。':'まだ保存した会話はありません。右の会話パネルで「会話を終わる」を押すと、ここに保存されます。')+'</span></span></div></div>'; return; }
+    var h='', day=null;
+    HS_ITEMS.forEach(function(x){
+      var d=msgDay(x.endedAt);
+      if(d!==day){ h+='<div class="xd">'+esc(d)+'</div>'; day=d; }
+      h+='<details class="xc" data-hs="'+esc(x.id)+'"'+(x.id===HS_OPEN?' open':'')+'><summary><span class="xq">'+esc(x.title)+'</span>'
+        +'<span class="xt">'+esc(fmtAt(x.startedAt))+'〜'+esc(fmtAt(x.endedAt).replace(/^.*?(\d+:\d+)$/,'$1'))+'・'+x.count+'件</span></summary><div class="xa" id="hs-'+esc(x.id)+'"><span class="state">読み込んでいます…</span></div></details>';
+    });
+    if(r.items.length>=50) h+='<div class="bar"><button class="btn" id="hsMore">もっと前を見る</button></div>';
+    box.innerHTML=h;
+    if(HS_OPEN){ hsBody(HS_OPEN); var el=box.querySelector('[data-hs="'+HS_OPEN+'"]'); if(el) el.scrollIntoView({block:'start'}); }
+  }).catch(function(e){ box.innerHTML='<div class="state" style="color:var(--bad)">'+esc(e.message)+'</div>'; });
+}
+function hsBody(id){
+  var el=document.getElementById('hs-'+id); if(!el || el.getAttribute('data-done')) return;
+  api('/api/chat-session',{id:id}).then(function(r){
+    if(r.error){ el.innerHTML='<span class="state">'+esc(r.error)+'</span>'; return; }
+    el.setAttribute('data-done','1');
+    el.innerHTML=(r.messages||[]).map(function(m){
+      return m.role==='user' ? '<div class="qb" style="margin-top:10px">'+esc(m.content)+'<div style="font-size:11px;opacity:.7">'+esc(fmtAt(m.at))+'</div></div>' : '<div class="ans" style="margin:4px 0 8px"><div class="txt">'+rich(m.content)+'</div></div>';
+    }).join('');
+  }).catch(function(e){ el.innerHTML='<span class="state">'+esc(e.message)+'</span>'; });
+}
+document.getElementById('hsGo').onclick=function(){ HS_OPEN=null; hsLoad(false); };
+document.getElementById('hsQ').addEventListener('keydown',function(e){ if(e.key==='Enter'){ HS_OPEN=null; hsLoad(false); } });
+document.getElementById('hsList').addEventListener('toggle', function(e){ var id=e.target.getAttribute && e.target.getAttribute('data-hs'); if(id && e.target.open) hsBody(id); }, true);
+document.getElementById('hsList').addEventListener('click', function(e){ if(e.target.id==='hsMore') hsLoad(true); });
 
 /* よく使う指示（押すと入力欄に入る。そのまま直して送れる） */
-var CHIPS = ['タスク一覧','今日やること','今週の投稿ネタを考えて','承認待ちを見せて','議事録'];
+var CHIPS = ['明日の予定は？','今日やること','承認待ちを見せて','今週の投稿ネタを考えて','議事録'];
 (function(){
   var c=document.getElementById('chips'); if(!c) return;
   CHIPS.forEach(function(s){
     var b=document.createElement('button');
     b.textContent=s;
-    b.onclick=function(){
-      var ta=document.getElementById('q');
-      ta.value=s; ta.focus();
-    };
+    b.onclick=function(){ var ta=document.getElementById('aQ'); ta.value=s; ta.focus(); };
     c.appendChild(b);
   });
 })();
@@ -1452,7 +1578,7 @@ function msgForm(c){
     +'<label class="wide" id="mgSubW">件名（メールのとき）<input id="mgSub"></label>'
     +'<label class="wide">本文<textarea id="mgBody" rows="6"></textarea></label></div>'
     +'<div class="bar" style="padding:0 15px 12px"><button class="btn main" id="mgGo">承認待ちに入れる</button><button class="btn" id="mgX">やめる</button><span class="state" id="mgSt"></span></div>'
-    +'<div class="note" style="margin:0 15px 12px">AIに下書きを頼むときは、上の指示欄に「'+esc(c.name)+'様に内見のお礼をLINEで送る下書きを作って」のように書いてください。</div></div>';
+    +'<div class="note" style="margin:0 15px 12px">AIに下書きを頼むときは、右の司令塔AIに「'+esc(c.name)+'様に内見のお礼をLINEで送る下書きを作って」のように書いてください。</div></div>';
   box.innerHTML=h; box.scrollIntoView({behavior:'smooth',block:'nearest'});
   var ch=document.getElementById('mgCh'); if(!c.lineUserId && c.email) ch.value='email';
   function sub(){ document.getElementById('mgSubW').style.display = ch.value==='email' ? '' : 'none'; } ch.onchange=sub; sub();
@@ -1460,7 +1586,7 @@ function msgForm(c){
   document.getElementById('mgGo').onclick=function(){
     var st=document.getElementById('mgSt'); st.textContent='登録しています…';
     api('/api/outbox-draft',{customerId:c.id, channel:ch.value, subject:document.getElementById('mgSub').value, body:document.getElementById('mgBody').value}).then(function(r){
-      box.innerHTML='<div class="note">承認待ちに入れました（承認コード '+esc(r.code)+'）。「予定」タブの「承認待ち」で、オーナー・管理者が承認すると送られます。</div>';
+      box.innerHTML='<div class="note">承認待ちに入れました（承認コード '+esc(r.code)+'）。「ホーム」の「承認待ち」で、オーナー・管理者が承認すると送られます。</div>';
       lastApv=-1;
     }).catch(function(e){ st.textContent=e.message; });
   };
@@ -1632,7 +1758,7 @@ function drawGcal(){
     var h='';
     if(GCAL_FLASH){ h+='<div class="row"><span class="what"><b style="color:'+(GCAL_FLASH.ok?'var(--ok,#3fae6a)':'var(--bad)')+'">'+esc(GCAL_FLASH.msg||(GCAL_FLASH.ok?'つながりました':'つなげませんでした'))+'</b></span></div>'; GCAL_FLASH=null; }
     h+='<div class="row"><span class="what"><b>'+(r.connected?'つながっています：'+esc(r.email||'Googleアカウント'):'まだつながっていません')+'</b>'
-      +'<span>会社のGoogleカレンダーを1つつなぐと、「予定」タブに予定が並び、LINEやアプリで「明日の予定」と聞けます。AIが予定を入れるときは、承認されてから入ります。</span></span></div>';
+      +'<span>会社のGoogleカレンダーを1つつなぐと、「ホーム」の一番上に予定が並び、LINEやアプリで「明日の予定」と聞けます。AIが予定を入れるときは、承認されてから入ります。</span></span></div>';
     if(!r.serverReady){
       h+='<div class="row"><span class="what" style="overflow-wrap:anywhere;min-width:0"><b>準備中</b><span>サーバーにGoogleのキー（GOOGLE_CLIENT_ID・GOOGLE_CLIENT_SECRET）がまだ入っていません。</span>'
         +(r.redirectUri?'<span>Google Cloud に登録する「リダイレクトURI」：<br><code style="word-break:break-all">'+esc(r.redirectUri)+'</code> <button class="btn sm" data-copy="'+esc(r.redirectUri)+'">コピー</button></span>':'')+'</span></div>';
@@ -1701,9 +1827,11 @@ function gcRowClick(e){
 }
 function drawGcalEvents(){
   var box=document.getElementById('gcEv'); if(!box) return;
+  if(document.getElementById('gcMore') && !document.getElementById('gcMore').open){ drawHome(true); return; }
   api('/api/gcal',{events:true}).then(function(r){
+    drawHome(true);
     if(!r.connected){
-      box.innerHTML='<div class="row"><span class="what"><span>Googleカレンダーはまだつながっていません。'+(r.canManage?'「設定」タブの「Googleカレンダー」からつなげます。':'オーナー・管理者につないでもらってください。')+'</span></span></div>';
+      box.innerHTML='<div class="row"><span class="what"><span>Googleカレンダーはまだつながっていません。'+(r.canManage?'「設定」の「Googleカレンダー」からつなげます。':'オーナー・管理者につないでもらってください。')+'</span></span></div>';
       return;
     }
     var h='';
@@ -2129,7 +2257,7 @@ var REQS=[], focusRid=null, MAX_RUNNING=3;
 function reqRunning(){ return REQS.filter(function(q){ return !q.final; }); }
 function drawReqs(){
   var box=document.getElementById('aReqs'), h='';
-  REQS.slice(-6).forEach(function(q){
+  REQS.filter(function(q){ return !q.final; }).forEach(function(q){
     var on=q.rid && q.rid===OFFICE_RID();
     h+='<span class="req'+(on?' on':'')+'" data-rid="'+esc(q.rid||'')+'" title="依頼ID '+esc(q.rid||'受付中')+'">'
       + '<span class="q">'+esc(q.text)+'</span><span class="sg">'+esc(q.stage)+'</span>'
@@ -2191,7 +2319,7 @@ function finish(q, r){
   q.final=true; q.stage=r.state || (r.status==='done'?'完了':r.status==='cancelled'?'キャンセル':'失敗');
   // 回答は、会議の片付けを待たずにすぐ出す
   var out=document.getElementById('aOut');
-  var h='<div class="ans" id="res-'+esc(q.rid||'')+'"><div class="rid">依頼ID '+esc((q.rid||'').slice(0,8))+'　「'+esc(q.text.slice(0,40))+'」</div>';
+  var h='<div class="qb">'+esc(q.text)+'</div><div class="ans" id="res-'+esc(q.rid||'')+'"><div class="rid">依頼ID '+esc((q.rid||'').slice(0,8))+'　「'+esc(q.text.slice(0,40))+'」</div>';
   if(r.agents && r.agents.length){
     h+='<div class="who">';
     r.agents.forEach(function(a){ h+='<span>'+esc(a)+'</span>'; });
@@ -2199,10 +2327,10 @@ function finish(q, r){
   }
   h+='<div class="txt">'+rich(showResult(r))+'</div>'+outcomeHtml(r)+sourcesHtml(r)+minutesHtml(r)
     +'<div id="cards-'+esc(q.rid||'x')+'"></div></div>';
-  out.insertAdjacentHTML('afterbegin', h);
+  out.insertAdjacentHTML('beforeend', h); cpScroll();
   if(r.candidates && r.candidates.length) sbCards(r.candidates,'cards-'+q.rid);
   if(r.properties && r.properties.length) propCards(r.properties,'cards-'+q.rid);
-  if(r.status==='done'){ localMsgs.push({role:'user',content:q.text}); localMsgs.push({role:'assistant',content:r.reply}); }
+  CP_DIRTY=true; cpEndState();
   if(window.OFFICE && OFFICE_RID()===q.rid) OFFICE.meetingDone(q.rid, r);
   if(focusRid===q.rid) focusRid=null;
   drawReqs(); updState();
@@ -2214,7 +2342,7 @@ document.getElementById('aSend').onclick = function(){
   if(!text) return;
   if(reqRunning().length>=MAX_RUNNING){ st.textContent='同時に進められる依頼は'+MAX_RUNNING+'件までです。終わるのを待ってから送ってください。'; return; }
   var q={rid:null, text:text, stage:'受付', seats:null, final:false};
-  REQS.push(q); ta.value=''; drawReqs(); updState();
+  REQS.push(q); ta.value=''; drawReqs(); updState(); cpScroll(); cpEndState();
   api('/api/chat',{text:text}).then(function(r){
     if(!r.runId) throw new Error('no run');
     q.rid=r.runId; focusRid=q.rid;
@@ -2594,7 +2722,7 @@ function crmCustomer(id){
       return '<details class="xc" style="margin:6px 0"'+(i===0?' open':'')+'><summary><span class="xq" style="font-weight:500;font-size:13.5px">'+esc(d.createdAt?crmWhen(d.createdAt):'')+'　'+esc(d.channel)
         +(d.subject?'「'+esc(d.subject)+'」':'')+'</span><span class="badge">'+esc(DST[d.status]||d.status)+'</span></summary>'
         +'<div class="xa" style="white-space:pre-wrap;font-size:13.5px">'+esc(d.body)+(d.note&&d.status!=='executed'?'<div class="state" style="margin-top:6px">'+esc(d.note)+'</div>':'')
-        +'<div class="state" style="margin-top:6px">作った人：'+esc(d.by||'')+(d.status==='pending'?'　承認は「予定」タブの承認待ち、またはLINEで「承認 '+esc(d.code)+'」':'')+'</div></div></details>';
+        +'<div class="state" style="margin-top:6px">作った人：'+esc(d.by||'')+(d.status==='pending'?'　承認は「ホーム」の承認待ち、またはLINEで「承認 '+esc(d.code)+'」':'')+'</div></div></details>';
     }).join(''):'<div class="state">まだありません。「連絡を作る」や、AIに「〇〇様にメールを作って」と頼むと、ここに残ります。</div>')+'</div>';
     h+='<div class="card crm-sec"><h4>案内（'+r.viewings.length+'件）</h4>'+(r.viewings.length?r.viewings.map(function(v){
       return '<div style="padding:4px 0;font-size:13.5px"><b>'+esc(crmWhen(v.at))+'</b> '+esc(v.property)+' <span class="badge">'+esc(v.status)+'</span>'+(v.reaction?' <span class="state">'+esc(v.reaction)+'</span>':'')+(v.feedback?'<div class="state">'+esc(v.feedback)+'</div>':'')+'</div>';
@@ -2901,15 +3029,140 @@ function crmCalMsg(r){
 }
 
 function tab(i){
+  // 「予定」はホームの一番上に移した（前の「予定」タブへのリンクはホームを開く）
+  var toApv = i===3; if(i===3) i=0;
+  if(i===0) drawHome();
+  if(i===1) hsLoad(false);
   if(i===2) sbLoad();
-  if(i===3) drawGcalEvents();
+  if(i===7) vdLoad();
+  if(i===8) slLoad();
+  closeDrawers();
   // 「顧客」と「物件」は同じ台帳の画面（s4）を使い、上のボタンを入れ替える
   var sec = i===6 ? 4 : i;
   if(i===4 || i===6) lgGroup(i===6 ? 'property' : 'customer');
   var ns=document.querySelectorAll('nav button'), ss=document.querySelectorAll('section');
   for(var k=0;k<ns.length;k++) ns[k].className=((ns[k].getAttribute('data-tabs')||'').split(',').indexOf(String(i))>=0?'on':'');
   for(var k=0;k<ss.length;k++) ss[k].className=(ss[k].id==='s'+sec?'on':'');
+  window.scrollTo(0,0);
+  if(toApv) setTimeout(function(){ var a=document.getElementById('apv'); if(a) a.scrollIntoView({behavior:'smooth',block:'start'}); }, 200);
 }
+
+/* ---------- ホームの予定（Googleカレンダー＋アプリの案内・契約・決済） ---------- */
+var HOME_AT=0;
+function drawHome(force){
+  var box=document.getElementById('homeSch'); if(!box) return;
+  if(!force && Date.now()-HOME_AT<20000) return; HOME_AT=Date.now();
+  Promise.all([
+    api('/api/gcal',{events:true}).catch(function(e){ return {connected:false, err:e.message}; }),
+    api('/api/crm-schedule',{}).catch(function(){ return {items:[]}; })
+  ]).then(function(rs){
+    var g=rs[0], c=rs[1], items=[];
+    (g.events||[]).forEach(function(e){ items.push({t:e.allDay?e.start+'T00:00:00+09:00':e.start, allDay:!!e.allDay, kind:'カレンダー', title:e.title, sub:e.location||'', link:e.link}); });
+    (c.items||[]).forEach(function(x){ if(g.connected && x.inCalendar) return; items.push({t:x.at, kind:x.kind, title:x.title, cid:x.customerId}); });
+    items.sort(function(a,b){ return Date.parse(a.t)-Date.parse(b.t); });
+    var today=jst(), key=function(d){ return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate(); }, tk=key(today);
+    var now=Date.now(), todays=[], later=[];
+    items.forEach(function(x){ var j=jst(x.t); if(key(j)===tk) todays.push(x); else if(Date.parse(x.t)>now) later.push(x); });
+    var line=function(x){
+      var j=jst(x.t), tm=x.allDay?'終日':z(j.getHours())+':'+z(j.getMinutes());
+      var d=(j.getMonth()+1)+'/'+j.getDate()+'('+'日月火水木金土'[j.getDay()]+')';
+      return '<div class="row"'+(x.cid?' data-hc="'+esc(x.cid)+'"':'')+'><span class="when" style="min-width:108px">'+(key(j)===tk?'':esc(d)+' ')+esc(tm)+'</span><span class="what"><b>'+esc(x.title)+'</b>'+(x.sub?'<span>'+esc(x.sub)+'</span>':'')+'</span>'
+        +'<span class="badge">'+esc(x.kind)+'</span>'+(x.link?linkHtml(x.link,'開く'):'')+'</div>';
+    };
+    var h='<div class="day">今日（'+(today.getMonth()+1)+'/'+today.getDate()+'）</div>';
+    h+= todays.length ? todays.map(line).join('') : '<div class="row"><span class="what"><span>今日の予定はありません。</span></span></div>';
+    h+='<div class="day">これからの予定（2週間）</div>';
+    h+= later.length ? later.slice(0,12).map(line).join('')+(later.length>12?'<div class="row"><span class="what"><span>ほか '+(later.length-12)+'件</span></span></div>':'') : '<div class="row"><span class="what"><span>これからの予定はありません。</span></span></div>';
+    if(!g.connected) h+='<div class="row"><span class="what"><span>Googleカレンダーはつながっていません（アプリに入れた案内・契約・決済だけを表示しています）。'+(g.canManage?'「設定」の「Googleカレンダー」からつなげます。':'')+'</span></span></div>';
+    else if(g.eventsError) h+='<div class="row"><span class="what"><span style="color:var(--bad)">カレンダーを読めませんでした：'+esc(g.eventsError)+'</span></span></div>';
+    box.innerHTML=h;
+  });
+}
+document.getElementById('homeSch').onclick=function(e){
+  var row=e.target.closest && e.target.closest('[data-hc]'); if(!row || (e.target.tagName==='A')) return;
+  var id=row.getAttribute('data-hc'); tab(4); CRM.back=function(){ lgKind('customer'); }; crmCustomer(id);
+};
+document.getElementById('gcMore').addEventListener('toggle', function(){ if(this.open) drawGcalEvents(); });
+
+/* ---------- 業者一覧 ---------- */
+var VD={items:[], kinds:[], w:false};
+function vdLoad(){
+  var box=document.getElementById('vdList');
+  api('/api/vendors',{q:document.getElementById('vdQ').value, kind:document.getElementById('vdK').value, all:document.getElementById('vdAll').checked}).then(function(r){
+    VD.items=r.items; VD.kinds=r.kinds; VD.w=r.canWrite;
+    var sel=document.getElementById('vdK'); if(sel.options.length<=1) r.kinds.forEach(function(k){ var o=document.createElement('option'); o.textContent=k; sel.appendChild(o); });
+    document.getElementById('vdNew').style.display=r.canWrite?'':'none';
+    if(!r.items.length){ box.innerHTML='<div class="row"><span class="what"><span>まだ業者は登録されていません。'+(r.canWrite?'「＋ 業者を登録」から入れてください。':'')+'</span></span></div>'; return; }
+    box.innerHTML=r.items.map(function(v){
+      return '<div class="row" style="flex-wrap:wrap"><span class="badge">'+esc(v.kind)+'</span><span class="what"><b>'+esc(v.name)+(v.active?'':'（使わない）')+'</b><span>'
+        +[v.contactName?'担当 '+v.contactName:'', v.address||''].filter(Boolean).map(esc).join('・')+'</span>'+(v.note?'<span>'+esc(v.note)+'</span>':'')+'</span>'
+        +'<span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+(v.phone?'<a class="lk" href="tel:'+esc(v.phone.replace(/[^0-9+]/g,''))+'">'+esc(v.phone)+'</a>':'')
+        +(v.email?'<a class="lk" href="mailto:'+esc(v.email)+'">メール</a>':'')+(r.canWrite?'<button class="btn sm" data-vedit="'+esc(v.id)+'">編集</button>':'')+'</span>'
+        +'<div id="vf-'+esc(v.id)+'" style="flex-basis:100%"></div></div>';
+    }).join('');
+  }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+function vdForm(id){
+  var v=id?VD.items.filter(function(x){ return x.id===id; })[0]:null, box=document.getElementById(id?'vf-'+id:'vdForm');
+  if(box.innerHTML){ box.innerHTML=''; return; }
+  var f=function(k,l,val){ return '<label>'+esc(l)+'<input data-vf="'+k+'" value="'+esc(val||'')+'"></label>'; };
+  box.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
+    +f('name','業者名（必須）',v&&v.name)
+    +'<label>種類<select data-vf="kind">'+(VD.kinds.length?VD.kinds:['その他']).map(function(k){ return '<option'+((v?v.kind:'')===k?' selected':'')+'>'+esc(k)+'</option>'; }).join('')+'</select></label>'
+    +f('contactName','担当者',v&&v.contactName)+f('phone','電話',v&&v.phone)+f('email','メール',v&&v.email)+f('address','住所',v&&v.address)
+    +'<label class="wide">メモ（得意なこと・料金の目安など）<textarea data-vf="note" rows="2">'+esc(v&&v.note||'')+'</textarea></label>'
+    +(v?'<label style="flex-direction:row;display:flex;gap:6px;align-items:center"><input type="checkbox" data-vf="active" style="width:auto"'+(v.active?' checked':'')+'> 使っている業者</label>':'')
+    +'</div><div class="bar"><button class="btn main sm" data-vsv="'+esc(id||'')+'">保存する</button><span class="state" id="vs-'+esc(id||'new')+'"></span></div></div>';
+}
+document.getElementById('vdGo').onclick=vdLoad;
+document.getElementById('vdQ').addEventListener('keydown',function(e){ if(e.key==='Enter') vdLoad(); });
+document.getElementById('vdK').onchange=vdLoad; document.getElementById('vdAll').onchange=vdLoad;
+document.getElementById('vdNew').onclick=function(){ vdForm(null); };
+document.getElementById('s7').addEventListener('click', function(e){
+  var t=e.target, a;
+  if((a=t.getAttribute && t.getAttribute('data-vedit'))){ vdForm(a); return; }
+  if(t.getAttribute && t.hasAttribute('data-vsv')){
+    var id=t.getAttribute('data-vsv'), box=t.closest('.card'), val={}, st=document.getElementById('vs-'+(id||'new'));
+    Array.prototype.forEach.call(box.querySelectorAll('[data-vf]'), function(el){ val[el.getAttribute('data-vf')] = el.type==='checkbox' ? el.checked : el.value; });
+    t.disabled=true; st.textContent='保存しています…';
+    api('/api/vendor-save', id?{id:id, vendor:val}:{vendor:val}).then(function(){ document.getElementById('vdForm').innerHTML=''; vdLoad(); })
+      .catch(function(er){ st.textContent=er.message; t.disabled=false; });
+  }
+});
+
+/* ---------- 売上一覧（取引の「自社の売上」を決済日の月で集計） ---------- */
+var SL_Y=null;
+function slLoad(){
+  var box=document.getElementById('slBox'); if(SL_Y===null) SL_Y=jst().getFullYear();
+  document.getElementById('slY').textContent=SL_Y+'年';
+  box.innerHTML='<div class="state">読み込んでいます…</div>';
+  api('/api/crm-sales',{year:SL_Y}).then(function(r){
+    var t=r.totals, max=Math.max.apply(null, r.months.map(function(m){ return m.done+m.expected; }).concat([1]));
+    var yen=function(n){ return n ? lgMan(n) : '—'; };
+    var h='<div class="kpi"><div><small>'+r.year+'年の売上（取引完了）</small><b>'+esc(t.done?lgMan(t.done):'0円')+'</b></div>'
+      +'<div><small>見込み（契約・決済前）</small><b>'+esc(t.expected?lgMan(t.expected):'0円')+'</b></div>'
+      +'<div><small>取引完了の件数</small><b>'+t.doneCount+'件</b></div></div>';
+    if(t.noFee) h+='<div class="note" style="margin-top:0">売上の金額が入っていない取引が'+t.noFee+'件あります（0円として数えています）。</div>';
+    h+='<div class="card" style="overflow-x:auto"><table class="sales-tbl"><tr><th>月</th><th>売上（完了）</th><th>件数</th><th>見込み</th><th>件数</th><th style="width:40%"></th></tr>'
+      +r.months.map(function(m){
+        var w1=Math.round(m.done/max*100), w2=Math.round(m.expected/max*100);
+        return '<tr><td>'+m.month+'月</td><td>'+esc(yen(m.done))+'</td><td>'+(m.doneCount||'')+'</td><td>'+esc(yen(m.expected))+'</td><td>'+(m.expectedCount||'')+'</td>'
+          +'<td style="text-align:left">'+(w1?'<span class="bar-m" style="width:'+w1+'%"></span>':'')+(w2?'<span class="bar-e" style="width:'+w2+'%;margin-left:2px"></span>':'')+'</td></tr>';
+      }).join('')+'</table></div>';
+    h+='<h2>取引ごとの売上（'+r.items.length+'件）</h2><div class="card">';
+    h+= r.items.length ? r.items.map(function(d){
+      var at=d.settleAt||d.contractAt;
+      return '<div class="crm-row" style="cursor:default;flex-wrap:wrap"><span class="when">'+esc(at?crmWhen(at).replace(/ \d+:\d+$/,''):'—')+'</span><span class="nm">'+esc(d.customer)+'様</span><span class="state">'+esc(d.property||'')+'</span>'
+        +'<span class="badge">'+esc(DEAL_LABEL[d.stage]||d.stage)+'</span><span class="state">金額 '+esc(yen(d.price))+'</span><b style="margin-left:auto;color:var(--gold2)">'+esc(d.fee!=null?lgMan(d.fee):'売上未入力')+'</b>'
+        +'<button class="btn sm" data-slc="'+esc(d.customerId)+'">お客様</button></div>';
+    }).join('') : '<div class="crm-row" style="cursor:default"><span>この年の取引はありません。顧客管理の「＋ 申込を登録」から取引を入れると、ここに集計されます。</span></div>';
+    h+='</div>';
+    box.innerHTML=h;
+  }).catch(function(e){ box.innerHTML='<div class="state" style="color:var(--bad)">'+esc(e.message)+'</div>'; });
+}
+document.getElementById('slPrev').onclick=function(){ SL_Y--; slLoad(); };
+document.getElementById('slNext').onclick=function(){ SL_Y++; slLoad(); };
+document.getElementById('slBox').onclick=function(e){ var a=e.target.getAttribute && e.target.getAttribute('data-slc'); if(a){ tab(4); CRM.back=function(){ tab(8); }; crmCustomer(a); } };
 /* 顧客タブ：今日の追客・顧客一覧・案内・反響・LINE受信箱／物件タブ：物件一覧 */
 var LG_GROUP=null;
 function lgGroup(g){
