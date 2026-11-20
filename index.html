@@ -646,7 +646,7 @@ function open_(s){
   loadSkills().catch(function(){});
   setInterval(poll, 4000);
   setInterval(clock, 1000); clock();
-  if(GCAL_FLASH){ tab(5); setTimeout(function(){ setJump('Googleカレンダー'); }, 800); }
+  if(GCAL_FLASH){ tab(5); var gmFlash=/Gmail/.test(GCAL_FLASH.msg||''); setTimeout(function(){ setJump(gmFlash?'メール':'Googleカレンダー'); }, 800); }
 }
 function clock(){
   var j = jst();
@@ -1446,27 +1446,55 @@ document.addEventListener('click', function(e){
     setTimeout(function(){ lastApv=-1; drawApprovals(); }, 2500);
   }).catch(function(er){ if(st) st.textContent=er.message; });
 });
-/* メール送信の設定（会社ごと） */
+/* メール送信の設定（会社ごと）：Gmail か 独自ドメイン（Resend）を選ぶ */
+var EM_PICK=null;
 function drawEmail(){
   var box=document.getElementById('emBox'); if(!box) return;
   api('/api/email-settings').then(function(r){
-    var h='<div class="row"><span class="what"><b>'+(r.from&&r.hasKey?'設定済み：'+esc((r.name||'')+' <'+r.from+'>'):'まだ設定されていません')+'</b>'
-      +'<span>お客様へのメールは、承認された1通ずつ、この送り主から送ります。送信サービスは Resend を使います（各社の契約・費用です）。</span></span></div>';
+    var g=r.google||{}, pick=EM_PICK||r.provider||'resend';
+    var ready = r.provider==='gmail' ? g.gmail : (r.from&&r.hasKey);
+    var now = r.provider==='gmail'
+      ? (g.gmail ? 'Gmailで送ります：'+esc((r.name||'')+' <'+(g.email||'')+'>') : 'Gmailで送る設定ですが、まだGmailがつながっていません')
+      : (r.from&&r.hasKey ? '独自ドメインで送ります：'+esc((r.name||'')+' <'+r.from+'>') : 'まだ設定されていません');
+    var h='';
+    if(GCAL_FLASH && /Gmail/.test(GCAL_FLASH.msg||'')){ h+='<div class="row"><span class="what"><b style="color:'+(GCAL_FLASH.ok?'var(--ok,#3fae6a)':'var(--bad)')+'">'+esc(GCAL_FLASH.msg)+'</b></span></div>'; GCAL_FLASH=null; }
+    h+='<div class="row"><span class="what"><b>'+now+'</b>'
+      +'<span>お客様へのメールは、承認された1通ずつ、ここで選んだ送り主から送ります。</span></span></div>';
     if(r.canManage){
-      h+='<div class="fm" style="padding:0 15px 12px;max-width:520px">'
-        +'<label for="emFrom">送り主のメールアドレス（Resendで確認済みのドメイン）</label><input id="emFrom" type="email" value="'+esc(r.from||'')+'">'
-        +'<label for="emName">送り主の名前（会社名など）</label><input id="emName" value="'+esc(r.name||'')+'">'
-        +'<label for="emKey">Resend のAPIキー'+(r.hasKey?'（変えるときだけ入力）':'')+'</label><input id="emKey" type="password" autocomplete="off" spellcheck="false">'
-        +'<div class="bar"><button class="btn main" id="emGo">保存する</button><span class="state" id="emSt"></span></div>'
+      h+='<div class="fm" style="padding:0 15px 12px;max-width:560px">'
+        +'<label>送り方</label><div class="seg" style="margin:4px 0 10px">'
+        +'<button type="button" class="'+(pick==='gmail'?'on':'')+'" data-emp="gmail">Gmailで送る</button>'
+        +'<button type="button" class="'+(pick==='resend'?'on':'')+'" data-emp="resend">独自ドメインで送る</button></div>';
+      if(pick==='gmail'){
+        h+='<div class="state" style="margin-bottom:8px">つないだGoogleアカウント（'+esc(g.email||'未接続')+'）から送ります。送ったメールはGmailの「送信済み」に残り、お客様の返信もGmailに届きます。アプリがメールを読むことはありません（許可は「送信」だけ）。1日に送れるのは数百通までです。</div>';
+        if(!g.serverReady) h+='<div class="state" style="color:var(--bad)">サーバーにGoogleのキーがまだ入っていません。</div>';
+        else if(!g.gmail) h+='<div class="bar"><button class="btn main" id="emGm">Gmailで送れるようにする（Googleで許可）</button></div>'
+          +'<div class="state">Googleの画面で「メールの送信」にチェックを入れて「続行」を押してください。'+(g.connected?'カレンダーの許可はそのまま残ります。':'')+'</div>';
+        else h+='<div class="state" style="color:var(--ok,#3fae6a)">Gmailで送れる状態です：'+esc(g.email||'')+'</div>';
+        h+='<label for="emName">送り主の名前（会社名など）</label><input id="emName" value="'+esc(r.name||'')+'">';
+      } else {
+        h+='<div class="state" style="margin-bottom:8px">会社の独自ドメイン（例：info@〇〇.co.jp）から、送信サービス Resend を使って送ります。Resendでドメインの確認が済んでいる必要があります（各社の契約・費用です）。</div>'
+          +'<label for="emFrom">送り主のメールアドレス（Resendで確認済みのドメイン）</label><input id="emFrom" type="email" value="'+esc(r.from||'')+'">'
+          +'<label for="emName">送り主の名前（会社名など）</label><input id="emName" value="'+esc(r.name||'')+'">'
+          +'<label for="emKey">Resend のAPIキー'+(r.hasKey?'（変えるときだけ入力）':'')+'</label><input id="emKey" type="password" autocomplete="off" spellcheck="false">';
+      }
+      h+='<div class="bar"><button class="btn main" id="emGo">この送り方で保存する</button><span class="state" id="emSt"></span></div>'
         +'<div class="inl" style="padding:6px 0 0"><input id="emTo" type="email" placeholder="テストの送り先（自分のアドレス）"><button class="btn sm" id="emTest">テストメールを送る</button></div>'
-        +'<div class="state">キーは暗号化してサーバーの金庫に保存し、画面やAIには表示しません。'+linkHtml('https://resend.com/','Resend のサイトを開く')+'</div></div>';
+        +'<div class="state">キーや鍵はサーバーの金庫に保存し、画面やAIには表示しません。'+(pick==='resend'?linkHtml('https://resend.com/','Resend のサイトを開く'):'')+'</div></div>';
     }
     box.innerHTML=h;
     if(!r.canManage) return;
+    box.querySelectorAll('[data-emp]').forEach(function(b){ b.onclick=function(){ EM_PICK=b.getAttribute('data-emp'); drawEmail(); }; });
+    var gm=document.getElementById('emGm');
+    if(gm) gm.onclick=function(){
+      var st=document.getElementById('emSt'); gm.disabled=true; if(st) st.textContent='Googleの画面を開いています…';
+      api('/api/gcal-start',{purpose:'gmail'}).then(function(x){ location.href=x.url; }).catch(function(er){ if(st) st.textContent=er.message; gm.disabled=false; });
+    };
     document.getElementById('emGo').onclick=function(){
       var st=document.getElementById('emSt'); st.textContent='保存しています…';
-      api('/api/email-settings',{save:{from:document.getElementById('emFrom').value, name:document.getElementById('emName').value, key:document.getElementById('emKey').value}})
-        .then(function(){ st.textContent='保存しました。'; setTimeout(drawEmail,1200); }).catch(function(e){ st.textContent=e.message; });
+      var save = pick==='gmail' ? {provider:'gmail', name:document.getElementById('emName').value}
+        : {provider:'resend', from:document.getElementById('emFrom').value, name:document.getElementById('emName').value, key:document.getElementById('emKey').value};
+      api('/api/email-settings',{save:save}).then(function(){ st.textContent='保存しました。'; EM_PICK=null; setTimeout(drawEmail,1200); }).catch(function(e){ st.textContent=e.message; });
     };
     document.getElementById('emTest').onclick=function(){
       var st=document.getElementById('emSt'); st.textContent='送っています…';
@@ -1508,12 +1536,12 @@ function drawGcal(){
     var go=document.getElementById('gcGo');
     if(go) go.onclick=function(){
       var st=document.getElementById('gcSt'); st.textContent='Googleの画面を開いています…'; go.disabled=true;
-      api('/api/gcal-start',{}).then(function(x){ location.href=x.url; }).catch(function(er){ st.textContent=er.message; go.disabled=false; });
+      api('/api/gcal-start',{purpose:'calendar'}).then(function(x){ location.href=x.url; }).catch(function(er){ st.textContent=er.message; go.disabled=false; });
     };
     var off=document.getElementById('gcOff');
     if(off) off.onclick=function(){
       var st=document.getElementById('gcSt');
-      if(off.getAttribute('data-sure')!=='1'){ off.setAttribute('data-sure','1'); off.textContent='本当に外す（もう一度押す）'; st.textContent='外すと、予定の表示と追加が止まります（カレンダーの予定は消えません）。'; return; }
+      if(off.getAttribute('data-sure')!=='1'){ off.setAttribute('data-sure','1'); off.textContent='本当に外す（もう一度押す）'; st.textContent='外すと、カレンダーとGmailでの送信の両方が止まります（カレンダーの予定やメールは消えません）。'; return; }
       off.disabled=true; st.textContent='外しています…';
       api('/api/gcal-disconnect',{}).then(function(){ drawGcal(); drawGcalEvents(); }).catch(function(er){ st.textContent=er.message; off.disabled=false; });
     };
