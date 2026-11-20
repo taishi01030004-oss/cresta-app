@@ -582,6 +582,17 @@ function logout(){
 }
 /* 招待リンク（#signup=コード）で開いたときは、登録画面にコードを入れておく */
 (function(){
+  // 査定書の共有リンク（#report=…）：ログインなしで査定書だけを表示する
+  var rm=/^#report=([A-Za-z0-9_-]{20,})/.exec(location.hash||'');
+  if(rm){
+    document.getElementById('gate').style.display='none';
+    document.body.insertAdjacentHTML('afterbegin','<p id="rpWait" style="padding:24px">査定書を読み込んでいます…</p>');
+    fetch(BASE + '/api/report', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({token: rm[1]})})
+      .then(function(res){ return res.json().then(function(j){ if(!res.ok) throw new Error(j.error||'表示できませんでした'); return j; }); })
+      .then(function(r){ var h=appraisalHtml(r); document.open(); document.write(h); document.close(); })
+      .catch(function(e){ var w=document.getElementById('rpWait'); if(w) w.textContent=e.message; });
+    return;
+  }
   var m=/^#signup(?:=([A-Za-z0-9-]+))?/.exec(location.hash||'');
   if(m){ gateMode('signup'); if(m[1]) document.getElementById('sCode').value=m[1]; }
   else if(AUTH || KEY){ enter().catch(function(){ gateMode('login'); }); }
@@ -1509,6 +1520,31 @@ function openInvoice(c, is){
   w.document.open(); w.document.write(h); w.document.close();
 }
 
+/* ---------- 価格査定書（簡易） ---------- */
+function man(v){ if(v==null) return '—'; return v>=1e8 ? (v/1e8).toFixed(2)+'億円' : Math.round(v/1e4).toLocaleString('ja-JP')+'万円'; }
+function appraisalHtml(r){
+  var p=r.property, a=r.appraisal, is=r.issuer||{};
+  var spec=[p.kind, p.city?(p.city+(p.address||'')):null, p.layout, p.landArea?('土地 '+p.landArea+'㎡'):null, p.buildingArea?((p.kind==='マンション'?'専有 ':'延床 ')+p.buildingArea+'㎡'):null, p.builtYear?(p.builtYear+'年築'):null, p.station?(p.station+(p.walkMin?' 徒歩'+p.walkMin+'分':'')):null].filter(Boolean).join('／');
+  var css='body{font-family:"Hiragino Sans","Noto Sans JP",sans-serif;color:#111;max-width:760px;margin:28px auto;padding:0 24px;font-size:14px}h1{text-align:center;letter-spacing:.3em;font-weight:600;border-bottom:3px solid #1f3d2e;padding-bottom:8px}'
+    +'table{width:100%;border-collapse:collapse;margin:10px 0}th,td{border:1px solid #aaa;padding:6px 8px}th{background:#eef3ef;text-align:left;width:28%}.r{text-align:right}'
+    +'.big{font-size:28px;font-weight:700;color:#1f3d2e}.box{border:2px solid #1f3d2e;padding:14px;margin:14px 0;text-align:center}.small{font-size:11px;color:#444}'
+    +'.cm{min-height:70px;border:1px dashed #999;padding:8px}.top{display:flex;justify-content:space-between;align-items:flex-end}@media print{.noprint{display:none}.cm{border:1px solid #aaa}}';
+  var h='<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>価格査定書 '+esc(p.title)+'</title><style>'+css+'</style></head><body>'
+    +'<div class="noprint" style="text-align:right"><button onclick="print()">印刷・PDFで保存</button></div>'
+    +'<h1>価格査定書（簡易）</h1>'
+    +'<div class="top"><div>作成日：'+esc(a.checkedOn)+'</div><div style="text-align:right"><b>'+esc(is.name||'')+'</b>'+(is.license?'<br>'+esc(is.license):'')+(r.staff?'<br>担当：'+esc(r.staff):'')+'</div></div>'
+    +'<h3>対象の物件</h3><table><tr><th>物件名</th><td>'+esc(p.title)+'</td></tr><tr><th>概要</th><td>'+esc(spec)+'</td></tr>'+(p.price!=null?'<tr><th>現在の売出価格</th><td>'+man(p.price)+'</td></tr>':'')+'</table>'
+    +'<div class="box">査定価格<div class="big">'+man(a.mid)+'</div>査定の幅：'+man(a.low)+' 〜 '+man(a.high)+'</div>'
+    +'<h3>査定の根拠</h3><table><tr><th>方法</th><td>近い取引の㎡単価（中央値）× 物件の面積（取引事例をもとにした簡易計算）</td></tr>'
+    +'<tr><th>使ったデータ</th><td>'+esc(a.basis)+'</td></tr><tr><th>㎡単価の中央値</th><td>'+Math.round(a.perSqmMid/1e3).toLocaleString('ja-JP')+'千円/㎡ × '+a.area+'㎡</td></tr></table>'
+    +'<h3>近い取引の例（面積が近い順）</h3><table><tr><th style="width:auto">時期</th><th style="width:auto">地区</th><th style="width:auto" class="r">価格</th><th style="width:auto" class="r">面積</th><th style="width:auto" class="r">㎡単価</th><th style="width:auto">築年</th></tr>'
+    +a.comparables.map(function(c){ return '<tr><td>'+esc(c.period)+'</td><td>'+esc(c.district||'—')+'</td><td class="r">'+man(c.price)+'</td><td class="r">'+c.area+'㎡</td><td class="r">'+Math.round(c.perSqm/1e3).toLocaleString('ja-JP')+'千円</td><td>'+esc(c.built||'—')+'</td></tr>'; }).join('')+'</table>'
+    +'<h3>担当者のコメント</h3><div class="cm" contenteditable="true">'+(r.comment?esc(r.comment).replace(/\n/g,'<br>'):'（ここをクリックして、物件の状態・周辺の様子・売り出しの方針などを書き込めます）')+'</div>'
+    +'<p class="small">'+a.notices.map(esc).join('<br>')+'<br>出典：国土交通省 不動産情報ライブラリ（'+esc(a.source)+'）取得日 '+esc(a.checkedOn)+'</p></body></html>';
+  return h;
+}
+function openAppraisal(r, w){ var h=appraisalHtml(r); w.document.open(); w.document.write(h); w.document.close(); }
+
 /* ---------- 会社の設定 ---------- */
 function drawProfile(){
   var box=document.getElementById('cpBox'); if(!box) return;
@@ -1907,6 +1943,7 @@ function lgDraw(){
     }
     return '<div class="lrow" id="lr-'+esc(x.id)+'"><div class="lt"><b>'+t+'</b><span>'+esc(sub)+'</span>'+(x.note?'<span style="display:block;white-space:pre-wrap">'+esc(x.note.slice(-160))+'</span>':'')+'</div>'
       +'<div class="lb"><button class="btn sm" data-match="'+esc(x.id)+'">'+(LG.kind==='property'?'合うお客様':'合う物件')+'</button>'
+      +(LG.kind==='property'?'<button class="btn sm" data-apr="'+esc(x.id)+'">査定書</button>':'')
       +(LG.kind==='customer'?'<button class="btn sm" data-hist="'+esc(x.id)+'">やり取り</button>'+(ME&&ME.can&&ME.can.draft?'<button class="btn sm" data-msg="'+esc(x.id)+'">連絡を作る</button>':''):'')
       +(w?'<button class="btn sm" data-edit="'+esc(x.id)+'">編集</button>':'')+'</div><div id="lm-'+esc(x.id)+'" style="width:100%"></div></div>';
   }).join('');
@@ -1998,6 +2035,18 @@ function lgInit(){
     if((id=t.getAttribute && t.getAttribute('data-msg'))){ msgForm(LG.items.filter(function(x){ return x.id===id; })[0]); return; }
     if((id=t.getAttribute && t.getAttribute('data-ihist'))){ showHist(document.getElementById('lm-'+id), {contactId:id}); api('/api/inbox-read',{contactId:id}).catch(function(){}); return; }
     if((id=t.getAttribute && t.getAttribute('data-ilink'))){ inboxLinkForm(id); return; }
+    if((id=t.getAttribute && t.getAttribute('data-apr'))){
+      var ab=document.getElementById('lm-'+id); ab.innerHTML='<div class="mt2">国交省のデータで査定しています…</div>';
+      // 新しい画面は、押した瞬間に開いておく（あとから開くとブラウザに止められるため）
+      var aw=window.open('','_blank'); if(aw) aw.document.write('<p style="font-family:sans-serif">査定書を作っています…</p>');
+      api('/api/appraisal',{id:id}).then(function(r){
+        if(!r.appraisal.ok){ if(aw) aw.close(); ab.innerHTML='<div class="mt2 ng">'+esc(r.appraisal.reason||'査定できませんでした')+'</div>'; return; }
+        ab.innerHTML='<div class="mt2"><b>査定価格：'+man(r.appraisal.mid)+'</b>（幅 '+man(r.appraisal.low)+'〜'+man(r.appraisal.high)+'）<br><span class="state">'+esc(r.appraisal.basis)+'</span></div>';
+        if(aw) openAppraisal(r, aw);
+        else ab.innerHTML+='<div class="mt2 state">印刷用の画面を開けませんでした。ChromeやSafariでこのアプリを開くと、査定書を印刷・PDFにできます。</div>';
+      }).catch(function(er){ if(aw) aw.close(); ab.innerHTML='<div class="mt2 ng">'+esc(er.message)+'</div>'; });
+      return;
+    }
     if((id=t.getAttribute && t.getAttribute('data-match'))){
       var box=document.getElementById('lm-'+id); box.innerHTML='<div class="mt2">探しています…</div>';
       api('/api/ledger-match',{kind:LG.kind, id:id}).then(function(r){
