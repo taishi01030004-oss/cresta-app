@@ -395,7 +395,8 @@
     <button class="on" data-tabs="0" onclick="tab(0)">いま</button>
     <button data-tabs="1,2" onclick="tab(1)">会話</button>
     <button data-tabs="3" onclick="tab(3)">予定</button>
-    <button data-tabs="4" onclick="tab(4)">台帳</button>
+    <button data-tabs="4" onclick="tab(4)">顧客</button>
+    <button data-tabs="6" onclick="tab(6)">物件</button>
     <button data-tabs="5" onclick="tab(5)">設定</button>
   </nav>
 
@@ -464,8 +465,8 @@
   <section id="s4">
     <div class="bar lgtabs" style="margin-top:0">
       <button class="btn" id="lgT">今日の追客</button>
-      <button class="btn" id="lgC" data-k="customer">顧客台帳</button>
-      <button class="btn main" id="lgP" data-k="property">物件台帳</button>
+      <button class="btn" id="lgC" data-k="customer">顧客一覧</button>
+      <button class="btn main" id="lgP" data-k="property">物件一覧</button>
       <button class="btn" id="lgV">案内</button>
       <button class="btn" id="lgI" data-k="inbox">LINE受信箱</button>
       <button class="btn" id="lgN">反響の取り込み</button>
@@ -2341,7 +2342,6 @@ function lgInit(){
       }).catch(function(er){ box.innerHTML='<div class="mt2 ng">'+esc(er.message)+'</div>'; });
     }
   };
-  crmToday();
 }
 
 /* ---------- 顧客・物件管理（今日の追客・お客様／物件の詳細・案内・反響の取り込み） ---------- */
@@ -2386,7 +2386,7 @@ function crmToday(){
     r.viewings.forEach(function(v){
       h+='<div class="crm-row" data-c="'+esc(v.customerId)+'"><span class="when">'+esc(crmWhen(v.at))+'</span><span class="nm">'+esc(v.customer||'')+'様</span><span class="state">'+esc(v.property||'')+'</span></div>';
     });
-    h+='</div><div class="note">お客様の一覧は「顧客台帳」、案内の登録は「案内」、ポータルからの問い合わせは「反響の取り込み」からどうぞ。</div></div></div>';
+    h+='</div><div class="note">お客様の一覧は「顧客一覧」、案内の登録は「案内」、ポータルからの問い合わせは「反響の取り込み」からどうぞ。</div></div></div>';
     crmBox().innerHTML=h;
   }).catch(function(e){ crmBox().innerHTML=crmErr(e); });
 }
@@ -2633,11 +2633,24 @@ function crmCalMsg(r){
 
 function tab(i){
   if(i===2) sbLoad();
-  if(i===4) lgInit();
   if(i===3) drawGcalEvents();
+  // 「顧客」と「物件」は同じ台帳の画面（s4）を使い、上のボタンを入れ替える
+  var sec = i===6 ? 4 : i;
+  if(i===4 || i===6) lgGroup(i===6 ? 'property' : 'customer');
   var ns=document.querySelectorAll('nav button'), ss=document.querySelectorAll('section');
   for(var k=0;k<ns.length;k++) ns[k].className=((ns[k].getAttribute('data-tabs')||'').split(',').indexOf(String(i))>=0?'on':'');
-  for(var k=0;k<ss.length;k++) ss[k].className=(ss[k].id==='s'+i?'on':'');
+  for(var k=0;k<ss.length;k++) ss[k].className=(ss[k].id==='s'+sec?'on':'');
+}
+/* 顧客タブ：今日の追客・顧客一覧・案内・反響・LINE受信箱／物件タブ：物件一覧 */
+var LG_GROUP=null;
+function lgGroup(g){
+  var first=!LG.loaded;
+  lgInit();
+  ['lgT','lgC','lgV','lgN','lgI'].forEach(function(id){ document.getElementById(id).style.display = g==='customer' ? '' : 'none'; });
+  document.getElementById('lgP').style.display = g==='property' ? '' : 'none';
+  if(LG_GROUP===g && !first) return;
+  LG_GROUP=g;
+  if(g==='property') lgKind('property'); else crmToday();
 }
 /* 設定の中の見出しへ移動する */
 function setJump(label){
