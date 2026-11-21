@@ -479,7 +479,8 @@
         <button data-sub="pD">取引完了物件</button>
       </div>
       <button data-tabs="7" onclick="tab(7)">業者一覧</button>
-      <button data-tabs="8" onclick="tab(8)">売上一覧</button>
+      <button data-tabs="8,9" data-grp="s" onclick="navGroup(8,'s')">売上一覧<i class="car">▾</i></button>
+      <div class="subnav" id="sub-s"><button data-subtab="8">売上一覧</button><button data-subtab="9">紹介料</button></div>
       <button data-tabs="1,2" data-grp="h" onclick="navGroup(1,'h')">会話履歴<i class="car">▾</i></button>
       <div class="subnav" id="sub-h"><button data-subtab="1">会話履歴</button><button data-subtab="2">助成金・補助金</button></div>
       <button data-tabs="5" onclick="tab(5)">設定</button>
@@ -599,7 +600,15 @@
   <section id="s8">
     <div class="inl" style="padding:0 0 10px"><button class="btn sm" id="slPrev">← 前の年</button><b id="slY" style="font-size:16px"></b><button class="btn sm" id="slNext">次の年 →</button></div>
     <div id="slBox"><div class="state">読み込んでいます…</div></div>
-    <div class="note">売上は、顧客管理・物件管理の「取引」に入れた「自社の売上（手数料など）」を、決済日の月で数えています。取引完了＝売上、契約・決済前＝見込みです。金額を直すときは、その取引の「段階・日にちを変える」から直してください。</div>
+    <div class="note">売上は、顧客管理・物件管理の「取引」に入れた「自社の売上（手数料など）」を決済日の月で、紹介料を受け取った日の月で数えています。取引完了＝売上、契約・決済前＝見込みです。金額を直すときは、その取引の「段階・日にちを変える」から直してください。</div>
+  </section>
+
+  <section id="s9">
+    <div class="inl" style="padding:0 0 10px"><button class="btn sm" id="rfPrev">← 前の年</button><b id="rfY" style="font-size:16px"></b><button class="btn sm" id="rfNext">次の年 →</button>
+      <button class="btn main" id="rfNew" style="margin-left:auto">＋ 紹介料を入れる</button></div>
+    <div id="rfForm"></div>
+    <div id="rfBox"><div class="state">読み込んでいます…</div></div>
+    <div class="note">銀行・リフォーム会社・保険などから受け取る紹介料を入れます。「入金済み」は売上一覧の売上に、「入金待ち」は見込みに、受け取った日（予定日）の月で足されます。紹介元は業者一覧から選ぶか、名前を入れてください。</div>
   </section>
 
   <section id="s5">
@@ -2403,7 +2412,7 @@ var LG_DEF={
     statuses:['すべて','募集中','商談中','成約','取下げ'],
     fields:[['title','物件名','text',1],['deal','取引','select',0,['売買','賃貸']],['kind','種別','select',0,['戸建','マンション','土地','アパート・一棟','事業用','その他']],
       ['status','状況','select',0,['募集中','商談中','成約','取下げ']],['city','市区町村','text'],['address','所在地（続き）','text'],
-      ['price','価格（円。3980万円 の書き方も可）','text'],['rent','賃料（円／月）','text'],['buildingArea','建物・専有面積（㎡）','text'],['landArea','土地面積（㎡）','text'],
+      ['price','価格（円）','text'],['rent','賃料（円／月）','text'],['buildingArea','建物・専有面積（㎡）','text'],['landArea','土地面積（㎡）','text'],
       ['builtYear','築年（例 2008・平成20年）','text'],['layout','間取り','text'],['station','最寄駅','text'],['walkMin','駅徒歩（分）','text'],
       ['yieldPct','表面利回り（%）','text'],['source','出典','select',0,['自社','レインズ転記','CSV取込','その他']],['note','備考','textarea',1]],
     tpl:'物件名,取引,種別,市区町村,所在地,価格（万円）,賃料,建物面積,土地面積,築年,間取り,最寄駅,徒歩,利回り,状況,備考\n例）中区の中古マンション,売買,マンション,名古屋市中区,栄1丁目,3200,,65.2,,2008,3LDK,栄,5,,募集中,南向き\n'
@@ -2412,7 +2421,7 @@ var LG_DEF={
     statuses:['すべて','新規','追客中','商談中','成約','休眠'],
     fields:[['name','氏名','text',1],['kana','フリガナ','text'],['phone','電話（AIには渡しません）','text'],['email','メール（AIには渡しません）','text'],
       ['want','希望','select',0,['購入','売却','賃貸','投資']],['status','状況','select',0,['新規','追客中','商談中','成約','休眠']],
-      ['budgetMin','予算の下限（円。3000万円 の書き方も可）','text'],['budgetMax','予算の上限','text'],['areas','希望エリア（読点区切り）','text'],['kinds','希望種別（例 マンション、戸建）','text'],
+      ['budgetMin','予算の下限（円）','text'],['budgetMax','予算の上限','text'],['areas','希望エリア（読点区切り）','text'],['kinds','希望種別（例 マンション、戸建）','text'],
       ['note','メモ','textarea',1]],
     tpl:'氏名,フリガナ,電話,メール,希望,予算下限（万円）,予算上限（万円）,希望エリア,希望種別,状況,備考\n例）山田太郎,ヤマダタロウ,090-0000-0000,yamada@example.jp,購入,2500,3500,中区、千種区,マンション,追客中,週末に内見希望\n'
   }
@@ -2489,10 +2498,12 @@ function lgForm(item, extra){
   h+='<div class="lform">';
   d.fields.forEach(function(f){
     var val=v[f[0]]; if(val==null) val='';
-    if(f[0]==='price'||f[0]==='rent'||f[0]==='budgetMin'||f[0]==='budgetMax'){ val = val==='' ? '' : String(val); }
+    var money=(f[0]==='price'||f[0]==='rent'||f[0]==='budgetMin'||f[0]==='budgetMax');
+    if(money){ val = val==='' ? '' : (/^[0-9]+$/.test(String(val)) ? yenFmt(val) : String(val)); }
     h+='<label class="'+(f[3]?'wide':'')+'">'+esc(f[1]);
     if(f[2]==='select') h+='<select data-f="'+f[0]+'">'+f[4].map(function(o){ return '<option'+(o===val?' selected':'')+'>'+o+'</option>'; }).join('')+'</select>';
     else if(f[2]==='textarea') h+='<textarea data-f="'+f[0]+'" rows="2">'+esc(val)+'</textarea>';
+    else if(money) h+='<input class="yen" inputmode="numeric" data-f="'+f[0]+'" value="'+esc(val)+'" placeholder="例 39,800,000">';
     else h+='<input data-f="'+f[0]+'" value="'+esc(val)+'">';
     h+='</label>';
   });
@@ -2811,6 +2822,17 @@ function crmProperty(id){
 var DEAL_LABEL={'申込':'申込','契約':'契約済み','決済前':'契約済み','完了':'取引完了','キャンセル':'キャンセル'};
 var DEAL_HELP={'申込':'申込を受けたもの（契約の前）。契約したら「契約済みにする」を押してください','契約':'契約が済み、決済・引渡しを待っているもの。決済したら「決済済みにする」を押してください','完了':'決済・引渡しが済んだもの'};
 var DEAL_TITLE={customer:{'申込':'申込一覧','契約':'契約一覧','完了':'取引完了顧客'}, property:{'申込':'申込中物件','契約':'契約中物件','完了':'取引完了物件'}};
+/* 金額の入力：半角数字だけにして、3けたごとにコンマを付ける（全角で打っても半角になる） */
+function yenFmt(v){ var d=String(v==null?'':v).replace(/[０-９]/g,function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); }).replace(/[^0-9]/g,'').replace(/^0+(?=\d)/,''); return d.replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+document.addEventListener('input', function(e){
+  var t=e.target; if(!t.classList || !t.classList.contains('yen') || e.isComposing) return;
+  var before=t.value, pos=t.selectionStart, digitsLeft=before.slice(0,pos).replace(/[^0-9０-９]/g,'').length, out=yenFmt(before);
+  if(out===before) return;
+  t.value=out;
+  var i=0, n=0; while(i<out.length && n<digitsLeft){ if(/[0-9]/.test(out[i])) n++; i++; }
+  try{ t.setSelectionRange(i,i); }catch(_){}
+});
+document.addEventListener('compositionend', function(e){ var t=e.target; if(t.classList && t.classList.contains('yen')) t.value=yenFmt(t.value); });
 /* 日時の入力（日付＋15分刻みの時刻）。隠し欄に「YYYY-MM-DDTHH:MM」で入る */
 function dtHtml(attrs, val){
   var d=val?val.slice(0,10):'', t=val?val.slice(11,16):'', opts='<option value="">時刻</option>', has=false;
@@ -2878,8 +2900,8 @@ function crmDealForm(id){
       +'<label>申込日<input type="date" data-df="appliedAt" value="'+esc(d&&d.appliedAt||'')+'"></label>'
       +'<label>契約日時'+dtHtml('data-df="contractAt"', d?jstInput(d.contractAt):'')+'</label>'
       +'<label>決済日時（引渡し）'+dtHtml('data-df="settleAt"', d?jstInput(d.settleAt):'')+'</label>'
-      +'<label>取引金額（円・万も可）<input data-df="price" inputmode="numeric" value="'+esc(d&&d.price!=null?String(d.price):'')+'" placeholder="例 3500万"></label>'
-      +'<label>手数料など自社の売上（円）<input data-df="fee" inputmode="numeric" value="'+esc(d&&d.fee!=null?String(d.fee):'')+'" placeholder="例 1221000"></label>'
+      +'<label>取引金額（円）<input class="yen" data-df="price" inputmode="numeric" value="'+esc(d&&d.price!=null?yenFmt(d.price):'')+'" placeholder="例 35,000,000"></label>'
+      +'<label>手数料など自社の売上（円）<input class="yen" data-df="fee" inputmode="numeric" value="'+esc(d&&d.fee!=null?yenFmt(d.fee):'')+'" placeholder="例 1,221,000"></label>'
       +'<label class="wide">メモ<textarea data-df="note" rows="2">'+esc(d&&d.note||'')+'</textarea></label></div>'
       +'<div class="bar"><button class="btn main sm" data-dsave="'+esc(id)+'">保存する</button><span class="state" id="dfs-'+esc(id)+'">契約日・決済日はGoogleカレンダーにも入ります。</span></div>';
   }).catch(function(e){ box.innerHTML='<div class="state">'+esc(e.message)+'</div>'; });
@@ -2895,7 +2917,7 @@ function crmDealNext(id, to){
       +'<label>決済の予定日時（決まっていれば）'+dtHtml('data-nx="settleAt"', d.settleAt?jstInput(d.settleAt):'')+'</label>';
   } else {
     h+='<label>決済日時'+dtHtml('data-nx="settleAt"', d.settleAt?jstInput(d.settleAt):nowQ())+'</label>'
-      +'<label>自社の売上（手数料など・円）<input data-nx="fee" inputmode="numeric" value="'+esc(d.fee!=null?String(d.fee):'')+'" placeholder="例 1221000"></label>';
+      +'<label>自社の売上（手数料など・円）<input class="yen" data-nx="fee" inputmode="numeric" value="'+esc(d.fee!=null?yenFmt(d.fee):'')+'" placeholder="例 1,221,000"></label>';
   }
   h+='</div><div class="bar"><button class="btn main sm" data-dgo="'+esc(id)+'" data-to="'+to+'">'+(to==='契約'?'契約済みにする':'決済済みにする')+'</button>'
     +'<span class="state" id="dfs-'+esc(id)+'">'+esc(d.customer)+'様と「'+esc(d.property||'物件なし')+'」が一緒に'+(to==='契約'?'契約一覧・契約中物件':'取引完了顧客・取引完了物件')+'へ移ります。</span></div></div>';
@@ -3122,6 +3144,7 @@ function tab(i){
   if(i===2) sbLoad();
   if(i===7) vdLoad();
   if(i===8) slLoad();
+  if(i===9) rfLoad();
   closeDrawers();
   // 「顧客」と「物件」は同じ台帳の画面（s4）を使い、上のボタンを入れ替える
   var sec = i===6 ? 4 : i;
@@ -3136,7 +3159,7 @@ function tab(i){
 /* ---------- 左メニューの副タブ（開け閉めできる。開け閉めはこの端末に覚えておく） ---------- */
 var NAV_CLOSED={}; try{ NAV_CLOSED=JSON.parse(localStorage.getItem('cresta-nav')||'{}')||{}; }catch(e){}
 function navPaint(){
-  ['c','p','h'].forEach(function(g){
+  ['c','p','h','s'].forEach(function(g){
     var box=document.getElementById('sub-'+g), btn=document.querySelector('[data-grp="'+g+'"]');
     if(box) box.classList.toggle('hide', !!NAV_CLOSED[g]);
     if(btn) btn.classList.toggle('closed', !!NAV_CLOSED[g]);
@@ -3254,6 +3277,64 @@ document.getElementById('s7').addEventListener('click', function(e){
   }
 });
 
+/* ---------- 紹介料（売上一覧の副タブ） ---------- */
+var RF={items:[], w:false};
+function rfLoad(){
+  if(SL_Y===null) SL_Y=jst().getFullYear();
+  document.getElementById('rfY').textContent=SL_Y+'年';
+  var box=document.getElementById('rfBox'); box.innerHTML='<div class="state">読み込んでいます…</div>';
+  api('/api/referrals',{year:SL_Y}).then(function(r){
+    RF.items=r.items; RF.w=r.canWrite; document.getElementById('rfNew').style.display=r.canWrite?'':'none';
+    var h='<div class="kpi"><div><small>'+r.year+'年の紹介料（入金済み）</small><b>'+esc(r.totals.received?lgMan(r.totals.received):'0円')+'</b></div>'
+      +'<div><small>入金待ち</small><b>'+esc(r.totals.waiting?lgMan(r.totals.waiting):'0円')+'</b></div><div><small>件数</small><b>'+r.items.length+'件</b></div></div><div class="card">';
+    h+= r.items.length ? r.items.map(function(f){
+      return '<div class="crm-row" style="cursor:default;flex-wrap:wrap"><span class="when">'+esc(f.receivedOn.slice(5).replace('-','/'))+'</span><span class="nm">'+esc(f.from||'（紹介元なし）')+'</span>'
+        +'<span class="badge">'+esc(f.status)+'</span>'+(f.customer?'<span class="state">'+esc(f.customer)+'様</span>':'')+(f.property?'<span class="state">'+esc(f.property)+'</span>':'')
+        +(f.note?'<span class="state">'+esc(f.note)+'</span>':'')+'<b style="margin-left:auto;color:var(--gold2)">'+esc(lgMan(f.amount))+'</b>'
+        +(r.canWrite?'<button class="btn sm" data-rfe="'+esc(f.id)+'">直す</button><button class="btn sm" data-rfd="'+esc(f.id)+'">消す</button>':'')
+        +'<div id="rf-'+esc(f.id)+'" style="flex-basis:100%"></div></div>';
+    }).join('') : '<div class="crm-row" style="cursor:default"><span>この年の紹介料はまだありません。「＋ 紹介料を入れる」から入れてください。</span></div>';
+    box.innerHTML=h+'</div>';
+  }).catch(function(e){ box.innerHTML='<div class="state" style="color:var(--bad)">'+esc(e.message)+'</div>'; });
+}
+function rfForm(id){
+  var f=id?RF.items.filter(function(x){ return x.id===id; })[0]:null, box=document.getElementById(id?'rf-'+id:'rfForm');
+  if(box.innerHTML){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="state">読み込んでいます…</div>';
+  Promise.all([api('/api/vendors',{all:true}), crmLists()]).then(function(rs){
+    var vs=rs[0].items, L=rs[1], j=jst(), today=j.getFullYear()+'-'+z(j.getMonth()+1)+'-'+z(j.getDate());
+    box.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
+      +'<label>受け取った日（入金待ちなら予定日）<input type="date" data-rf="receivedOn" value="'+esc(f?f.receivedOn:today)+'"></label>'
+      +'<label>金額（円）<input class="yen" data-rf="amount" inputmode="numeric" value="'+esc(f?yenFmt(f.amount):'')+'" placeholder="例 50,000"></label>'
+      +'<label>状態<select data-rf="status"><option'+(f&&f.status==='入金待ち'?'':' selected')+'>入金済み</option><option'+(f&&f.status==='入金待ち'?' selected':'')+'>入金待ち</option></select></label>'
+      +'<label>紹介元（業者一覧から）<select data-rf="vendorId"><option value="">（選ばない）</option>'+vs.map(function(v){ return '<option value="'+esc(v.id)+'"'+(f&&f.vendorId===v.id?' selected':'')+'>'+esc(v.name)+'（'+esc(v.kind)+'）</option>'; }).join('')+'</select></label>'
+      +'<label>紹介元の名前（業者一覧にないとき）<input data-rf="payer" value="'+esc(f&&f.payer||'')+'" placeholder="例 〇〇保険"></label>'
+      +'<label>関係するお客様（なくても可）<select data-rf="customerId">'+crmOpts(L.customers, f&&f.customerId||'', '（なし）')+'</select></label>'
+      +'<label>関係する物件（なくても可）<select data-rf="propertyId">'+crmOpts(L.properties, f&&f.propertyId||'', '（なし）')+'</select></label>'
+      +'<label class="wide">メモ（例：住宅ローンの紹介）<input data-rf="note" value="'+esc(f&&f.note||'')+'"></label>'
+      +'</div><div class="bar"><button class="btn main sm" data-rfs="'+esc(id||'')+'">保存する</button><span class="state" id="rfs-'+esc(id||'new')+'"></span></div></div>';
+  }).catch(function(e){ box.innerHTML='<div class="state">'+esc(e.message)+'</div>'; });
+}
+document.getElementById('rfPrev').onclick=function(){ SL_Y--; rfLoad(); };
+document.getElementById('rfNext').onclick=function(){ SL_Y++; rfLoad(); };
+document.getElementById('rfNew').onclick=function(){ rfForm(null); };
+document.getElementById('s9').addEventListener('click', function(e){
+  var t=e.target, a; if(!t.getAttribute) return;
+  if((a=t.getAttribute('data-rfe'))){ rfForm(a); return; }
+  if((a=t.getAttribute('data-rfd'))){
+    if(t.getAttribute('data-sure')!=='1'){ t.setAttribute('data-sure','1'); t.textContent='本当に消す'; t.className='btn sm main'; setTimeout(function(){ if(t.isConnected){ t.removeAttribute('data-sure'); t.textContent='消す'; t.className='btn sm'; } }, 4000); return; }
+    t.disabled=true; api('/api/referral-delete',{id:a}).then(rfLoad).catch(function(er){ t.textContent=er.message; });
+    return;
+  }
+  if(t.hasAttribute('data-rfs')){
+    var id=t.getAttribute('data-rfs'), box=t.closest('.card'), val={}, st=document.getElementById('rfs-'+(id||'new'));
+    Array.prototype.forEach.call(box.querySelectorAll('[data-rf]'), function(el){ val[el.getAttribute('data-rf')]=el.value||null; });
+    t.disabled=true; st.textContent='保存しています…';
+    api('/api/referral-save', id?{id:id, referral:val}:{referral:val}).then(function(){ document.getElementById('rfForm').innerHTML=''; rfLoad(); })
+      .catch(function(er){ st.textContent=er.message; t.disabled=false; });
+  }
+});
+
 /* ---------- 売上一覧（取引の「自社の売上」を決済日の月で集計） ---------- */
 var SL_Y=null;
 function slLoad(){
@@ -3261,16 +3342,20 @@ function slLoad(){
   document.getElementById('slY').textContent=SL_Y+'年';
   box.innerHTML='<div class="state">読み込んでいます…</div>';
   api('/api/crm-sales',{year:SL_Y}).then(function(r){
-    var t=r.totals, max=Math.max.apply(null, r.months.map(function(m){ return m.done+m.expected; }).concat([1]));
+    var t=r.totals, max=Math.max.apply(null, r.months.map(function(m){ return m.done+m.expected+(m.referral||0)+(m.referralWait||0); }).concat([1]));
     var yen=function(n){ return n ? lgMan(n) : '—'; };
-    var h='<div class="kpi"><div><small>'+r.year+'年の売上（取引完了）</small><b>'+esc(t.done?lgMan(t.done):'0円')+'</b></div>'
-      +'<div><small>見込み（契約・決済前）</small><b>'+esc(t.expected?lgMan(t.expected):'0円')+'</b></div>'
+    var all=(t.done||0)+(t.referral||0), allW=(t.expected||0)+(t.referralWait||0);
+    var h='<div class="kpi"><div><small>'+r.year+'年の売上合計（仲介＋紹介料）</small><b>'+esc(all?lgMan(all):'0円')+'</b></div>'
+      +'<div><small>うち仲介（取引完了）</small><b>'+esc(t.done?lgMan(t.done):'0円')+'</b></div>'
+      +'<div><small>うち紹介料（入金済み）</small><b>'+esc(t.referral?lgMan(t.referral):'0円')+'</b></div>'
+      +'<div><small>見込み（契約済み・入金待ち）</small><b>'+esc(allW?lgMan(allW):'0円')+'</b></div>'
       +'<div><small>取引完了の件数</small><b>'+t.doneCount+'件</b></div></div>';
     if(t.noFee) h+='<div class="note" style="margin-top:0">売上の金額が入っていない取引が'+t.noFee+'件あります（0円として数えています）。</div>';
-    h+='<div class="card" style="overflow-x:auto"><table class="sales-tbl"><tr><th>月</th><th>売上（完了）</th><th>件数</th><th>見込み</th><th>件数</th><th style="width:40%"></th></tr>'
+    h+='<div class="card" style="overflow-x:auto"><table class="sales-tbl"><tr><th>月</th><th>仲介（完了）</th><th>件数</th><th>紹介料</th><th>見込み</th><th style="width:34%"></th></tr>'
       +r.months.map(function(m){
-        var w1=Math.round(m.done/max*100), w2=Math.round(m.expected/max*100);
-        return '<tr><td>'+m.month+'月</td><td>'+esc(yen(m.done))+'</td><td>'+(m.doneCount||'')+'</td><td>'+esc(yen(m.expected))+'</td><td>'+(m.expectedCount||'')+'</td>'
+        var got=m.done+(m.referral||0), wait=m.expected+(m.referralWait||0);
+        var w1=Math.round(got/max*100), w2=Math.round(wait/max*100);
+        return '<tr><td>'+m.month+'月</td><td>'+esc(yen(m.done))+'</td><td>'+(m.doneCount||'')+'</td><td>'+esc(yen(m.referral||0))+'</td><td>'+esc(yen(wait))+'</td>'
           +'<td style="text-align:left">'+(w1?'<span class="bar-m" style="width:'+w1+'%"></span>':'')+(w2?'<span class="bar-e" style="width:'+w2+'%;margin-left:2px"></span>':'')+'</td></tr>';
       }).join('')+'</table></div>';
     h+='<h2>取引ごとの売上（'+r.items.length+'件）</h2><div class="card">';
