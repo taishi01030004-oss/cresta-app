@@ -354,6 +354,13 @@
   .side nav button{text-align:left;border:0;border-left:3px solid transparent;border-radius:8px;padding:10px 12px;font-size:14.5px;color:var(--muted)}
   .side nav button:hover{color:var(--text)}
   .side nav button.on{background:var(--panel);border-left-color:var(--gold);color:var(--gold);border-bottom:0}
+  .side nav .car{font-style:normal;float:right;font-size:11px;opacity:.7;transition:transform .15s}
+  .side nav button.closed .car{transform:rotate(-90deg)}
+  .subnav{display:flex;flex-direction:column;margin:0 0 6px 14px;border-left:1px solid var(--line)}
+  .subnav.hide{display:none}
+  .side nav .subnav button{font-size:13px;padding:6px 12px;border-left:0;border-radius:6px;color:var(--muted)}
+  .side nav .subnav button.on{background:none;color:var(--gold);font-weight:600}
+  #s4 .lgtabs,#s1 > .seg,#s2 > .seg{display:none}
   .side .sub{font-size:11px;color:var(--muted);padding:12px 12px 0}
   .mid{padding:16px 22px 60px;min-width:0}
   .chatp{position:sticky;top:56px;height:calc(100vh - 56px);border-left:1px solid var(--line);display:flex;flex-direction:column;background:var(--bg);min-width:0}
@@ -460,11 +467,21 @@
   <aside class="side" id="side">
     <nav>
       <button class="on" data-tabs="0,3" onclick="tab(0)">ホーム</button>
-      <button data-tabs="4" onclick="tab(4)">顧客管理</button>
-      <button data-tabs="6" onclick="tab(6)">物件管理</button>
+      <button data-tabs="4" data-grp="c" onclick="navGroup(4,'c')">顧客管理<i class="car">▾</i></button>
+      <div class="subnav" id="sub-c">
+        <button data-sub="lgC">顧客一覧</button><button data-sub="dA">申込一覧</button><button data-sub="dK">契約一覧</button>
+        <button data-sub="dS">決済前顧客</button><button data-sub="dD">取引完了顧客</button><button data-sub="lgT">今日の追客</button>
+        <button data-sub="lgV">案内</button><button data-sub="lgI">LINE受信箱</button><button data-sub="lgN">反響の取り込み</button>
+      </div>
+      <button data-tabs="6" data-grp="p" onclick="navGroup(6,'p')">物件管理<i class="car">▾</i></button>
+      <div class="subnav" id="sub-p">
+        <button data-sub="lgP">物件一覧</button><button data-sub="pA">申込中物件</button><button data-sub="pK">契約中物件</button>
+        <button data-sub="pS">決済待ち物件</button><button data-sub="pD">取引完了物件</button>
+      </div>
       <button data-tabs="7" onclick="tab(7)">業者一覧</button>
       <button data-tabs="8" onclick="tab(8)">売上一覧</button>
-      <button data-tabs="1,2" onclick="tab(1)">会話履歴</button>
+      <button data-tabs="1,2" data-grp="h" onclick="navGroup(1,'h')">会話履歴<i class="car">▾</i></button>
+      <div class="subnav" id="sub-h"><button data-subtab="1">会話履歴</button><button data-subtab="2">助成金・補助金</button></div>
       <button data-tabs="5" onclick="tab(5)">設定</button>
     </nav>
     <div class="sub" id="sub">6部門・18名</div>
@@ -1228,12 +1245,31 @@ function feed(s){
 
 /* ---------- 未処理 ---------- */
 var lastApv=-1;
+var DEAD_HTML='';
+var JOBTYPE_JA={process_line_message:'LINEの相談への返事', send_line_message:'LINEへの送信', execute_approved_action:'承認された操作（送信・カレンダーなど）',
+  task_reminder_scan:'タスクの期限の見回り', daily_task_digest:'毎朝の今日のタスク', draft_customer_reply:'LINEの返信の下書きづくり'};
+document.addEventListener('click', function(e){
+  if(e.target.id!=='deadBtn') return;
+  if(DEAD_HTML){ DEAD_HTML=''; document.getElementById('deadBox').innerHTML=''; return; }
+  document.getElementById('deadBox').innerHTML='<div class="state">読み込んでいます…</div>';
+  api('/api/jobs-dead',{}).then(function(r){
+    if(r.error) throw new Error(r.error);
+    DEAD_HTML = '<div class="note" style="margin:8px 0">新しい順に最大50件。何度やり直しても終わらなかった仕事です。お客様への送信が失敗していた場合は、送られていません。中身（お客様の情報）はここには出しません。</div>'
+      + r.items.map(function(j){
+        return '<div style="padding:6px 0;border-top:1px solid var(--line);font-size:13px"><b>'+esc(JOBTYPE_JA[j.type]||j.type)+'</b>　<span class="state">'+esc(fmtAt(j.updatedAt))+'・'+j.attempts+'回試した</span>'
+          +'<div class="state" style="white-space:pre-wrap;word-break:break-word">理由：'+esc(j.error||'（記録なし）')+'</div></div>';
+      }).join('');
+    document.getElementById('deadBox').innerHTML=DEAD_HTML;
+  }).catch(function(er){ document.getElementById('deadBox').innerHTML='<div class="state" style="color:var(--bad)">'+esc(er.message)+'</div>'; });
+});
 function pend(s){
   var n=(s.counts&&s.counts.approvals)||0;
   if(n!==lastApv){ lastApv=n; drawApprovals(); }
   var h='';
   h+='<div class="row"><span class="when">'+(s.counts&&s.counts.queued||0)+'件</span><span class="what"><b>順番待ちの仕事</b><span>これから処理されます</span></span></div>';
-  h+='<div class="row"><span class="when">'+(s.counts&&s.counts.dead||0)+'件</span><span class="what"><b>失敗した仕事</b><span>再試行しても終わらなかったもの</span></span></div>';
+  var dead=(s.counts&&s.counts.dead)||0;
+  h+='<div class="row" style="flex-wrap:wrap"><span class="when">'+dead+'件</span><span class="what"><b>失敗した仕事</b><span>再試行しても終わらなかったもの</span></span>'
+    +(dead&&ME&&ME.can&&ME.can.decide?'<button class="btn sm" id="deadBtn">中身を見る</button>':'')+'<div id="deadBox" style="flex-basis:100%">'+(DEAD_HTML||'')+'</div></div>';
   h+='<div class="row"><span class="when">'+(s.counts&&s.counts.approvals||0)+'件</span><span class="what"><b>承認待ち</b><span>上の「承認待ち」で内容を見て承認できます（LINEで「承認 ◯◯」でも可）</span></span></div>';
   h+='<div class="row"><span class="when">'+(s.counts&&s.counts.tasks||0)+'件</span><span class="what"><b>未完了のタスク</b><span></span></span></div>';
   document.getElementById('pend').innerHTML=h;
@@ -2390,6 +2426,7 @@ function lgTabs(k){
    ['pA','property:申込'],['pK','property:契約'],['pS','property:決済前'],['pD','property:完了']].forEach(function(x){
     document.getElementById(x[0]).className='btn'+(x[1]===k?' main':'');
   });
+  setTimeout(navSync, 0);
   var crm=(k==='today'||k==='viewings'||k==='inquiry'||k==='detail'||k.indexOf(':')>0);
   document.getElementById('crmView').style.display=crm?'':'none';
   ['lgBar','lgList','lgMsg','lgForm'].forEach(function(id){ document.getElementById(id).style.display=crm?'none':''; });
@@ -3043,9 +3080,47 @@ function tab(i){
   var ns=document.querySelectorAll('nav button'), ss=document.querySelectorAll('section');
   for(var k=0;k<ns.length;k++) ns[k].className=((ns[k].getAttribute('data-tabs')||'').split(',').indexOf(String(i))>=0?'on':'');
   for(var k=0;k<ss.length;k++) ss[k].className=(ss[k].id==='s'+sec?'on':'');
-  window.scrollTo(0,0);
+  window.scrollTo(0,0); setTimeout(navSync, 0);
   if(toApv) setTimeout(function(){ var a=document.getElementById('apv'); if(a) a.scrollIntoView({behavior:'smooth',block:'start'}); }, 200);
 }
+
+/* ---------- 左メニューの副タブ（開け閉めできる。開け閉めはこの端末に覚えておく） ---------- */
+var NAV_CLOSED={}; try{ NAV_CLOSED=JSON.parse(localStorage.getItem('cresta-nav')||'{}')||{}; }catch(e){}
+function navPaint(){
+  ['c','p','h'].forEach(function(g){
+    var box=document.getElementById('sub-'+g), btn=document.querySelector('[data-grp="'+g+'"]');
+    if(box) box.classList.toggle('hide', !!NAV_CLOSED[g]);
+    if(btn) btn.classList.toggle('closed', !!NAV_CLOSED[g]);
+  });
+}
+function navGroup(i, g){
+  var btn=document.querySelector('[data-grp="'+g+'"]');
+  // いま開いている画面の見出しをもう一度押したら、副タブを隠す／出す
+  if(btn && btn.className.indexOf('on')>=0 && document.body.className.indexOf('menu-open')<0){ NAV_CLOSED[g]=!NAV_CLOSED[g]; }
+  else { NAV_CLOSED[g]=false; tab(i); }
+  try{ localStorage.setItem('cresta-nav', JSON.stringify(NAV_CLOSED)); }catch(e){}
+  navPaint();
+}
+function navSync(){
+  Array.prototype.forEach.call(document.querySelectorAll('[data-sub]'), function(b){
+    var t=document.getElementById(b.getAttribute('data-sub'));
+    b.classList.toggle('on', !!t && /\bmain\b/.test(t.className) && document.getElementById('s4').className==='on'
+      && ((b.parentNode.id==='sub-c')===(LG_GROUP==='customer')));
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-subtab]'), function(b){
+    b.classList.toggle('on', document.getElementById('s'+b.getAttribute('data-subtab')).className==='on');
+  });
+}
+document.getElementById('side').addEventListener('click', function(e){
+  var t=e.target, id;
+  if((id=t.getAttribute && t.getAttribute('data-sub'))){
+    var grp=t.parentNode.id==='sub-p'?6:4;
+    if(!(document.getElementById('s4').className==='on' && LG_GROUP===(grp===6?'property':'customer'))) tab(grp);
+    document.getElementById(id).click(); closeDrawers(); navSync(); return;
+  }
+  if((id=t.getAttribute && t.getAttribute('data-subtab'))){ tab(Number(id)); navSync(); }
+});
+navPaint();
 
 /* ---------- ホームの予定（Googleカレンダー＋アプリの案内・契約・決済） ---------- */
 var HOME_AT=0;
