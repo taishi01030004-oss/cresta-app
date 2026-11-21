@@ -470,13 +470,13 @@
       <button data-tabs="4" data-grp="c" onclick="navGroup(4,'c')">顧客管理<i class="car">▾</i></button>
       <div class="subnav" id="sub-c">
         <button data-sub="lgC">顧客一覧</button><button data-sub="dA">申込一覧</button><button data-sub="dK">契約一覧</button>
-        <button data-sub="dS">決済前顧客</button><button data-sub="dD">取引完了顧客</button><button data-sub="lgT">今日の追客</button>
+        <button data-sub="dD">取引完了顧客</button><button data-sub="lgT">今日の追客</button>
         <button data-sub="lgV">案内</button><button data-sub="lgI">LINE受信箱</button><button data-sub="lgN">反響の取り込み</button>
       </div>
       <button data-tabs="6" data-grp="p" onclick="navGroup(6,'p')">物件管理<i class="car">▾</i></button>
       <div class="subnav" id="sub-p">
         <button data-sub="lgP">物件一覧</button><button data-sub="pA">申込中物件</button><button data-sub="pK">契約中物件</button>
-        <button data-sub="pS">決済待ち物件</button><button data-sub="pD">取引完了物件</button>
+        <button data-sub="pD">取引完了物件</button>
       </div>
       <button data-tabs="7" onclick="tab(7)">業者一覧</button>
       <button data-tabs="8" onclick="tab(8)">売上一覧</button>
@@ -555,13 +555,11 @@
       <button class="btn" id="lgC" data-k="customer">顧客一覧</button>
       <button class="btn" id="dA" data-dg="customer" data-ds="申込">申込一覧</button>
       <button class="btn" id="dK" data-dg="customer" data-ds="契約">契約一覧</button>
-      <button class="btn" id="dS" data-dg="customer" data-ds="決済前">決済前顧客</button>
       <button class="btn" id="dD" data-dg="customer" data-ds="完了">取引完了顧客</button>
       <button class="btn" id="lgT">今日の追客</button>
       <button class="btn main" id="lgP" data-k="property">物件一覧</button>
       <button class="btn" id="pA" data-dg="property" data-ds="申込">申込中物件</button>
       <button class="btn" id="pK" data-dg="property" data-ds="契約">契約中物件</button>
-      <button class="btn" id="pS" data-dg="property" data-ds="決済前">決済待ち物件</button>
       <button class="btn" id="pD" data-dg="property" data-ds="完了">取引完了物件</button>
       <button class="btn" id="lgV">案内</button>
       <button class="btn" id="lgI" data-k="inbox">LINE受信箱</button>
@@ -2422,8 +2420,8 @@ var LG_DEF={
 function lgMan(n){ if(n==null) return ''; return n>=1e8 ? (n/1e8).toFixed(n%1e8?2:0)+'億円' : Math.round(n/1e4).toLocaleString('ja-JP')+'万円'; }
 function lgTabs(k){
   [['lgT','today'],['lgC','customer'],['lgP','property'],['lgV','viewings'],['lgI','inbox'],['lgN','inquiry'],
-   ['dA','customer:申込'],['dK','customer:契約'],['dS','customer:決済前'],['dD','customer:完了'],
-   ['pA','property:申込'],['pK','property:契約'],['pS','property:決済前'],['pD','property:完了']].forEach(function(x){
+   ['dA','customer:申込'],['dK','customer:契約'],['dD','customer:完了'],
+   ['pA','property:申込'],['pK','property:契約'],['pD','property:完了']].forEach(function(x){
     document.getElementById(x[0]).className='btn'+(x[1]===k?' main':'');
   });
   setTimeout(navSync, 0);
@@ -2738,7 +2736,7 @@ function crmCustomer(id){
       h+='<div class="card crm-sec"><h4>対応を記録</h4><div class="chips" id="caKind">'+CRM_ACT.map(function(k,i){ return '<button type="button" class="btn sm'+(i===0?' main':'')+'" data-ak="'+k+'">'+k+'</button>'; }).join('')+'</div>'
         +'<div class="lform one" style="padding:0"><label>内容<textarea id="caBody" rows="3" placeholder="例：資料を送る約束をした。週末に内見希望"></textarea></label>'
         +'<label>関係する物件（なくても可）<select id="caProp">'+crmOpts(r.properties,'','（なし）')+'</select></label>'
-        +'<label>次に連絡する日<input id="caNext" type="datetime-local" value="'+esc(jstInput(c.nextContactAt))+'"></label></div>'+crmNextQuick('caNext')
+        +'<label>次に連絡する日'+dtHtml('id="caNext"', jstInput(c.nextContactAt))+'</label></div>'+crmNextQuick('caNext')
         +'<div class="lform" style="padding:0"><label>状態<select id="caStatus">'+crmOpts(['新規','追客中','商談中','成約','休眠'], c.status)+'</select></label></div>'
         +'<div class="bar"><button class="btn main" data-arec="1">記録する</button><span class="state" id="caSt"></span></div></div>';
     }
@@ -2765,7 +2763,7 @@ function crmCustomer(id){
       return '<div style="padding:4px 0;font-size:13.5px"><b>'+esc(crmWhen(v.at))+'</b> '+esc(v.property)+' <span class="badge">'+esc(v.status)+'</span>'+(v.reaction?' <span class="state">'+esc(v.reaction)+'</span>':'')+(v.feedback?'<div class="state">'+esc(v.feedback)+'</div>':'')+'</div>';
     }).join(''):'<div class="state">まだありません。</div>');
     if(w) h+='<details style="margin-top:6px"><summary style="cursor:pointer">＋ 案内を登録</summary><div class="lform one" style="padding:6px 0 0"><label>物件<select id="cvProp">'+crmOpts(r.properties,'','（選んでください）')+'</select></label>'
-      +'<label>日時<input id="cvAt" type="datetime-local" value="'+esc(jstPlus(1,'10:00'))+'"></label>'
+      +'<label>日時'+dtHtml('id="cvAt"', jstPlus(1,'10:00'))+'</label>'
       +'<label style="flex-direction:row;display:flex;gap:6px;align-items:center"><input type="checkbox" id="cvCal" checked style="width:auto"> Googleカレンダーにも入れる</label></div>'
       +'<div class="bar"><button class="btn main sm" data-cvsave="1">登録する</button><span class="state" id="cvSt"></span></div></details>';
     h+='</div></div></div>';
@@ -2810,9 +2808,23 @@ function crmProperty(id){
 }
 
 /* ---------- 取引（申込 → 契約 → 決済前 → 取引完了） ---------- */
-var DEAL_LABEL={'申込':'申込','契約':'契約','決済前':'決済前','完了':'取引完了','キャンセル':'キャンセル'};
-var DEAL_HELP={'申込':'申込を受けたもの（契約の前）','契約':'契約の準備中（契約日まで）','決済前':'契約が済み、決済・引渡しを待っているもの','完了':'決済・引渡しが済んだもの'};
-var DEAL_TITLE={customer:{'申込':'申込一覧','契約':'契約一覧','決済前':'決済前顧客','完了':'取引完了顧客'}, property:{'申込':'申込中物件','契約':'契約中物件','決済前':'決済待ち物件','完了':'取引完了物件'}};
+var DEAL_LABEL={'申込':'申込','契約':'契約済み','決済前':'契約済み','完了':'取引完了','キャンセル':'キャンセル'};
+var DEAL_HELP={'申込':'申込を受けたもの（契約の前）。契約したら「契約済みにする」を押してください','契約':'契約が済み、決済・引渡しを待っているもの。決済したら「決済済みにする」を押してください','完了':'決済・引渡しが済んだもの'};
+var DEAL_TITLE={customer:{'申込':'申込一覧','契約':'契約一覧','完了':'取引完了顧客'}, property:{'申込':'申込中物件','契約':'契約中物件','完了':'取引完了物件'}};
+/* 日時の入力（日付＋15分刻みの時刻）。隠し欄に「YYYY-MM-DDTHH:MM」で入る */
+function dtHtml(attrs, val){
+  var d=val?val.slice(0,10):'', t=val?val.slice(11,16):'', opts='<option value="">時刻</option>', has=false;
+  for(var m=0;m<24*60;m+=15){ var v=z(Math.floor(m/60))+':'+z(m%60); if(v===t) has=true; opts+='<option'+(v===t?' selected':'')+'>'+v+'</option>'; }
+  if(t && !has) opts+='<option selected>'+t+'</option>';
+  return '<span class="dt" style="display:flex;gap:6px"><input type="date" class="dtd" value="'+esc(d)+'" style="flex:1;min-width:140px"><select class="dts" style="width:96px">'+opts+'</select><input type="hidden" '+attrs+' value="'+esc(val||'')+'"></span>';
+}
+document.addEventListener('change', function(e){
+  var t=e.target; if(!t.classList || !(t.classList.contains('dtd')||t.classList.contains('dts'))) return;
+  var box=t.parentNode, d=box.querySelector('.dtd').value, tm=box.querySelector('.dts');
+  if(d && !tm.value) tm.value='10:00';
+  box.querySelector('input[type=hidden]').value = d ? d+'T'+(tm.value||'10:00') : '';
+});
+function nowQ(){ var j=jst(); var m=Math.ceil((j.getHours()*60+j.getMinutes())/15)*15; if(m>=1440) m=1425; return j.getFullYear()+'-'+z(j.getMonth()+1)+'-'+z(j.getDate())+'T'+z(Math.floor(m/60))+':'+z(m%60); }
 function dDate(iso){ return iso ? crmWhen(iso) : '—'; }
 function dYen(n){ return n==null ? '—' : lgMan(n); }
 function crmDealLine(d, side){
@@ -2824,23 +2836,25 @@ function crmDealLine(d, side){
     +'<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">'
     +(side!=='customer-detail'?'<button class="btn sm" data-dopen-c="'+esc(d.customerId)+'">お客様</button>':'')
     +(d.propertyId&&side!=='property-detail'?'<button class="btn sm" data-dopen-p="'+esc(d.propertyId)+'">物件</button>':'')
-    +(CRM.dealWrite?'<button class="btn sm main" data-dedit="'+esc(d.id)+'">段階・日にちを変える</button>':'')+'</span>'
+    +(CRM.dealWrite&&d.stage==='申込'?'<button class="btn sm main" data-dnext="'+esc(d.id)+'" data-to="契約">契約済みにする</button>':'')
+    +(CRM.dealWrite&&(d.stage==='契約'||d.stage==='決済前')?'<button class="btn sm main" data-dnext="'+esc(d.id)+'" data-to="完了">決済済みにする</button>':'')
+    +(CRM.dealWrite?'<button class="btn sm" data-dedit="'+esc(d.id)+'">直す</button>':'')+'</span>'
     +'<div id="df-'+esc(d.id)+'" style="width:100%"></div></div>';
 }
 function crmDealCard(deals, w, preset, side){
   CRM.dealWrite=w; CRM.dealMap=CRM.dealMap||{}; deals.forEach(function(d){ CRM.dealMap[d.id]=d; });
-  CRM.dealPreset=preset; CRM.dealReload=function(){ if(preset.customerId) crmCustomer(preset.customerId); else crmProperty(preset.propertyId); };
+  CRM.dealSide=null; CRM.dealPreset=preset; CRM.dealReload=function(){ if(preset.customerId) crmCustomer(preset.customerId); else crmProperty(preset.propertyId); };
   return '<div class="card crm-sec"><h4>取引（'+deals.length+'件）</h4>'
     +(deals.length?deals.map(function(d){ return crmDealLine(d, side+'-detail'); }).join(''):'<div class="state">まだありません。申込を受けたら「＋ 申込を登録」から入れてください。</div>')
     +(w?'<div class="bar"><button class="btn sm main" data-dnew="1">＋ 申込を登録</button></div><div id="df-new"></div>':'')+'</div>';
 }
 function crmDeals(stage, side){
-  lgTabs(side+':'+stage); crmWait(); CRM.back=function(){ crmDeals(stage, side); }; CRM.dealPreset={}; CRM.dealReload=CRM.back;
+  lgTabs(side+':'+stage); crmWait(); CRM.back=function(){ crmDeals(stage, side); }; CRM.dealPreset={}; CRM.dealReload=CRM.back; CRM.dealSide=side;
   api('/api/crm-deals',{stage:stage}).then(function(r){
     CRM.dealWrite=r.canWrite; CRM.dealMap={}; r.items.forEach(function(d){ CRM.dealMap[d.id]=d; });
     var c=r.counts||{};
     var h='<div class="card"><div class="row"><span class="what"><b>'+esc(DEAL_TITLE[side][stage])+'（'+r.items.length+'件）</b><span>'+esc(DEAL_HELP[stage])+'。お客様・物件は1回だけ登録し、取引の段階で一覧が分かれます。</span>'
-      +'<span class="state">申込 '+(c['申込']||0)+'・契約 '+(c['契約']||0)+'・決済前 '+(c['決済前']||0)+'・取引完了 '+(c['完了']||0)+'</span></span>'
+      +'<span class="state">申込 '+(c['申込']||0)+'・契約済み '+(c['契約']||0)+'・取引完了 '+(c['完了']||0)+'</span></span>'
       +(r.canWrite?'<button class="btn sm main" data-dnew="1">＋ 申込を登録</button>':'')+'</div><div id="df-new"></div>';
     if(!r.items.length) h+='<div class="crm-row" style="cursor:default"><span>この段階の取引はありません。</span></div>';
     h+=r.items.map(function(d){ return crmDealLine(d, side); }).join('')+'</div>';
@@ -2855,19 +2869,51 @@ function crmDealForm(id){
   box.innerHTML='<div class="state">読み込んでいます…</div>';
   crmLists().then(function(L){
     var pre=CRM.dealPreset||{}, cid=d?d.customerId:(pre.customerId||''), pid=d?(d.propertyId||''):(pre.propertyId||'');
-    var stages=d?['申込','契約','決済前','完了','キャンセル']:['申込','契約','決済前','完了'];
+    var stages=d?['申込','契約','完了','キャンセル']:['申込','契約','完了'];
+    var cur=d?(d.stage==='決済前'?'契約':d.stage):'申込';
     box.innerHTML='<div class="lform" style="padding:8px 0 0">'
       +'<label>お客様<select data-df="customerId"'+(d?' disabled':'')+'>'+crmOpts(L.customers,cid,'（選んでください）')+'</select></label>'
       +'<label>物件<select data-df="propertyId"'+(d?' disabled':'')+'>'+crmOpts(L.properties,pid,'（なし）')+'</select></label>'
-      +'<label>段階<select data-df="stage">'+stages.map(function(x){ return '<option value="'+x+'"'+((d?d.stage:'申込')===x?' selected':'')+'>'+esc(DEAL_LABEL[x])+'</option>'; }).join('')+'</select></label>'
+      +'<label>段階<select data-df="stage">'+stages.map(function(x){ return '<option value="'+x+'"'+(cur===x?' selected':'')+'>'+esc(DEAL_LABEL[x])+'</option>'; }).join('')+'</select></label>'
       +'<label>申込日<input type="date" data-df="appliedAt" value="'+esc(d&&d.appliedAt||'')+'"></label>'
-      +'<label>契約日時<input type="datetime-local" data-df="contractAt" value="'+esc(d?jstInput(d.contractAt):'')+'"></label>'
-      +'<label>決済日時（引渡し）<input type="datetime-local" data-df="settleAt" value="'+esc(d?jstInput(d.settleAt):'')+'"></label>'
+      +'<label>契約日時'+dtHtml('data-df="contractAt"', d?jstInput(d.contractAt):'')+'</label>'
+      +'<label>決済日時（引渡し）'+dtHtml('data-df="settleAt"', d?jstInput(d.settleAt):'')+'</label>'
       +'<label>取引金額（円・万も可）<input data-df="price" inputmode="numeric" value="'+esc(d&&d.price!=null?String(d.price):'')+'" placeholder="例 3500万"></label>'
       +'<label>手数料など自社の売上（円）<input data-df="fee" inputmode="numeric" value="'+esc(d&&d.fee!=null?String(d.fee):'')+'" placeholder="例 1221000"></label>'
       +'<label class="wide">メモ<textarea data-df="note" rows="2">'+esc(d&&d.note||'')+'</textarea></label></div>'
       +'<div class="bar"><button class="btn main sm" data-dsave="'+esc(id)+'">保存する</button><span class="state" id="dfs-'+esc(id)+'">契約日・決済日はGoogleカレンダーにも入ります。</span></div>';
   }).catch(function(e){ box.innerHTML='<div class="state">'+esc(e.message)+'</div>'; });
+}
+/* 「契約済みにする」「決済済みにする」：取引1件を進めるので、お客様と物件の両方が一緒に移る */
+function crmDealNext(id, to){
+  var d=CRM.dealMap[id], box=document.getElementById('df-'+id); if(!d||!box) return;
+  if(box.getAttribute('data-next')===to && box.innerHTML){ box.innerHTML=''; box.removeAttribute('data-next'); return; }
+  box.setAttribute('data-next', to);
+  var h='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">';
+  if(to==='契約'){
+    h+='<label>契約日時'+dtHtml('data-nx="contractAt"', d.contractAt?jstInput(d.contractAt):nowQ())+'</label>'
+      +'<label>決済の予定日時（決まっていれば）'+dtHtml('data-nx="settleAt"', d.settleAt?jstInput(d.settleAt):'')+'</label>';
+  } else {
+    h+='<label>決済日時'+dtHtml('data-nx="settleAt"', d.settleAt?jstInput(d.settleAt):nowQ())+'</label>'
+      +'<label>自社の売上（手数料など・円）<input data-nx="fee" inputmode="numeric" value="'+esc(d.fee!=null?String(d.fee):'')+'" placeholder="例 1221000"></label>';
+  }
+  h+='</div><div class="bar"><button class="btn main sm" data-dgo="'+esc(id)+'" data-to="'+to+'">'+(to==='契約'?'契約済みにする':'決済済みにする')+'</button>'
+    +'<span class="state" id="dfs-'+esc(id)+'">'+esc(d.customer)+'様と「'+esc(d.property||'物件なし')+'」が一緒に'+(to==='契約'?'契約一覧・契約中物件':'取引完了顧客・取引完了物件')+'へ移ります。</span></div></div>';
+  box.innerHTML=h;
+}
+function crmDealGo(id, to, btn){
+  var d=CRM.dealMap[id], box=document.getElementById('df-'+id), st=document.getElementById('dfs-'+id), nx={};
+  Array.prototype.forEach.call(box.querySelectorAll('[data-nx]'), function(el){ nx[el.getAttribute('data-nx')]=el.value; });
+  if(to==='契約' && !nx.contractAt){ st.textContent='契約日時を入れてください'; return; }
+  if(to==='完了' && !nx.settleAt){ st.textContent='決済日時を入れてください'; return; }
+  var val={customerId:d.customerId, propertyId:d.propertyId||null, stage:to, appliedAt:d.appliedAt||'',
+    contractAt: nx.contractAt!==undefined ? nx.contractAt : jstInput(d.contractAt), settleAt: nx.settleAt!==undefined ? nx.settleAt : jstInput(d.settleAt),
+    price: d.price!=null?String(d.price):'', fee: nx.fee!==undefined ? nx.fee : (d.fee!=null?String(d.fee):''), note: d.note||''};
+  btn.disabled=true; st.textContent='保存しています…';
+  api('/api/crm-deal',{id:id, deal:val}).then(function(r){
+    st.textContent=crmDealMsg(r); CRM.lists=null;
+    setTimeout(function(){ if(CRM.dealSide) crmDeals(to, CRM.dealSide); else (CRM.dealReload||CRM.back||crmToday)(); }, 1500);
+  }).catch(function(er){ st.textContent=er.message; btn.disabled=false; });
 }
 function crmDealMsg(r){
   var m={added:'カレンダーに入れました', changed:'カレンダーの予定を変えました', deleted:'カレンダーから消しました', pending:'カレンダーは承認待ちです', not_connected:'Googleカレンダーがつながっていないため、カレンダーには入れていません', error:'カレンダーに入れられませんでした'};
@@ -2940,7 +2986,7 @@ function crmViewings(){
     h+='<div class="card" style="margin-top:12px"><div class="row"><span class="what"><b>これまでの案内（30日間）</b></span></div>'+(past.length?past.map(row).join(''):'<div class="crm-row" style="cursor:default">ありません。</div>')+'</div>';
     h+='</div><div>';
     if(r.canWrite) h+='<div class="card crm-sec"><h4>案内を登録</h4><div class="lform one" style="padding:0"><label>お客様<select id="nvC">'+crmOpts(L.customers,'','（選んでください）')+'</select></label>'
-      +'<label>物件<select id="nvP">'+crmOpts(L.properties,'','（選んでください）')+'</select></label><label>日時<input id="nvAt" type="datetime-local" value="'+esc(jstPlus(1,'10:00'))+'"></label>'
+      +'<label>物件<select id="nvP">'+crmOpts(L.properties,'','（選んでください）')+'</select></label><label>日時'+dtHtml('id="nvAt"', jstPlus(1,'10:00'))+'</label>'
       +'<label style="flex-direction:row;display:flex;gap:6px;align-items:center"><input type="checkbox" id="nvCal" checked style="width:auto"> Googleカレンダーにも入れる</label></div>'
       +'<div class="bar"><button class="btn main" data-nvsave="1">登録する</button><span class="state" id="nvSt"></span></div>'
       +'<div class="state">オーナー・管理者が登録するとすぐカレンダーに入ります。それ以外の人は承認待ちになります。</div></div>';
@@ -2951,7 +2997,7 @@ function crmViewings(){
 function crmViewForm(id){
   var v=(CRM.views||[]).filter(function(x){ return x.id===id; })[0], box=document.getElementById('vf-'+id); if(!v||!box) return;
   if(box.innerHTML){ box.innerHTML=''; return; }
-  box.innerHTML='<div class="lform" style="border-top:1px solid var(--line)"><label>日時<input data-vf="at" type="datetime-local" value="'+esc(jstInput(v.at))+'"></label>'
+  box.innerHTML='<div class="lform" style="border-top:1px solid var(--line)"><label>日時'+dtHtml('data-vf="at"', jstInput(v.at))+'</label>'
     +'<label>状態<select data-vf="status">'+crmOpts(['予定','実施','キャンセル'], v.status)+'</select></label>'
     +'<label>お客様の反応<select data-vf="reaction">'+crmOpts(CRM_REACT, v.reaction||'', '（まだ）')+'</select></label>'
     +'<label class="wide">感想・メモ<textarea data-vf="feedback" rows="2">'+esc(v.feedback||'')+'</textarea></label></div>'
@@ -2990,10 +3036,13 @@ function crmClick(e){
   if(t.getAttribute('data-back')){ (CRM.back||crmToday)(); return; }
   if(t.getAttribute('data-dnew')){ crmDealForm('new'); return; }
   if((a=t.getAttribute('data-dedit'))){ crmDealForm(a); return; }
+  if((a=t.getAttribute('data-dnext'))){ crmDealNext(a, t.getAttribute('data-to')); return; }
+  if((a=t.getAttribute('data-dgo'))){ crmDealGo(a, t.getAttribute('data-to'), t); return; }
   if((a=t.getAttribute('data-dsave'))){ crmDealSave(a, t); return; }
   if((a=t.getAttribute('data-dopen-c'))){ crmCustomer(a); return; }
   if((a=t.getAttribute('data-dopen-p'))){ crmProperty(a); return; }
-  if((a=t.getAttribute('data-qn'))){ var d=t.getAttribute('data-d'); document.getElementById(a).value = d==='' ? '' : jstPlus(Number(d), '10:00'); return; }
+  if((a=t.getAttribute('data-qn'))){ var d=t.getAttribute('data-d'), hv=document.getElementById(a), v= d==='' ? '' : jstPlus(Number(d), '10:00'); hv.value=v;
+    var bx=hv.parentNode; if(bx.querySelector('.dtd')){ bx.querySelector('.dtd').value=v.slice(0,10); bx.querySelector('.dts').value=v.slice(11,16); } return; }
   if((a=t.getAttribute('data-ak'))){ Array.prototype.forEach.call(document.querySelectorAll('#caKind button'), function(b){ b.className='btn sm'+(b===t?' main':''); }); return; }
   if(t.getAttribute('data-arec')){
     var kind=document.querySelector('#caKind .main').getAttribute('data-ak'), st=document.getElementById('caSt'), cid=CRM.c.customer.id;
@@ -3243,8 +3292,8 @@ var LG_GROUP=null;
 function lgGroup(g){
   var first=!LG.loaded;
   lgInit();
-  ['lgT','lgC','lgV','lgN','lgI','dA','dK','dS','dD'].forEach(function(id){ document.getElementById(id).style.display = g==='customer' ? '' : 'none'; });
-  ['lgP','pA','pK','pS','pD'].forEach(function(id){ document.getElementById(id).style.display = g==='property' ? '' : 'none'; });
+  ['lgT','lgC','lgV','lgN','lgI','dA','dK','dD'].forEach(function(id){ document.getElementById(id).style.display = g==='customer' ? '' : 'none'; });
+  ['lgP','pA','pK','pD'].forEach(function(id){ document.getElementById(id).style.display = g==='property' ? '' : 'none'; });
   if(LG_GROUP===g && !first) return;
   LG_GROUP=g;
   if(g==='property') lgKind('property'); else lgKind('customer');
