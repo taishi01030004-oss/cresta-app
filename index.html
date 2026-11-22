@@ -354,6 +354,7 @@
   .side nav button{text-align:left;border:0;border-left:3px solid transparent;border-radius:8px;padding:10px 12px;font-size:14.5px;color:var(--muted)}
   .side nav button:hover{color:var(--text)}
   .side nav button.on{background:var(--panel);border-left-color:var(--gold);color:var(--gold);border-bottom:0}
+  .nbadge{display:inline-block;margin-left:8px;min-width:20px;padding:1px 7px;border-radius:999px;background:var(--gold);color:#0A2E22;font-size:11.5px;font-weight:700;text-align:center}
   .side nav .car{font-style:normal;float:right;font-size:11px;opacity:.7;transition:transform .15s}
   .side nav button.closed .car{transform:rotate(-90deg)}
   .subnav{display:flex;flex-direction:column;margin:0 0 6px 14px;border-left:1px solid var(--line)}
@@ -466,7 +467,7 @@
   <div class="shell">
   <aside class="side" id="side">
     <nav>
-      <button class="on" data-tabs="0,3" onclick="tab(0)">ホーム</button>
+      <button class="on" data-tabs="0,3" onclick="tab(0)">ホーム<span class="nbadge" id="navApv" style="display:none"></span></button>
       <button data-tabs="4" data-grp="c" onclick="navGroup(4,'c')">顧客管理<i class="car">▾</i></button>
       <div class="subnav" id="sub-c">
         <button data-sub="lgC">顧客一覧</button><button data-sub="dA">申込一覧</button><button data-sub="dK">契約一覧</button>
@@ -1269,7 +1270,12 @@ document.addEventListener('click', function(e){
     document.getElementById('deadBox').innerHTML=DEAD_HTML;
   }).catch(function(er){ document.getElementById('deadBox').innerHTML='<div class="state" style="color:var(--bad)">'+esc(er.message)+'</div>'; });
 });
+function navApvBadge(s){
+  var b=document.getElementById('navApv'), n=(s&&s.counts&&s.counts.approvals)||0;
+  if(!b) return; b.style.display=n?'':'none'; b.textContent=n; b.title='承認待ち '+n+'件';
+}
 function pend(s){
+  navApvBadge(s);
   var n=(s.counts&&s.counts.approvals)||0;
   if(n!==lastApv){ lastApv=n; drawApprovals(); }
   var h='';
@@ -1613,25 +1619,39 @@ function showHist(box, q){
     }).join('')+'</div>' : '<div class="mt2">まだやり取りの記録はありません。</div>';
   }).catch(function(e){ box.innerHTML='<div class="mt2 ng">'+esc(e.message)+'</div>'; });
 }
-function msgForm(c){
+function msgForm(c, target, after){
   if(!c) return;
-  var box=document.getElementById('lgForm');
-  var h='<div class="card" style="margin-bottom:12px"><div class="row"><span class="what"><b>'+esc(c.name)+'様への連絡</b><span>送るのは、オーナー・管理者が承認した後です（この画面ではまだ送りません）</span></span></div>'
+  var box=target||document.getElementById('lgForm');
+  var direct=!!(ME&&ME.can&&ME.can.decide);   // オーナー・管理者は、自分で書いた連絡をそのまま送れる
+  var h='<div class="card" style="margin-bottom:12px"><div class="row"><span class="what"><b>'+esc(c.name)+'様への連絡</b><span>'
+    +(direct?'「送る」を押すと、確認のあとすぐ送ります（承認待ちには入りません）':'送るのは、オーナー・管理者が承認した後です（この画面ではまだ送りません）')+'</span></span></div>'
     +'<div class="lform"><label>送り方<select id="mgCh"><option value="line"'+(c.lineUserId?'':' disabled')+'>LINE'+(c.lineUserId?'':'（未接続）')+'</option><option value="email"'+(c.email?'':' disabled')+'>メール'+(c.email?'':'（アドレスなし）')+'</option></select></label>'
     +'<label class="wide" id="mgSubW">件名（メールのとき）<input id="mgSub"></label>'
     +'<label class="wide">本文<textarea id="mgBody" rows="6"></textarea></label></div>'
-    +'<div class="bar" style="padding:0 15px 12px"><button class="btn main" id="mgGo">承認待ちに入れる</button><button class="btn" id="mgX">やめる</button><span class="state" id="mgSt"></span></div>'
+    +'<div class="bar" style="padding:0 15px 12px"><button class="btn main" id="mgGo">'+(direct?'送る':'承認待ちに入れる')+'</button><button class="btn" id="mgX">やめる</button><span class="state" id="mgSt"></span></div>'
     +'<div class="note" style="margin:0 15px 12px">AIに下書きを頼むときは、右の司令塔AIに「'+esc(c.name)+'様に内見のお礼をLINEで送る下書きを作って」のように書いてください。</div></div>';
   box.innerHTML=h; box.scrollIntoView({behavior:'smooth',block:'nearest'});
   var ch=document.getElementById('mgCh'); if(!c.lineUserId && c.email) ch.value='email';
   function sub(){ document.getElementById('mgSubW').style.display = ch.value==='email' ? '' : 'none'; } ch.onchange=sub; sub();
   document.getElementById('mgX').onclick=function(){ box.innerHTML=''; };
   document.getElementById('mgGo').onclick=function(){
-    var st=document.getElementById('mgSt'); st.textContent='登録しています…';
-    api('/api/outbox-draft',{customerId:c.id, channel:ch.value, subject:document.getElementById('mgSub').value, body:document.getElementById('mgBody').value}).then(function(r){
-      box.innerHTML='<div class="note">承認待ちに入れました（承認コード '+esc(r.code)+'）。「ホーム」の「承認待ち」で、オーナー・管理者が承認すると送られます。</div>';
+    var go=this, st=document.getElementById('mgSt');
+    if(!document.getElementById('mgBody').value.trim()){ st.textContent='本文を入れてください'; return; }
+    // 送ったら取り消せないので、もう一度押して決める
+    if(direct && go.getAttribute('data-sure')!=='1'){
+      go.setAttribute('data-sure','1'); go.textContent='本当に送る（'+(ch.value==='email'?'メール':'LINE')+'）';
+      st.textContent='もう一度押すと送ります';
+      setTimeout(function(){ if(go.isConnected && go.getAttribute('data-sure')==='1'){ go.removeAttribute('data-sure'); go.textContent='送る'; st.textContent=''; } }, 6000);
+      return;
+    }
+    go.disabled=true; st.textContent=direct?'送っています…':'登録しています…';
+    api('/api/outbox-draft',{customerId:c.id, channel:ch.value, subject:document.getElementById('mgSub').value, body:document.getElementById('mgBody').value, sendNow:direct}).then(function(r){
+      box.innerHTML = r.sent
+        ? '<div class="note">送りました（記録コード '+esc(r.code)+'）。数十秒で届きます。「作った連絡」に「送信済み」と出ます。</div>'
+        : '<div class="note">承認待ちに入れました（承認コード '+esc(r.code)+'）。「ホーム」の「承認待ち」で、オーナー・管理者が承認すると送られます。</div>';
       lastApv=-1;
-    }).catch(function(e){ st.textContent=e.message; });
+      if(after) setTimeout(after, r.sent?6000:1500);
+    }).catch(function(e){ st.textContent=e.message; go.disabled=false; go.removeAttribute('data-sure'); go.textContent=direct?'送る':'承認待ちに入れる'; });
   };
 }
 function inboxLoad(){
@@ -2761,6 +2781,7 @@ function crmCustomer(id){
     h+='<div class="card crm-sec"><h4>お客様の情報</h4><div class="facts">'+facts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>'
       +'<div class="facts"><div><small>電話</small>'+(c.phone?'<a class="lk" href="tel:'+esc(c.phone.replace(/[^0-9+]/g,''))+'">'+esc(c.phone)+'</a>':'—')+'</div><div><small>メール</small>'+(c.email?'<a class="lk" href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'—')+'</div></div>'
       +(c.note?'<div class="state" style="white-space:pre-wrap;margin-top:8px">'+esc(c.note)+'</div>':'')+'</div>';
+    h+='<div id="cMsgBox"></div>';
     h+=crmDealCard(r.deals||[], w, {customerId:c.id}, 'customer');
     var DST={pending:'承認待ち', approved:'送信中', executed:'送信済み', rejected:'却下', expired:'期限切れ', failed:'送れなかった'};
     var dr=r.drafts||[];
@@ -3096,7 +3117,9 @@ function crmClick(e){
   var vr=t.closest ? t.closest('[data-vrow]') : null;
   if(vr){ crmViewForm(vr.getAttribute('data-vrow')); return; }
   if(t.getAttribute('data-cedit')){ LG.kind='customer'; lgTabs('customer'); lgLoad(); lgForm(CRM.c.customer); window.scrollTo(0,0); return; }
-  if(t.getAttribute('data-cmsg')){ LG.kind='customer'; lgTabs('customer'); lgLoad(); msgForm(CRM.c.customer); window.scrollTo(0,0); return; }
+  if(t.getAttribute('data-cmsg')){ var mb=document.getElementById('cMsgBox'), cid=CRM.c.customer.id;
+    if(mb.innerHTML){ mb.innerHTML=''; return; }
+    msgForm(CRM.c.customer, mb, function(){ crmCustomer(cid); }); return; }
   if(t.getAttribute('data-pedit')){ LG.kind='property'; lgTabs('property'); lgLoad(); lgForm(CRM.p.property); window.scrollTo(0,0); return; }
   if(t.getAttribute('data-pdsave')){
     var det={}, st4=document.getElementById('pdSt'); Array.prototype.forEach.call(document.querySelectorAll('#pdF [data-dk]'), function(el){ det[el.getAttribute('data-dk')]=el.value; });
