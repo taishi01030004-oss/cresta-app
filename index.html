@@ -481,7 +481,7 @@
       </div>
       <button data-tabs="7" onclick="tab(7)">業者一覧</button>
       <button data-tabs="11,12" data-grp="b" onclick="navGroup(11,'b')">物販管理<i class="car">▾</i></button>
-      <div class="subnav" id="sub-b"><button data-subtab="11">商品・出品</button><button data-subtab="12">投稿管理</button><button data-subtab="10">物販売上</button></div>
+      <div class="subnav" id="sub-b"><button data-subtab="11">商品・出品</button><button data-subtab="12">投稿管理<span class="nbadge" id="navProp" style="display:none"></span></button><button data-subtab="10">物販売上</button></div>
       <button data-tabs="8,9,10" data-grp="s" onclick="navGroup(8,'s')">売上一覧<i class="car">▾</i></button>
       <div class="subnav" id="sub-s"><button data-subtab="8">売上一覧</button><button data-subtab="9">紹介料</button><button data-subtab="10">物販売上</button></div>
       <button data-tabs="1,2" data-grp="h" onclick="navGroup(1,'h')">会話履歴<i class="car">▾</i></button>
@@ -636,12 +636,13 @@
   <section id="s12">
     <div class="inl" style="padding:0 0 10px">
       <select id="ppSns"><option value="">すべてのSNS</option><option>X</option><option>Threads</option><option>Instagram</option><option>その他</option></select>
-      <select id="ppSt"><option value="">すべての状態</option><option>下書き</option><option>予定</option><option>投稿済み</option></select>
-      <button class="btn main" id="ppNew">＋ 投稿を記録</button>
+      <select id="ppSt"><option value="">すべての状態</option><option>提案</option><option>下書き</option><option>予定</option><option>投稿済み</option><option>却下</option></select>
+      <button class="btn main" id="ppAi">🤖 AIに投稿を提案してもらう</button>
+      <button class="btn" id="ppNew">＋ 投稿を記録</button>
     </div>
     <div id="ppForm"></div>
     <div class="card" id="ppList"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
-    <div class="note">物販の投稿の下書き・予定・投稿済みを記録します。実際の投稿は、今のSNSの仕組み（スプレッドシート）や各アプリから行ってください。</div>
+    <div class="note">AIが作った投稿案は「提案」として入り、オーナー・管理者が承認すると「予定」になります（文を直してから承認もできます）。広告だと分かるように、文の最後に「#PR」と紹介リンクが付きます。ここから自動で投稿はしないので、実際の投稿は「文をコピー」して各アプリか、今のSNSの仕組みで行ってください。</div>
   </section>
 
   <section id="s5">
@@ -3384,7 +3385,7 @@ function piLoad(){
       return '<div class="row" style="flex-wrap:wrap"><span class="badge">'+esc(it.status)+'</span><span class="what"><b>'+esc(it.name)+'</b><span>'+meta+'</span>'
         +'<span style="display:block">売れた '+it.soldCount+'個・'+yenFmt(it.soldAmount)+'円　投稿 '+it.postedCount+'/'+it.postCount+'件'+(it.nextPost?'（次の予定 '+esc(crmWhen(it.nextPost))+'）':'')+'</span>'+(it.note?'<span>'+esc(it.note)+'</span>':'')+'</span>'
         +'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(it.url?linkHtml(it.url,'商品ページ'):'')
-        +(r.canWrite?'<button class="btn sm main" data-pisold="'+esc(it.id)+'">売れた</button><button class="btn sm" data-pipost="'+esc(it.id)+'">投稿を記録</button><button class="btn sm" data-piedit="'+esc(it.id)+'">直す</button>':'')
+        +(r.canWrite?'<button class="btn sm main" data-pisold="'+esc(it.id)+'">売れた</button><button class="btn sm" data-pipropose="'+esc(it.id)+'">投稿を提案（AI）</button><button class="btn sm" data-pipost="'+esc(it.id)+'">投稿を記録</button><button class="btn sm" data-piedit="'+esc(it.id)+'">直す</button>':'')
         +'<button class="btn sm" data-pisales="'+esc(it.id)+'">売上を見る</button></span>'
         +'<div id="pi-'+esc(it.id)+'" style="flex-basis:100%"></div></div>';
     }).join('');
@@ -3440,6 +3441,7 @@ document.getElementById('s11').addEventListener('click', function(e){
   if((a=t.getAttribute('data-piedit'))){ piForm(a); return; }
   if((a=t.getAttribute('data-pisold'))){ piSoldForm(a); return; }
   if((a=t.getAttribute('data-pisales'))){ piSales(a); return; }
+  if((a=t.getAttribute('data-pipropose'))){ tab(12); ppAiForm(a); return; }
   if((a=t.getAttribute('data-pipost'))){ var b=document.getElementById('pi-'+a); if(piToggle(b,'post')) ppForm(null, b, a, piLoad); return; }
   if(t.hasAttribute('data-pisave')){
     var id=t.getAttribute('data-pisave'), box=t.closest('.card'), v={}, st=box.querySelector('[data-pist]');
@@ -3464,9 +3466,17 @@ function ppLoad(){
   api('/api/pposts',{}).then(function(r){
     var sns=document.getElementById('ppSns').value, st=document.getElementById('ppSt').value;
     PP.items=r.items; PP.w=r.canWrite; document.getElementById('ppNew').style.display=r.canWrite?'':'none';
+    var props=r.items.filter(function(p){ return p.status==='提案'; }).length, nb=document.getElementById('navProp');
+    if(nb){ nb.style.display=props?'':'none'; nb.textContent=props; }
     var list=r.items.filter(function(p){ return (!sns||p.sns===sns) && (!st||p.status===st); });
-    if(!list.length){ box.innerHTML='<div class="row"><span class="what"><span>投稿の記録はまだありません。</span></span></div>'; return; }
-    box.innerHTML=list.map(function(p){
+    list.sort(function(a,b){ return (a.status==='提案'?0:1)-(b.status==='提案'?0:1); });
+    if(!list.length){ box.innerHTML='<div class="row"><span class="what"><span>投稿の記録はまだありません。「AIに投稿を提案してもらう」から作れます。</span></span></div>'; return; }
+    var canDecide=!!(ME&&ME.can&&ME.can.decide) || !ME;
+    box.innerHTML=(props?'<div class="row"><span class="what"><b style="color:var(--gold)">承認を待っている提案が'+props+'件あります</b></span></div>':'')+list.map(function(p){
+      if(p.status==='提案') return '<div class="row" style="flex-wrap:wrap;background:rgba(201,162,75,.06)"><span class="badge">'+esc(p.sns)+'</span><span class="badge" style="border-color:var(--gold);color:var(--gold)">提案（AI）</span>'
+        +'<span class="what"><b>'+esc(p.itemName||'（商品なし）')+'</b><span style="white-space:pre-wrap;display:block;margin-top:4px">'+esc(p.body||'')+'</span></span>'
+        +'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(canDecide?'<button class="btn sm main" data-ppok="'+esc(p.id)+'">承認する</button><button class="btn sm" data-ppng="'+esc(p.id)+'">却下</button>':'<span class="state">オーナー・管理者の承認待ち</span>')+'</span>'
+        +'<div id="pp-'+esc(p.id)+'" style="flex-basis:100%"></div></div>';
       return '<div class="row" style="flex-wrap:wrap"><span class="when">'+esc(p.postAt?crmWhen(p.postAt):'日時なし')+'</span><span class="badge">'+esc(p.sns)+'</span><span class="badge">'+esc(p.status)+'</span>'
         +'<span class="what"><b>'+esc(p.itemName||'（商品なし）')+'</b>'+(p.body?'<span style="white-space:pre-wrap">'+esc(p.body.length>140?p.body.slice(0,140)+'…':p.body)+'</span>':'')+(p.note?'<span>'+esc(p.note)+'</span>':'')+'</span>'
         +'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(p.url?linkHtml(p.url,'投稿を開く'):'')+(p.body?'<button class="btn sm" data-ppcopy="'+esc(p.id)+'">文をコピー</button>':'')
@@ -3499,10 +3509,57 @@ function ppForm(id, target, itemId, after){
   }).catch(function(e){ box.innerHTML='<div class="state">'+esc(e.message)+'</div>'; });
 }
 document.getElementById('ppNew').onclick=function(){ ppForm(null); };
+/* AIに投稿を提案してもらう：商品・SNS・本数を選ぶ */
+function ppAiForm(itemId){
+  var box=document.getElementById('ppForm');
+  if(!itemId && box.getAttribute('data-k')==='ai' && box.innerHTML){ box.innerHTML=''; box.removeAttribute('data-k'); return; }
+  box.setAttribute('data-k','ai'); box.innerHTML='<div class="state">読み込んでいます…</div>';
+  (PI.items.length?Promise.resolve({items:PI.items}):api('/api/pitems',{})).then(function(r){
+    PI.items=r.items;
+    if(!r.items.length){ box.innerHTML='<div class="note">先に「商品・出品」で商品を登録してください。</div>'; return; }
+    box.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
+      +'<label>商品<select id="paItem">'+r.items.map(function(it){ return '<option value="'+esc(it.id)+'"'+(it.id===itemId?' selected':'')+'>'+esc(it.name)+'</option>'; }).join('')+'</select></label>'
+      +'<label>SNS<span style="display:flex;gap:14px;padding:8px 0"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="paX" checked style="width:auto"> X</label><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="paT" checked style="width:auto"> Threads</label></span></label>'
+      +'<label>それぞれ何本<select id="paN"><option>1</option><option selected>2</option><option>3</option></select></label>'
+      +'</div><div class="bar"><button class="btn main sm" id="paGo">提案してもらう</button><span class="state" id="paSt">商品の名前・ジャンル・価格・メモをもとに作ります。メモに「おすすめの点」を書いておくと良い案になります。</span></div></div>';
+    document.getElementById('paGo').onclick=function(){
+      var b=this, st=document.getElementById('paSt'), sns=[];
+      if(document.getElementById('paX').checked) sns.push('X'); if(document.getElementById('paT').checked) sns.push('Threads');
+      b.disabled=true; st.textContent='AIが投稿の案を作っています…（20〜40秒）';
+      api('/api/ppost-propose',{itemId:document.getElementById('paItem').value, sns:sns, count:Number(document.getElementById('paN').value)}).then(function(x){
+        box.innerHTML='<div class="note">'+x.made+'本の案を「提案」として入れました。内容を確かめて承認してください。</div>'; box.removeAttribute('data-k');
+        document.getElementById('ppSt').value=''; ppLoad();
+      }).catch(function(er){ st.textContent=er.message; b.disabled=false; });
+    };
+  }).catch(function(e){ box.innerHTML='<div class="state">'+esc(e.message)+'</div>'; });
+}
+document.getElementById('ppAi').onclick=function(){ ppAiForm(null); };
+function tomorrowNoon(){ var j=jst(new Date(Date.now()+86400000)); return j.getFullYear()+'-'+z(j.getMonth()+1)+'-'+z(j.getDate())+'T12:00'; }
 document.getElementById('ppSns').onchange=ppLoad; document.getElementById('ppSt').onchange=ppLoad;
 document.getElementById('s12').addEventListener('click', function(e){
   var t=e.target, a; if(!t.getAttribute) return;
   if((a=t.getAttribute('data-ppedit'))){ var b=document.getElementById('pp-'+a); if(b.innerHTML){ b.innerHTML=''; } else ppForm(a); return; }
+  if((a=t.getAttribute('data-ppok'))){
+    var bx=document.getElementById('pp-'+a), pp=PP.items.filter(function(x){ return x.id===a; })[0];
+    if(bx.innerHTML){ bx.innerHTML=''; return; }
+    bx.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
+      +'<label>投稿する日時'+dtHtml('data-ok="postAt"', tomorrowNoon())+'</label>'
+      +'<label class="wide">投稿の文（直してから承認できます）<textarea data-ok="body" rows="5">'+esc(pp&&pp.body||'')+'</textarea></label>'
+      +'</div><div class="bar"><button class="btn main sm" data-ppokgo="'+esc(a)+'">この内容で承認する（予定に入れる）</button><span class="state" data-okst></span></div></div>';
+    return;
+  }
+  if((a=t.getAttribute('data-ppokgo'))){
+    var cb=t.closest('.card'), stt=cb.querySelector('[data-okst]');
+    t.disabled=true; stt.textContent='承認しています…';
+    api('/api/ppost-decide',{id:a, approve:true, postAt:cb.querySelector('[data-ok="postAt"]').value, body:cb.querySelector('[data-ok="body"]').value})
+      .then(function(){ ppLoad(); }).catch(function(er){ stt.textContent=er.message; t.disabled=false; });
+    return;
+  }
+  if((a=t.getAttribute('data-ppng'))){
+    if(t.getAttribute('data-sure')!=='1'){ t.setAttribute('data-sure','1'); t.textContent='本当に却下'; setTimeout(function(){ if(t.isConnected){ t.removeAttribute('data-sure'); t.textContent='却下'; } }, 4000); return; }
+    t.disabled=true; api('/api/ppost-decide',{id:a, approve:false}).then(ppLoad).catch(function(er){ t.textContent=er.message; });
+    return;
+  }
   if((a=t.getAttribute('data-ppcopy'))){ var p=PP.items.filter(function(x){ return x.id===a; })[0]; if(p&&navigator.clipboard){ navigator.clipboard.writeText(p.body||'').then(function(){ t.textContent='コピーしました'; setTimeout(function(){ t.textContent='文をコピー'; },1500); }); } return; }
   if((a=t.getAttribute('data-ppdel'))){
     if(t.getAttribute('data-sure')!=='1'){ t.setAttribute('data-sure','1'); t.textContent='本当に消す'; t.className='btn sm main'; setTimeout(function(){ if(t.isConnected){ t.removeAttribute('data-sure'); t.textContent='消す'; t.className='btn sm'; } }, 4000); return; }
