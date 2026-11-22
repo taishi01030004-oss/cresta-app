@@ -1756,8 +1756,23 @@ function drawEmail(){
       h+='<div class="bar"><button class="btn main" id="emGo">この送り方で保存する</button><span class="state" id="emSt"></span></div>'
         +'<div class="inl" style="padding:6px 0 0"><input id="emTo" type="email" placeholder="テストの送り先（自分のアドレス）"><button class="btn sm" id="emTest">テストメールを送る</button></div>'
         +'<div class="state">キーや鍵はサーバーの金庫に保存し、画面やAIには表示しません。'+(pick==='resend'?linkHtml('https://resend.com/','Resend のサイトを開く'):'')+'</div></div>';
+      // 署名（メールの最後に付く文）
+      var defSig='――――\n'+(r.name||'（送り主の名前）');
+      h+='<div class="fm" style="padding:6px 15px 14px;max-width:560px;border-top:1px solid var(--line)">'
+        +'<label for="emSig" style="margin-top:10px">メールの署名（お客様へのメールの最後に付きます）</label>'
+        +'<textarea id="emSig" rows="6" maxlength="1000" placeholder="'+esc(defSig)+'">'+esc(r.signature!=null?r.signature:defSig)+'</textarea>'
+        +'<div class="state">例：会社名・担当者名・住所・電話番号・営業時間・宅建業の免許番号など。空にして保存すると、署名を付けません。</div>'
+        +'<div class="bar"><button class="btn main sm" id="emSigGo">署名を保存する</button><button class="btn sm" id="emSigReset">最初の形に戻す</button><span class="state" id="emSigSt"></span></div>'
+        +'<div class="state" style="margin-top:6px">今の署名：</div><div class="ans" style="margin:4px 0 0"><div class="txt" style="white-space:pre-wrap">'+(r.footer?esc(r.footer):'（署名なし）')+'</div></div></div>';
     }
     box.innerHTML=h;
+    var sg=document.getElementById('emSigGo');
+    if(sg){
+      var saveSig=function(v){ var st=document.getElementById('emSigSt'); st.textContent='保存しています…';
+        api('/api/email-settings',{signature:v}).then(function(){ st.textContent='保存しました。次に送るメールから使います。'; setTimeout(drawEmail,1500); }).catch(function(e){ st.textContent=e.message; }); };
+      sg.onclick=function(){ saveSig(document.getElementById('emSig').value); };
+      document.getElementById('emSigReset').onclick=function(){ saveSig(null); };
+    }
     if(!r.canManage) return;
     box.querySelectorAll('[data-emp]').forEach(function(b){ b.onclick=function(){ EM_PICK=b.getAttribute('data-emp'); drawEmail(); }; });
     var gm=document.getElementById('emGm');
@@ -3276,7 +3291,10 @@ function vdForm(id){
   var v=id?VD.items.filter(function(x){ return x.id===id; })[0]:null, box=document.getElementById(id?'vf-'+id:'vdForm');
   if(box.innerHTML){ box.innerHTML=''; return; }
   var f=function(k,l,val){ return '<label>'+esc(l)+'<input data-vf="'+k+'" value="'+esc(val||'')+'"></label>'; };
-  box.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
+  box.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0">'
+    +'<div class="inl" style="padding:0 0 8px"><label class="btn sm main" style="cursor:pointer">📇 名刺から読み取る（写真）<input type="file" class="vdCard" accept="image/*" style="display:none"></label>'
+    +'<span class="state vdCardSt">名刺の写真を選ぶと、AIが会社名・担当者・電話などを読み取って下に入れます（保存の前に確かめてください）。</span></div>'
+    +'<div class="lform" style="padding:0">'
     +f('name','業者名（必須）',v&&v.name)
     +'<label>種類<select data-vf="kind">'+(VD.kinds.length?VD.kinds:['その他']).map(function(k){ return '<option'+((v?v.kind:'')===k?' selected':'')+'>'+esc(k)+'</option>'; }).join('')+'</select></label>'
     +f('contactName','担当者',v&&v.contactName)+f('phone','電話',v&&v.phone)+f('email','メール',v&&v.email)+f('address','住所',v&&v.address)
@@ -3284,6 +3302,25 @@ function vdForm(id){
     +(v?'<label style="flex-direction:row;display:flex;gap:6px;align-items:center"><input type="checkbox" data-vf="active" style="width:auto"'+(v.active?' checked':'')+'> 使っている業者</label>':'')
     +'</div><div class="bar"><button class="btn main sm" data-vsv="'+esc(id||'')+'">保存する</button><span class="state" id="vs-'+esc(id||'new')+'"></span></div></div>';
 }
+/* 名刺の写真 → AIが読み取り → 業者の登録欄に入れる（保存はしない。人が確かめてから保存） */
+document.getElementById('s7').addEventListener('change', function(e){
+  var t=e.target; if(!t.classList || !t.classList.contains('vdCard') || !t.files || !t.files[0]) return;
+  var card=t.closest('.card'), st=card.querySelector('.vdCardSt'), file=t.files[0];
+  if(!/^image\//.test(file.type)){ st.textContent='写真（JPEG・PNG）を選んでください'; return; }
+  st.textContent='名刺を読み取っています…（10〜30秒）';
+  crmShrink(file).then(function(g){
+    return new Promise(function(ok,ng){ var fr=new FileReader(); fr.onload=function(){ ok({g:g, data:String(fr.result)}); }; fr.onerror=function(){ ng(new Error('写真を読めませんでした')); }; fr.readAsDataURL(g); });
+  }).then(function(x){
+    if(!/^image\/(jpeg|png|webp)$/.test(x.g.type)) throw new Error('この写真の形式は読めません（JPEG・PNGで撮り直してください）');
+    return api('/api/vendor-card-read',{name:file.name, mime:x.g.type, data:x.data});
+  }).then(function(r){
+    var v=r.vendor||{};
+    ['name','contactName','phone','email','address'].forEach(function(k){ var el=card.querySelector('[data-vf="'+k+'"]'); if(el && v[k]) el.value=v[k]; });
+    var kd=card.querySelector('[data-vf="kind"]'); if(kd && v.kind) kd.value=v.kind;
+    var nt=card.querySelector('[data-vf="note"]'); if(nt && v.note) nt.value = nt.value ? nt.value+'\n'+v.note : v.note;
+    st.textContent=r.filled+'項目を読み取りました。内容を確かめて「保存する」を押してください。';
+  }).catch(function(er){ st.textContent=er.message; }).then(function(){ t.value=''; });
+});
 document.getElementById('vdGo').onclick=vdLoad;
 document.getElementById('vdQ').addEventListener('keydown',function(e){ if(e.key==='Enter') vdLoad(); });
 document.getElementById('vdK').onchange=vdLoad; document.getElementById('vdAll').onchange=vdLoad;
