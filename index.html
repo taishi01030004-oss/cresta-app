@@ -392,10 +392,10 @@
   .sales-tbl th,.sales-tbl td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
   .sales-tbl th:first-child,.sales-tbl td:first-child{text-align:left}
   .sales-tbl th{color:var(--muted);font-weight:500}
-  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px;margin-bottom:14px}
   .kpi div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
   .kpi small{display:block;color:var(--muted);font-size:11.5px}
-  .kpi b{font-size:20px;color:var(--gold2);font-variant-numeric:tabular-nums}
+  .kpi b{font-size:18px;color:var(--gold2);font-variant-numeric:tabular-nums;white-space:nowrap}
   .bar-m{height:8px;border-radius:4px;background:var(--gold);display:inline-block;vertical-align:middle}
   .bar-e{height:8px;border-radius:4px;background:var(--line);display:inline-block;vertical-align:middle}
   @media (max-width:1180px){
@@ -480,8 +480,8 @@
         <button data-sub="pD">取引完了物件</button>
       </div>
       <button data-tabs="7" onclick="tab(7)">業者一覧</button>
-      <button data-tabs="8,9" data-grp="s" onclick="navGroup(8,'s')">売上一覧<i class="car">▾</i></button>
-      <div class="subnav" id="sub-s"><button data-subtab="8">売上一覧</button><button data-subtab="9">紹介料</button></div>
+      <button data-tabs="8,9,10" data-grp="s" onclick="navGroup(8,'s')">売上一覧<i class="car">▾</i></button>
+      <div class="subnav" id="sub-s"><button data-subtab="8">売上一覧</button><button data-subtab="9">紹介料</button><button data-subtab="10">物販売上</button></div>
       <button data-tabs="1,2" data-grp="h" onclick="navGroup(1,'h')">会話履歴<i class="car">▾</i></button>
       <div class="subnav" id="sub-h"><button data-subtab="1">会話履歴</button><button data-subtab="2">助成金・補助金</button></div>
       <button data-tabs="5" onclick="tab(5)">設定</button>
@@ -601,7 +601,7 @@
   <section id="s8">
     <div class="inl" style="padding:0 0 10px"><button class="btn sm" id="slPrev">← 前の年</button><b id="slY" style="font-size:16px"></b><button class="btn sm" id="slNext">次の年 →</button></div>
     <div id="slBox"><div class="state">読み込んでいます…</div></div>
-    <div class="note">売上は、顧客管理・物件管理の「取引」に入れた「自社の売上（手数料など）」を決済日の月で、紹介料を受け取った日の月で数えています。取引完了＝売上、契約・決済前＝見込みです。金額を直すときは、その取引の「段階・日にちを変える」から直してください。</div>
+    <div class="note">売上は、顧客管理・物件管理の「取引」に入れた「自社の売上（手数料など）」を決済日の月で、紹介料を受け取った日の月で、物販売上を日付の月で数えています。取引完了・入金済み・確定＝売上、契約済み・入金待ち・未確定＝見込みです。仲介の金額を直すときは、その取引の「直す」から直してください。</div>
   </section>
 
   <section id="s9">
@@ -610,6 +610,14 @@
     <div id="rfForm"></div>
     <div id="rfBox"><div class="state">読み込んでいます…</div></div>
     <div class="note">銀行・リフォーム会社・保険などから受け取る紹介料を入れます。「入金済み」は売上一覧の売上に、「入金待ち」は見込みに、受け取った日（予定日）の月で足されます。紹介元は業者一覧から選ぶか、名前を入れてください。</div>
+  </section>
+
+  <section id="s10">
+    <div class="inl" style="padding:0 0 10px"><button class="btn sm" id="psPrev">← 前の年</button><b id="psY" style="font-size:16px"></b><button class="btn sm" id="psNext">次の年 →</button>
+      <button class="btn main" id="psNew" style="margin-left:auto">＋ 物販売上を入れる</button></div>
+    <div id="psForm"></div>
+    <div id="psBox"><div class="state">読み込んでいます…</div></div>
+    <div class="note">Amazonアソシエイト・楽天アフィリエイトなどの売上を入れます。「確定」は売上一覧の売上に、「未確定」（承認待ち・入金待ちなど）は見込みに、日付の月で足されます。月ごとにまとめて1件で入れても大丈夫です。</div>
   </section>
 
   <section id="s5">
@@ -3183,6 +3191,7 @@ function tab(i){
   if(i===7) vdLoad();
   if(i===8) slLoad();
   if(i===9) rfLoad();
+  if(i===10) psLoad();
   closeDrawers();
   // 「顧客」と「物件」は同じ台帳の画面（s4）を使い、上のボタンを入れ替える
   var sec = i===6 ? 4 : i;
@@ -3337,6 +3346,81 @@ document.getElementById('s7').addEventListener('click', function(e){
   }
 });
 
+/* ---------- 物販売上（売上一覧の副タブ） ---------- */
+var PS={items:[], channels:[]};
+function psLoad(){
+  if(SL_Y===null) SL_Y=jst().getFullYear();
+  document.getElementById('psY').textContent=SL_Y+'年';
+  var box=document.getElementById('psBox'); box.innerHTML='<div class="state">読み込んでいます…</div>';
+  api('/api/product-sales',{year:SL_Y}).then(function(r){
+    PS.items=r.items; PS.channels=r.channels; document.getElementById('psNew').style.display=r.canWrite?'':'none';
+    var y=function(n){ return yenFmt(n)+'円'; };
+    var h='<div class="kpi"><div><small>'+r.year+'年の物販売上（確定）</small><b>'+esc(y(r.totals.confirmed))+'</b></div><div><small>未確定</small><b>'+esc(y(r.totals.pending))+'</b></div>'
+      +Object.keys(r.byChannel).map(function(k){ return '<div><small>'+esc(k)+'</small><b>'+esc(y(r.byChannel[k]))+'</b></div>'; }).join('')+'</div><div class="card">';
+    h+= r.items.length ? r.items.map(function(p){
+      return '<div class="crm-row" style="cursor:default;flex-wrap:wrap"><span class="when">'+esc(p.soldOn.slice(5).replace('-','/'))+'</span><span class="nm">'+esc(p.channel)+'</span><span class="badge">'+esc(p.status)+'</span>'
+        +(p.note?'<span class="state">'+esc(p.note)+'</span>':'')+'<b style="margin-left:auto;color:var(--gold2)">'+esc(y(p.amount))+'</b>'
+        +(r.canWrite?'<button class="btn sm" data-pse="'+esc(p.id)+'">直す</button><button class="btn sm" data-psd="'+esc(p.id)+'">消す</button>':'')
+        +'<div id="ps-'+esc(p.id)+'" style="flex-basis:100%"></div></div>';
+    }).join('') : '<div class="crm-row" style="cursor:default"><span>この年の物販売上はまだありません。「＋ 物販売上を入れる」から入れてください。</span></div>';
+    box.innerHTML=h+'</div>';
+  }).catch(function(e){ box.innerHTML='<div class="state" style="color:var(--bad)">'+esc(e.message)+'</div>'; });
+}
+function psForm(id){
+  var p=id?PS.items.filter(function(x){ return x.id===id; })[0]:null, box=document.getElementById(id?'ps-'+id:'psForm');
+  if(box.innerHTML){ box.innerHTML=''; return; }
+  var j=jst(), today=j.getFullYear()+'-'+z(j.getMonth()+1)+'-'+z(j.getDate());
+  var chs=(PS.channels.length?PS.channels:['Amazonアソシエイト','楽天アフィリエイト','その他']), known=p&&chs.indexOf(p.channel)>=0;
+  box.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
+    +'<label>日付<input type="date" data-ps="soldOn" value="'+esc(p?p.soldOn:today)+'"></label>'
+    +'<label>金額（円）<input class="yen" data-ps="amount" inputmode="numeric" value="'+esc(p?yenFmt(p.amount):'')+'" placeholder="例 12,345"></label>'
+    +'<label>販売先<select data-ps="ch">'+chs.map(function(c){ return '<option'+((p&&(known?p.channel===c:c==='その他'))?' selected':'')+'>'+esc(c)+'</option>'; }).join('')+'</select></label>'
+    +'<label>販売先の名前（「その他」のとき）<input data-ps="chName" value="'+esc(p&&!known?p.channel:'')+'" placeholder="例 メルカリ"></label>'
+    +'<label>状態<select data-ps="status"><option'+(p&&p.status==='未確定'?'':' selected')+'>確定</option><option'+(p&&p.status==='未確定'?' selected':'')+'>未確定</option></select></label>'
+    +'<label class="wide">メモ（例：10月分のまとめ）<input data-ps="note" value="'+esc(p&&p.note||'')+'"></label>'
+    +'</div><div class="bar"><button class="btn main sm" data-pss="'+esc(id||'')+'">保存する</button><span class="state" id="pss-'+esc(id||'new')+'"></span></div></div>';
+}
+document.getElementById('psPrev').onclick=function(){ SL_Y--; psLoad(); };
+document.getElementById('psNext').onclick=function(){ SL_Y++; psLoad(); };
+document.getElementById('psNew').onclick=function(){ psForm(null); };
+document.getElementById('s10').addEventListener('click', function(e){
+  var t=e.target, a; if(!t.getAttribute) return;
+  if((a=t.getAttribute('data-pse'))){ psForm(a); return; }
+  if((a=t.getAttribute('data-psd'))){
+    if(t.getAttribute('data-sure')!=='1'){ t.setAttribute('data-sure','1'); t.textContent='本当に消す'; t.className='btn sm main'; setTimeout(function(){ if(t.isConnected){ t.removeAttribute('data-sure'); t.textContent='消す'; t.className='btn sm'; } }, 4000); return; }
+    t.disabled=true; api('/api/product-sale-delete',{id:a}).then(psLoad).catch(function(er){ t.textContent=er.message; });
+    return;
+  }
+  if(t.hasAttribute('data-pss')){
+    var id=t.getAttribute('data-pss'), box=t.closest('.card'), v={}, st=document.getElementById('pss-'+(id||'new'));
+    Array.prototype.forEach.call(box.querySelectorAll('[data-ps]'), function(el){ v[el.getAttribute('data-ps')]=el.value; });
+    var sale={soldOn:v.soldOn, amount:v.amount, channel: v.ch==='その他' ? (v.chName.trim()||'その他') : v.ch, status:v.status, note:v.note||null};
+    t.disabled=true; st.textContent='保存しています…';
+    api('/api/product-sale-save', id?{id:id, sale:sale}:{sale:sale}).then(function(){ document.getElementById('psForm').innerHTML=''; psLoad(); })
+      .catch(function(er){ st.textContent=er.message; t.disabled=false; });
+  }
+});
+
+/* ---------- 売上一覧の書き出し（CSV。Excelで文字化けしないように先頭にBOMを付ける） ---------- */
+var SL_LAST=null;
+function csvCell(v){ v=v==null?'':String(v); return /[",\n\r]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+function slCsv(){
+  var r=SL_LAST; if(!r) return;
+  var rows=[['区分','日付','お客様・相手','物件・内容','状態','金額（円）','取引金額（円）']];
+  r.items.forEach(function(d){
+    var at=d.settleAt||d.contractAt; var j=at?jst(at):null;
+    rows.push(['仲介', j?j.getFullYear()+'/'+(j.getMonth()+1)+'/'+j.getDate():'', d.customer+'様', d.property||'', DEAL_LABEL[d.stage]||d.stage, d.fee!=null?d.fee:'', d.price!=null?d.price:'']);
+  });
+  (r.referrals||[]).forEach(function(f){ rows.push(['紹介料', f.receivedOn.replace(/-/g,'/'), f.from||'', f.note||'', f.status, f.amount, '']); });
+  (r.products||[]).forEach(function(p){ rows.push(['物販', p.soldOn.replace(/-/g,'/'), p.channel, p.note||'', p.status, p.amount, '']); });
+  rows.push([]); rows.push(['月','仲介（完了）','紹介料（入金済み）','物販（確定）','合計','見込み']);
+  r.months.forEach(function(m){ var got=m.done+(m.referral||0)+(m.product||0); rows.push([m.month+'月', m.done, m.referral||0, m.product||0, got, m.expected+(m.referralWait||0)+(m.productWait||0)]); });
+  var csv='\ufeff'+rows.map(function(x){ return x.map(csvCell).join(','); }).join('\r\n');
+  var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download='売上一覧_'+r.year+'年.csv';
+  document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+document.getElementById('slBox').addEventListener('click', function(e){ if(e.target.id==='slCsv') slCsv(); });
+
 /* ---------- 紹介料（売上一覧の副タブ） ---------- */
 var RF={items:[], w:false};
 function rfLoad(){
@@ -3345,12 +3429,12 @@ function rfLoad(){
   var box=document.getElementById('rfBox'); box.innerHTML='<div class="state">読み込んでいます…</div>';
   api('/api/referrals',{year:SL_Y}).then(function(r){
     RF.items=r.items; RF.w=r.canWrite; document.getElementById('rfNew').style.display=r.canWrite?'':'none';
-    var h='<div class="kpi"><div><small>'+r.year+'年の紹介料（入金済み）</small><b>'+esc(r.totals.received?lgMan(r.totals.received):'0円')+'</b></div>'
-      +'<div><small>入金待ち</small><b>'+esc(r.totals.waiting?lgMan(r.totals.waiting):'0円')+'</b></div><div><small>件数</small><b>'+r.items.length+'件</b></div></div><div class="card">';
+    var h='<div class="kpi"><div><small>'+r.year+'年の紹介料（入金済み）</small><b>'+esc(yenFmt(r.totals.received)+'円')+'</b></div>'
+      +'<div><small>入金待ち</small><b>'+esc(yenFmt(r.totals.waiting)+'円')+'</b></div><div><small>件数</small><b>'+r.items.length+'件</b></div></div><div class="card">';
     h+= r.items.length ? r.items.map(function(f){
       return '<div class="crm-row" style="cursor:default;flex-wrap:wrap"><span class="when">'+esc(f.receivedOn.slice(5).replace('-','/'))+'</span><span class="nm">'+esc(f.from||'（紹介元なし）')+'</span>'
         +'<span class="badge">'+esc(f.status)+'</span>'+(f.customer?'<span class="state">'+esc(f.customer)+'様</span>':'')+(f.property?'<span class="state">'+esc(f.property)+'</span>':'')
-        +(f.note?'<span class="state">'+esc(f.note)+'</span>':'')+'<b style="margin-left:auto;color:var(--gold2)">'+esc(lgMan(f.amount))+'</b>'
+        +(f.note?'<span class="state">'+esc(f.note)+'</span>':'')+'<b style="margin-left:auto;color:var(--gold2)">'+esc(yenFmt(f.amount)+'円')+'</b>'
         +(r.canWrite?'<button class="btn sm" data-rfe="'+esc(f.id)+'">直す</button><button class="btn sm" data-rfd="'+esc(f.id)+'">消す</button>':'')
         +'<div id="rf-'+esc(f.id)+'" style="flex-basis:100%"></div></div>';
     }).join('') : '<div class="crm-row" style="cursor:default"><span>この年の紹介料はまだありません。「＋ 紹介料を入れる」から入れてください。</span></div>';
@@ -3403,26 +3487,29 @@ function slLoad(){
   box.innerHTML='<div class="state">読み込んでいます…</div>';
   api('/api/crm-sales',{year:SL_Y}).then(function(r){
     var t=r.totals, max=Math.max.apply(null, r.months.map(function(m){ return m.done+m.expected+(m.referral||0)+(m.referralWait||0); }).concat([1]));
-    var yen=function(n){ return n ? lgMan(n) : '—'; };
-    var all=(t.done||0)+(t.referral||0), allW=(t.expected||0)+(t.referralWait||0);
-    var h='<div class="kpi"><div><small>'+r.year+'年の売上合計（仲介＋紹介料）</small><b>'+esc(all?lgMan(all):'0円')+'</b></div>'
-      +'<div><small>うち仲介（取引完了）</small><b>'+esc(t.done?lgMan(t.done):'0円')+'</b></div>'
-      +'<div><small>うち紹介料（入金済み）</small><b>'+esc(t.referral?lgMan(t.referral):'0円')+'</b></div>'
-      +'<div><small>見込み（契約済み・入金待ち）</small><b>'+esc(allW?lgMan(allW):'0円')+'</b></div>'
+    var yen=function(n){ return n ? yenFmt(n)+'円' : '—'; };
+    var all=(t.done||0)+(t.referral||0)+(t.product||0), allW=(t.expected||0)+(t.referralWait||0)+(t.productWait||0);
+    SL_LAST=r;
+    var h='<div class="bar" style="margin:0 0 10px"><button class="btn sm" id="slCsv">Excelで書き出す（CSV）</button><span class="state">この年の売上をまとめてダウンロードします</span></div>';
+    h+='<div class="kpi"><div><small>'+r.year+'年の売上合計（仲介＋紹介料＋物販）</small><b>'+esc(all?yenFmt(all)+'円':'0円')+'</b></div>'
+      +'<div><small>うち仲介（取引完了）</small><b>'+esc(t.done?yenFmt(t.done)+'円':'0円')+'</b></div>'
+      +'<div><small>うち紹介料（入金済み）</small><b>'+esc(t.referral?yenFmt(t.referral)+'円':'0円')+'</b></div>'
+      +'<div><small>うち物販（確定）</small><b>'+esc(t.product?yenFmt(t.product)+'円':'0円')+'</b></div>'
+      +'<div><small>見込み（契約済み・入金待ち・未確定）</small><b>'+esc(allW?yenFmt(allW)+'円':'0円')+'</b></div>'
       +'<div><small>取引完了の件数</small><b>'+t.doneCount+'件</b></div></div>';
     if(t.noFee) h+='<div class="note" style="margin-top:0">売上の金額が入っていない取引が'+t.noFee+'件あります（0円として数えています）。</div>';
-    h+='<div class="card" style="overflow-x:auto"><table class="sales-tbl"><tr><th>月</th><th>仲介（完了）</th><th>件数</th><th>紹介料</th><th>見込み</th><th style="width:34%"></th></tr>'
+    h+='<div class="card" style="overflow-x:auto"><table class="sales-tbl"><tr><th>月</th><th>仲介（完了）</th><th>件数</th><th>紹介料</th><th>物販</th><th>見込み</th><th style="width:28%"></th></tr>'
       +r.months.map(function(m){
-        var got=m.done+(m.referral||0), wait=m.expected+(m.referralWait||0);
+        var got=m.done+(m.referral||0)+(m.product||0), wait=m.expected+(m.referralWait||0)+(m.productWait||0);
         var w1=Math.round(got/max*100), w2=Math.round(wait/max*100);
-        return '<tr><td>'+m.month+'月</td><td>'+esc(yen(m.done))+'</td><td>'+(m.doneCount||'')+'</td><td>'+esc(yen(m.referral||0))+'</td><td>'+esc(yen(wait))+'</td>'
+        return '<tr><td>'+m.month+'月</td><td>'+esc(yen(m.done))+'</td><td>'+(m.doneCount||'')+'</td><td>'+esc(yen(m.referral||0))+'</td><td>'+esc(m.product?yenFmt(m.product)+'円':'—')+'</td><td>'+esc(yen(wait))+'</td>'
           +'<td style="text-align:left">'+(w1?'<span class="bar-m" style="width:'+w1+'%"></span>':'')+(w2?'<span class="bar-e" style="width:'+w2+'%;margin-left:2px"></span>':'')+'</td></tr>';
       }).join('')+'</table></div>';
     h+='<h2>取引ごとの売上（'+r.items.length+'件）</h2><div class="card">';
     h+= r.items.length ? r.items.map(function(d){
       var at=d.settleAt||d.contractAt;
       return '<div class="crm-row" style="cursor:default;flex-wrap:wrap"><span class="when">'+esc(at?crmWhen(at).replace(/ \d+:\d+$/,''):'—')+'</span><span class="nm">'+esc(d.customer)+'様</span><span class="state">'+esc(d.property||'')+'</span>'
-        +'<span class="badge">'+esc(DEAL_LABEL[d.stage]||d.stage)+'</span><span class="state">金額 '+esc(yen(d.price))+'</span><b style="margin-left:auto;color:var(--gold2)">'+esc(d.fee!=null?lgMan(d.fee):'売上未入力')+'</b>'
+        +'<span class="badge">'+esc(DEAL_LABEL[d.stage]||d.stage)+'</span><span class="state">金額 '+esc(yen(d.price))+'</span><b style="margin-left:auto;color:var(--gold2)">'+esc(d.fee!=null?yenFmt(d.fee)+'円':'売上未入力')+'</b>'
         +'<button class="btn sm" data-slc="'+esc(d.customerId)+'">お客様</button></div>';
     }).join('') : '<div class="crm-row" style="cursor:default"><span>この年の取引はありません。顧客管理の「＋ 申込を登録」から取引を入れると、ここに集計されます。</span></div>';
     h+='</div>';
