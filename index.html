@@ -480,6 +480,8 @@
         <button data-sub="pD">取引完了物件</button>
       </div>
       <button data-tabs="7" onclick="tab(7)">業者一覧</button>
+      <button data-tabs="11,12" data-grp="b" onclick="navGroup(11,'b')">物販管理<i class="car">▾</i></button>
+      <div class="subnav" id="sub-b"><button data-subtab="11">商品・出品</button><button data-subtab="12">投稿管理</button><button data-subtab="10">物販売上</button></div>
       <button data-tabs="8,9,10" data-grp="s" onclick="navGroup(8,'s')">売上一覧<i class="car">▾</i></button>
       <div class="subnav" id="sub-s"><button data-subtab="8">売上一覧</button><button data-subtab="9">紹介料</button><button data-subtab="10">物販売上</button></div>
       <button data-tabs="1,2" data-grp="h" onclick="navGroup(1,'h')">会話履歴<i class="car">▾</i></button>
@@ -618,6 +620,28 @@
     <div id="psForm"></div>
     <div id="psBox"><div class="state">読み込んでいます…</div></div>
     <div class="note">Amazonアソシエイト・楽天アフィリエイトなどの売上を入れます。「確定」は売上一覧の売上に、「未確定」（承認待ち・入金待ちなど）は見込みに、日付の月で足されます。月ごとにまとめて1件で入れても大丈夫です。</div>
+  </section>
+
+  <section id="s11">
+    <div class="inl" style="padding:0 0 10px">
+      <input id="piQ" placeholder="商品名・ジャンル・メモで探す">
+      <select id="piS"><option value="">すべての状態</option><option>準備中</option><option>出品中</option><option>販売終了</option></select>
+      <button class="btn" id="piGo">探す</button><button class="btn main" id="piNew">＋ 商品を登録</button>
+    </div>
+    <div id="piForm"></div>
+    <div class="card" id="piList"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
+    <div class="note">紹介・出品する商品をまとめて管理します。売れたら商品の「売れた」を押して金額（アフィリエイトなら報酬額）を入れると、物販売上に自動で入り、売上一覧の合計にも足されます。投稿の予定や記録は「投稿を記録」または「投稿管理」から入れられます（ここから自動で投稿はしません）。</div>
+  </section>
+
+  <section id="s12">
+    <div class="inl" style="padding:0 0 10px">
+      <select id="ppSns"><option value="">すべてのSNS</option><option>X</option><option>Threads</option><option>Instagram</option><option>その他</option></select>
+      <select id="ppSt"><option value="">すべての状態</option><option>下書き</option><option>予定</option><option>投稿済み</option></select>
+      <button class="btn main" id="ppNew">＋ 投稿を記録</button>
+    </div>
+    <div id="ppForm"></div>
+    <div class="card" id="ppList"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
+    <div class="note">物販の投稿の下書き・予定・投稿済みを記録します。実際の投稿は、今のSNSの仕組み（スプレッドシート）や各アプリから行ってください。</div>
   </section>
 
   <section id="s5">
@@ -3192,6 +3216,8 @@ function tab(i){
   if(i===8) slLoad();
   if(i===9) rfLoad();
   if(i===10) psLoad();
+  if(i===11) piLoad();
+  if(i===12) ppLoad();
   closeDrawers();
   // 「顧客」と「物件」は同じ台帳の画面（s4）を使い、上のボタンを入れ替える
   var sec = i===6 ? 4 : i;
@@ -3206,7 +3232,7 @@ function tab(i){
 /* ---------- 左メニューの副タブ（開け閉めできる。開け閉めはこの端末に覚えておく） ---------- */
 var NAV_CLOSED={}; try{ NAV_CLOSED=JSON.parse(localStorage.getItem('cresta-nav')||'{}')||{}; }catch(e){}
 function navPaint(){
-  ['c','p','h','s'].forEach(function(g){
+  ['c','p','h','s','b'].forEach(function(g){
     var box=document.getElementById('sub-'+g), btn=document.querySelector('[data-grp="'+g+'"]');
     if(box) box.classList.toggle('hide', !!NAV_CLOSED[g]);
     if(btn) btn.classList.toggle('closed', !!NAV_CLOSED[g]);
@@ -3346,6 +3372,144 @@ document.getElementById('s7').addEventListener('click', function(e){
   }
 });
 
+/* ---------- 物販管理：商品・出品 ---------- */
+var PI={items:[], channels:[]};
+function piLoad(){
+  var box=document.getElementById('piList');
+  api('/api/pitems',{q:document.getElementById('piQ').value, status:document.getElementById('piS').value}).then(function(r){
+    PI.items=r.items; PI.channels=r.channels; PI.w=r.canWrite; document.getElementById('piNew').style.display=r.canWrite?'':'none';
+    if(!r.items.length){ box.innerHTML='<div class="row"><span class="what"><span>まだ商品はありません。'+(r.canWrite?'「＋ 商品を登録」から入れてください。':'')+'</span></span></div>'; return; }
+    box.innerHTML=r.items.map(function(it){
+      var meta=[it.channel, it.category, it.price!=null?yenFmt(it.price)+'円':'', it.commission!=null?'紹介料 '+it.commission+'%':''].filter(Boolean).map(esc).join('・');
+      return '<div class="row" style="flex-wrap:wrap"><span class="badge">'+esc(it.status)+'</span><span class="what"><b>'+esc(it.name)+'</b><span>'+meta+'</span>'
+        +'<span style="display:block">売れた '+it.soldCount+'個・'+yenFmt(it.soldAmount)+'円　投稿 '+it.postedCount+'/'+it.postCount+'件'+(it.nextPost?'（次の予定 '+esc(crmWhen(it.nextPost))+'）':'')+'</span>'+(it.note?'<span>'+esc(it.note)+'</span>':'')+'</span>'
+        +'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(it.url?linkHtml(it.url,'商品ページ'):'')
+        +(r.canWrite?'<button class="btn sm main" data-pisold="'+esc(it.id)+'">売れた</button><button class="btn sm" data-pipost="'+esc(it.id)+'">投稿を記録</button><button class="btn sm" data-piedit="'+esc(it.id)+'">直す</button>':'')
+        +'<button class="btn sm" data-pisales="'+esc(it.id)+'">売上を見る</button></span>'
+        +'<div id="pi-'+esc(it.id)+'" style="flex-basis:100%"></div></div>';
+    }).join('');
+  }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+function piToggle(box, key){ if(box.getAttribute('data-k')===key && box.innerHTML){ box.innerHTML=''; box.removeAttribute('data-k'); return false; } box.setAttribute('data-k', key); return true; }
+function piForm(id){
+  var it=id?PI.items.filter(function(x){ return x.id===id; })[0]:null, box=document.getElementById(id?'pi-'+id:'piForm');
+  if(!piToggle(box,'edit')) return;
+  var chs=PI.channels.length?PI.channels:['Amazonアソシエイト','楽天アフィリエイト','その他'], known=!it||chs.indexOf(it.channel)>=0;
+  var f=function(k,l,v,ex){ return '<label>'+esc(l)+'<input data-pi="'+k+'" value="'+esc(v==null?'':v)+'"'+(ex||'')+'></label>'; };
+  box.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
+    +f('name','商品名（必須）',it&&it.name)+f('category','ジャンル（例 ガジェット・セール）',it&&it.category)
+    +'<label>販売先・紹介先<select data-pi="ch">'+chs.map(function(c){ return '<option'+((it?(known?it.channel===c:c==='その他'):c===chs[0])?' selected':'')+'>'+esc(c)+'</option>'; }).join('')+'</select></label>'
+    +f('chName','販売先の名前（「その他」のとき）',it&&!known?it.channel:'',' placeholder="例 メルカリ"')
+    +f('url','商品ページ・紹介リンク（https://〜）',it&&it.url)
+    +'<label>販売価格（円）<input class="yen" inputmode="numeric" data-pi="price" value="'+esc(it&&it.price!=null?yenFmt(it.price):'')+'"></label>'
+    +'<label>紹介料率（%・アフィリエイト）<input inputmode="decimal" data-pi="commission" value="'+esc(it&&it.commission!=null?it.commission:'')+'" placeholder="例 3"></label>'
+    +'<label>仕入れ値（円・自分で売るとき）<input class="yen" inputmode="numeric" data-pi="cost" value="'+esc(it&&it.cost!=null?yenFmt(it.cost):'')+'"></label>'
+    +'<label>状態<select data-pi="status">'+['準備中','出品中','販売終了'].map(function(x){ return '<option'+((it?it.status:'準備中')===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
+    +'<label class="wide">メモ（おすすめの点・セール期間など）<textarea data-pi="note" rows="2">'+esc(it&&it.note||'')+'</textarea></label>'
+    +'</div><div class="bar"><button class="btn main sm" data-pisave="'+esc(id||'')+'">保存する</button><span class="state" data-pist></span></div></div>';
+}
+function piSoldForm(id){
+  var it=PI.items.filter(function(x){ return x.id===id; })[0], box=document.getElementById('pi-'+id);
+  if(!piToggle(box,'sold')) return;
+  var j=jst(), today=j.getFullYear()+'-'+z(j.getMonth()+1)+'-'+z(j.getDate());
+  var guess=function(q){ return it.price!=null&&it.commission!=null ? Math.round(it.price*it.commission/100*q) : (it.price!=null&&it.channel.indexOf('アフィリエイト')<0&&it.channel.indexOf('アソシエイト')<0 ? it.price*q : null); };
+  var g=guess(1);
+  box.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
+    +'<label>売れた日<input type="date" data-ps2="soldOn" value="'+today+'"></label>'
+    +'<label>個数<input inputmode="numeric" data-ps2="quantity" value="1"></label>'
+    +'<label>金額（円・アフィリエイトは報酬額）<input class="yen" inputmode="numeric" data-ps2="amount" value="'+(g!=null?yenFmt(g):'')+'"></label>'
+    +'<label>状態<select data-ps2="status"><option>確定</option><option>未確定</option></select></label>'
+    +'<label class="wide">メモ<input data-ps2="note" value="'+esc(it.name)+'"></label>'
+    +'</div><div class="bar"><button class="btn main sm" data-pisoldgo="'+esc(id)+'">物販売上に入れる</button><span class="state" data-pist>'+(g!=null&&it.commission!=null?'販売価格×紹介料率で計算した目安を入れています。実際の報酬額に直してください。':'')+'</span></div></div>';
+  var q=box.querySelector('[data-ps2="quantity"]'), a=box.querySelector('[data-ps2="amount"]');
+  q.addEventListener('input', function(){ var n=parseInt(yenFmt(q.value).replace(/,/g,''),10)||1, v=guess(n); if(v!=null) a.value=yenFmt(v); });
+}
+function piSales(id){
+  var box=document.getElementById('pi-'+id); if(!piToggle(box,'sales')) return;
+  box.innerHTML='<div class="state">読み込んでいます…</div>';
+  api('/api/pitem-sales',{itemId:id}).then(function(r){
+    box.innerHTML='<div style="padding:6px 0">'+(r.items.length?r.items.map(function(x){ return '<div class="state">'+esc(x.soldOn.replace(/-/g,'/'))+'　'+(x.quantity||1)+'個　'+yenFmt(x.amount)+'円　'+esc(x.status)+'</div>'; }).join(''):'<div class="state">まだ売れた記録はありません。</div>')+'</div>';
+  }).catch(function(e){ box.innerHTML='<div class="state">'+esc(e.message)+'</div>'; });
+}
+document.getElementById('piGo').onclick=piLoad;
+document.getElementById('piQ').addEventListener('keydown',function(e){ if(e.key==='Enter') piLoad(); });
+document.getElementById('piS').onchange=piLoad;
+document.getElementById('piNew').onclick=function(){ piForm(null); };
+document.getElementById('s11').addEventListener('click', function(e){
+  var t=e.target, a; if(!t.getAttribute) return;
+  if((a=t.getAttribute('data-piedit'))){ piForm(a); return; }
+  if((a=t.getAttribute('data-pisold'))){ piSoldForm(a); return; }
+  if((a=t.getAttribute('data-pisales'))){ piSales(a); return; }
+  if((a=t.getAttribute('data-pipost'))){ var b=document.getElementById('pi-'+a); if(piToggle(b,'post')) ppForm(null, b, a, piLoad); return; }
+  if(t.hasAttribute('data-pisave')){
+    var id=t.getAttribute('data-pisave'), box=t.closest('.card'), v={}, st=box.querySelector('[data-pist]');
+    Array.prototype.forEach.call(box.querySelectorAll('[data-pi]'), function(el){ v[el.getAttribute('data-pi')]=el.value; });
+    var item={name:v.name, category:v.category, channel: v.ch==='その他' ? (v.chName.trim()||'その他') : v.ch, url:v.url, price:v.price, cost:v.cost, commission:v.commission, status:v.status, note:v.note};
+    t.disabled=true; st.textContent='保存しています…';
+    api('/api/pitem-save', id?{id:id, item:item}:{item:item}).then(function(){ document.getElementById('piForm').innerHTML=''; piLoad(); }).catch(function(er){ st.textContent=er.message; t.disabled=false; });
+    return;
+  }
+  if((a=t.getAttribute('data-pisoldgo'))){
+    var bx=t.closest('.card'), sv={}, st2=bx.querySelector('[data-pist]');
+    Array.prototype.forEach.call(bx.querySelectorAll('[data-ps2]'), function(el){ sv[el.getAttribute('data-ps2')]=el.value; });
+    t.disabled=true; st2.textContent='入れています…';
+    api('/api/pitem-sold',{itemId:a, sold:sv}).then(function(){ st2.textContent='物販売上に入れました。'; setTimeout(piLoad, 900); }).catch(function(er){ st2.textContent=er.message; t.disabled=false; });
+  }
+});
+
+/* ---------- 物販管理：投稿 ---------- */
+var PP={items:[]};
+function ppLoad(){
+  var box=document.getElementById('ppList');
+  api('/api/pposts',{}).then(function(r){
+    var sns=document.getElementById('ppSns').value, st=document.getElementById('ppSt').value;
+    PP.items=r.items; PP.w=r.canWrite; document.getElementById('ppNew').style.display=r.canWrite?'':'none';
+    var list=r.items.filter(function(p){ return (!sns||p.sns===sns) && (!st||p.status===st); });
+    if(!list.length){ box.innerHTML='<div class="row"><span class="what"><span>投稿の記録はまだありません。</span></span></div>'; return; }
+    box.innerHTML=list.map(function(p){
+      return '<div class="row" style="flex-wrap:wrap"><span class="when">'+esc(p.postAt?crmWhen(p.postAt):'日時なし')+'</span><span class="badge">'+esc(p.sns)+'</span><span class="badge">'+esc(p.status)+'</span>'
+        +'<span class="what"><b>'+esc(p.itemName||'（商品なし）')+'</b>'+(p.body?'<span style="white-space:pre-wrap">'+esc(p.body.length>140?p.body.slice(0,140)+'…':p.body)+'</span>':'')+(p.note?'<span>'+esc(p.note)+'</span>':'')+'</span>'
+        +'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(p.url?linkHtml(p.url,'投稿を開く'):'')+(p.body?'<button class="btn sm" data-ppcopy="'+esc(p.id)+'">文をコピー</button>':'')
+        +(r.canWrite?'<button class="btn sm" data-ppedit="'+esc(p.id)+'">直す</button><button class="btn sm" data-ppdel="'+esc(p.id)+'">消す</button>':'')+'</span>'
+        +'<div id="pp-'+esc(p.id)+'" style="flex-basis:100%"></div></div>';
+    }).join('');
+  }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+function ppForm(id, target, itemId, after){
+  var p=id?PP.items.filter(function(x){ return x.id===id; })[0]:null, box=target||document.getElementById(id?'pp-'+id:'ppForm');
+  if(!target && box.innerHTML){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="state">読み込んでいます…</div>';
+  (PI.items.length?Promise.resolve({items:PI.items}):api('/api/pitems',{})).then(function(r){
+    PI.items=r.items; var cur=p?p.itemId:(itemId||'');
+    box.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
+      +'<label>商品<select data-pp="itemId"><option value="">（なし）</option>'+r.items.map(function(it){ return '<option value="'+esc(it.id)+'"'+(cur===it.id?' selected':'')+'>'+esc(it.name)+'</option>'; }).join('')+'</select></label>'
+      +'<label>SNS<select data-pp="sns">'+['X','Threads','Instagram','その他'].map(function(x){ return '<option'+((p?p.sns:'X')===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
+      +'<label>状態<select data-pp="status">'+['下書き','予定','投稿済み'].map(function(x){ return '<option'+((p?p.status:'下書き')===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
+      +'<label>日時（予定・投稿した日時）'+dtHtml('data-pp="postAt"', p&&p.postAt?jstInput(p.postAt):'')+'</label>'
+      +'<label class="wide">投稿の文<textarea data-pp="body" rows="4">'+esc(p&&p.body||'')+'</textarea></label>'
+      +'<label>投稿のURL（投稿したあと）<input data-pp="url" value="'+esc(p&&p.url||'')+'"></label>'
+      +'<label>メモ<input data-pp="note" value="'+esc(p&&p.note||'')+'"></label>'
+      +'</div><div class="bar"><button class="btn main sm" data-ppsave="'+esc(id||'')+'">保存する</button><span class="state" data-ppst></span></div></div>';
+    box.querySelector('[data-ppsave]').onclick=function(){
+      var b=this, v={}, st=box.querySelector('[data-ppst]');
+      Array.prototype.forEach.call(box.querySelectorAll('[data-pp]'), function(el){ v[el.getAttribute('data-pp')]=el.value||null; });
+      b.disabled=true; st.textContent='保存しています…';
+      api('/api/ppost-save', id?{id:id, post:v}:{post:v}).then(function(){ box.innerHTML=''; (after||ppLoad)(); }).catch(function(er){ st.textContent=er.message; b.disabled=false; });
+    };
+  }).catch(function(e){ box.innerHTML='<div class="state">'+esc(e.message)+'</div>'; });
+}
+document.getElementById('ppNew').onclick=function(){ ppForm(null); };
+document.getElementById('ppSns').onchange=ppLoad; document.getElementById('ppSt').onchange=ppLoad;
+document.getElementById('s12').addEventListener('click', function(e){
+  var t=e.target, a; if(!t.getAttribute) return;
+  if((a=t.getAttribute('data-ppedit'))){ var b=document.getElementById('pp-'+a); if(b.innerHTML){ b.innerHTML=''; } else ppForm(a); return; }
+  if((a=t.getAttribute('data-ppcopy'))){ var p=PP.items.filter(function(x){ return x.id===a; })[0]; if(p&&navigator.clipboard){ navigator.clipboard.writeText(p.body||'').then(function(){ t.textContent='コピーしました'; setTimeout(function(){ t.textContent='文をコピー'; },1500); }); } return; }
+  if((a=t.getAttribute('data-ppdel'))){
+    if(t.getAttribute('data-sure')!=='1'){ t.setAttribute('data-sure','1'); t.textContent='本当に消す'; t.className='btn sm main'; setTimeout(function(){ if(t.isConnected){ t.removeAttribute('data-sure'); t.textContent='消す'; t.className='btn sm'; } }, 4000); return; }
+    t.disabled=true; api('/api/ppost-delete',{id:a}).then(ppLoad).catch(function(er){ t.textContent=er.message; });
+  }
+});
+
 /* ---------- 物販売上（売上一覧の副タブ） ---------- */
 var PS={items:[], channels:[]};
 function psLoad(){
@@ -3359,6 +3523,7 @@ function psLoad(){
       +Object.keys(r.byChannel).map(function(k){ return '<div><small>'+esc(k)+'</small><b>'+esc(y(r.byChannel[k]))+'</b></div>'; }).join('')+'</div><div class="card">';
     h+= r.items.length ? r.items.map(function(p){
       return '<div class="crm-row" style="cursor:default;flex-wrap:wrap"><span class="when">'+esc(p.soldOn.slice(5).replace('-','/'))+'</span><span class="nm">'+esc(p.channel)+'</span><span class="badge">'+esc(p.status)+'</span>'
+        +(p.itemName?'<span class="state">'+esc(p.itemName)+(p.quantity>1?'（'+p.quantity+'個）':'')+'</span>':'')
         +(p.note?'<span class="state">'+esc(p.note)+'</span>':'')+'<b style="margin-left:auto;color:var(--gold2)">'+esc(y(p.amount))+'</b>'
         +(r.canWrite?'<button class="btn sm" data-pse="'+esc(p.id)+'">直す</button><button class="btn sm" data-psd="'+esc(p.id)+'">消す</button>':'')
         +'<div id="ps-'+esc(p.id)+'" style="flex-basis:100%"></div></div>';
@@ -3394,7 +3559,9 @@ document.getElementById('s10').addEventListener('click', function(e){
   if(t.hasAttribute('data-pss')){
     var id=t.getAttribute('data-pss'), box=t.closest('.card'), v={}, st=document.getElementById('pss-'+(id||'new'));
     Array.prototype.forEach.call(box.querySelectorAll('[data-ps]'), function(el){ v[el.getAttribute('data-ps')]=el.value; });
-    var sale={soldOn:v.soldOn, amount:v.amount, channel: v.ch==='その他' ? (v.chName.trim()||'その他') : v.ch, status:v.status, note:v.note||null};
+    var old=id?PS.items.filter(function(x){ return x.id===id; })[0]:null;   // 商品とのつながり・個数は、直しても外さない
+    var sale={soldOn:v.soldOn, amount:v.amount, channel: v.ch==='その他' ? (v.chName.trim()||'その他') : v.ch, status:v.status, note:v.note||null,
+      itemId: old?old.itemId||null:null, quantity: old?old.quantity||1:1};
     t.disabled=true; st.textContent='保存しています…';
     api('/api/product-sale-save', id?{id:id, sale:sale}:{sale:sale}).then(function(){ document.getElementById('psForm').innerHTML=''; psLoad(); })
       .catch(function(er){ st.textContent=er.message; t.disabled=false; });
