@@ -648,7 +648,7 @@
   <section id="s5">
     <div class="jumps" id="setJumps">
       <button onclick="setJump('会社とメンバー')">メンバー</button><button onclick="setJump('利用量とプラン')">プラン</button><button onclick="setJump('請求')">請求</button>
-      <button onclick="setJump('会社の設定')">会社の設定</button><button onclick="setJump('LINE公式アカウント')">LINE</button><button onclick="setJump('メール')">メール</button><button onclick="setJump('Googleカレンダー')">カレンダー</button><button onclick="setJump('接続と設定')">接続</button>
+      <button onclick="setJump('会社の設定')">会社の設定</button><button onclick="setJump('LINE公式アカウント')">LINE</button><button onclick="setJump('メール')">メール</button><button onclick="setJump('Googleカレンダー')">カレンダー</button><button onclick="setJump('SNSとつなぐ')">SNS</button><button onclick="setJump('接続と設定')">接続</button>
     </div>
     <h2 style="margin-top:6px">会社とメンバー</h2>
     <div id="acct"><div class="card"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div></div>
@@ -825,6 +825,15 @@ var GCAL_FLASH=null;
   GCAL_FLASH={ok:gm[1]==='ok', msg:msg};
   try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){ location.hash=''; }
 })();
+/* X・Threads をつないで戻ってきたとき（#sns=ok / ng） */
+var SNS_FLASH=null;
+(function(){
+  var sm=/^#sns=(ok|ng)(?:&m=(.*))?/.exec(location.hash||'');
+  if(!sm) return;
+  var msg=''; try{ msg=decodeURIComponent(sm[2]||''); }catch(e){}
+  SNS_FLASH={ok:sm[1]==='ok', msg:msg};
+  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){ location.hash=''; }
+})();
 /* 招待リンク（#signup=コード）で開いたときは、登録画面にコードを入れておく */
 (function(){
   // 査定書の共有リンク（#report=…）：ログインなしで査定書だけを表示する
@@ -855,6 +864,7 @@ function open_(s){
   loadSkills().catch(function(){});
   setInterval(poll, 4000);
   setInterval(clock, 1000); clock();
+  if(SNS_FLASH){ tab(5); setTimeout(function(){ setJump('SNSとつなぐ'); }, 800); }
   if(GCAL_FLASH){ tab(5); var gmFlash=/Gmail/.test(GCAL_FLASH.msg||''); setTimeout(function(){ setJump(gmFlash?'メール':'Googleカレンダー'); }, 800); }
 }
 function clock(){
@@ -1593,6 +1603,7 @@ function drawAcct(){
   h+='<h2 style="margin-top:18px">会社の設定（AIが名乗る会社・地域・得意分野）</h2><div class="card" id="cpBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   h+='<h2 style="margin-top:18px">LINE公式アカウント</h2><div class="card" id="lineBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   h+='<h2 style="margin-top:18px">メール送信の設定</h2><div class="card" id="emBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
+  h+='<h2 style="margin-top:18px">SNSとつなぐ（自動投稿）</h2><div class="card" id="snsBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   h+='<h2 style="margin-top:18px">Googleカレンダー</h2><div class="card" id="gcBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
   if(ME.can.demo){
     h+='<h2 style="margin-top:18px">見本の会社（営業用のデモ）</h2><div class="card" id="dmBox"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>';
@@ -1619,7 +1630,7 @@ function drawAcct(){
       };
     }).catch(function(er){ document.getElementById('selfOut').textContent=er.message; });
   };
-  drawUsage(); drawBilling(); drawProfile(); drawLine(); drawEmail(); drawGcal(); drawDemo();
+  drawUsage(); drawBilling(); drawProfile(); drawLine(); drawEmail(); drawGcal(); drawSns(); drawDemo();
   if(ME.can.invite){
     drawMembers();
     document.getElementById('iGo').onclick=function(){
@@ -1896,6 +1907,42 @@ function drawGcal(){
       if(off.getAttribute('data-sure')!=='1'){ off.setAttribute('data-sure','1'); off.textContent='本当に外す（もう一度押す）'; st.textContent='外すと、カレンダーとGmailでの送信の両方が止まります（カレンダーの予定やメールは消えません）。'; return; }
       off.disabled=true; st.textContent='外しています…';
       api('/api/gcal-disconnect',{}).then(function(){ drawGcal(); drawGcalEvents(); }).catch(function(er){ st.textContent=er.message; off.disabled=false; });
+    };
+  }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+/* X・Threads とつなぐ（物販の投稿を、予定の時間に自動で投稿するため） */
+function drawSns(){
+  var box=document.getElementById('snsBox'); if(!box) return;
+  api('/api/sns').then(function(r){
+    var h='';
+    if(SNS_FLASH){ h+='<div class="row"><span class="what"><b style="color:'+(SNS_FLASH.ok?'var(--ok,#3fae6a)':'var(--bad)')+'">'+esc(SNS_FLASH.msg||(SNS_FLASH.ok?'つながりました':'つなげませんでした'))+'</b></span></div>'; SNS_FLASH=null; }
+    h+='<div class="row"><span class="what"><span>つなぐと、「物販管理 → 投稿管理」で「自動で投稿する」をオンにした投稿が、予定の時間に自動で出ます（オンにできるのはオーナー・管理者だけ）。公式の仕組みだけを使います。</span></span></div>';
+    r.accounts.forEach(function(a){
+      var exp=a.expiresAt?crmWhen(a.expiresAt):'';
+      h+='<div class="row" style="flex-wrap:wrap"><span class="badge">'+esc(a.sns)+'</span><span class="what" style="overflow-wrap:anywhere;min-width:0"><b>'+(a.connected?'つながっています：'+esc(a.username?'@'+a.username:'アカウント'):'まだつながっていません')+'</b>'
+        +(a.sns==='X'?'<span>Xの公式の仕組みは有料です。リンク付きの投稿は1回あたり約0.2ドル（30円くらい）。先にXの開発者ページでクレジットを買っておきます。</span>':'<span>Threadsの公式の仕組みは無料です。'+(a.connected&&exp?'鍵の期限：'+esc(exp)+'（投稿するたびに自動で延びます。60日投稿しないと切れるので、そのときはつなぎ直してください）':'')+'</span>')
+        +(!a.serverReady?'<span style="color:var(--gold)">準備中：サーバーに'+esc(a.sns)+'のキー（'+(a.sns==='X'?'X_CLIENT_ID・X_CLIENT_SECRET':'THREADS_APP_ID・THREADS_APP_SECRET')+'）がまだ入っていません。</span>':'')
+        +(a.redirectUri?'<span>'+(a.sns==='X'?'Xの開発者ページに登録する「コールバックURL」':'Metaの開発者ページに登録する「リダイレクトURI」')+'：<br><code style="word-break:break-all">'+esc(a.redirectUri)+'</code> <button class="btn sm" data-copy="'+esc(a.redirectUri)+'">コピー</button></span>':'')
+        +'</span>'
+        +(r.canManage&&a.serverReady?'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button class="btn sm main" data-snsgo="'+a.sns+'">'+(a.connected?'つなぎ直す':a.sns+'とつなぐ')+'</button>'+(a.connected?'<button class="btn sm" data-snsoff="'+a.sns+'">外す</button>':'')+'</span>':'')
+        +'<div class="state" data-snsst="'+a.sns+'" style="flex-basis:100%"></div></div>';
+    });
+    if(!r.canManage) h+='<div class="state" style="padding:0 15px 12px">つなぐ・外すのは、オーナー・管理者です。</div>';
+    box.innerHTML=h;
+    box.onclick=function(e){
+      var t=e.target, c, k; if(!t.getAttribute) return;
+      if((c=t.getAttribute('data-copy'))){ (navigator.clipboard?navigator.clipboard.writeText(c):Promise.reject()).then(function(){ t.textContent='コピーしました'; }).catch(function(){ t.textContent='長押しでコピーしてください'; }); return; }
+      var st=function(m){ var x=box.querySelector('[data-snsst="'+k+'"]'); if(x) x.textContent=m; };
+      if((k=t.getAttribute('data-snsgo'))){
+        t.disabled=true; st(k+'の画面を開いています…');
+        api('/api/sns-start',{sns:k}).then(function(x){ location.href=x.url; }).catch(function(er){ st(er.message); t.disabled=false; });
+        return;
+      }
+      if((k=t.getAttribute('data-snsoff'))){
+        if(t.getAttribute('data-sure')!=='1'){ t.setAttribute('data-sure','1'); t.textContent='本当に外す'; st('外すと、自動で投稿する予定のものは止まります（すでに出た投稿は消えません）。'); return; }
+        t.disabled=true; st('外しています…');
+        api('/api/sns-disconnect',{sns:k}).then(drawSns).catch(function(er){ st(er.message); t.disabled=false; });
+      }
     };
   }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
 }
@@ -3529,25 +3576,47 @@ function ppLoad(){
   var box=document.getElementById('ppList');
   api('/api/pposts',{}).then(function(r){
     var sns=document.getElementById('ppSns').value, st=document.getElementById('ppSt').value;
-    PP.items=r.items; PP.w=r.canWrite; document.getElementById('ppNew').style.display=r.canWrite?'':'none';
+    PP.items=r.items; PP.w=r.canWrite; PP.canAuto=!!r.canAuto; PP.conn=r.snsConnected||[]; document.getElementById('ppNew').style.display=r.canWrite?'':'none';
     var props=r.items.filter(function(p){ return p.status==='提案'; }).length, nb=document.getElementById('navProp');
     if(nb){ nb.style.display=props?'':'none'; nb.textContent=props; }
     var list=r.items.filter(function(p){ return (!sns||p.sns===sns) && (!st||p.status===st); });
     list.sort(function(a,b){ return (a.status==='提案'?0:1)-(b.status==='提案'?0:1); });
     if(!list.length){ box.innerHTML='<div class="row"><span class="what"><span>投稿の記録はまだありません。「AIに投稿を提案してもらう」から作れます。</span></span></div>'; return; }
     var canDecide=!!(ME&&ME.can&&ME.can.decide) || !ME;
-    box.innerHTML=(props?'<div class="row"><span class="what"><b style="color:var(--gold)">承認を待っている提案が'+props+'件あります</b></span></div>':'')+list.map(function(p){
+    if(PP.flash){ PP.flashMsg=PP.flash; PP.flashUntil=Date.now()+10000; PP.flash=null; }
+    var flash=PP.flashMsg&&PP.flashUntil>Date.now()?'<div class="row"><span class="what"><b style="color:var(--gold)">'+esc(PP.flashMsg)+'</b></span></div>':'';
+    box.innerHTML=flash+(props?'<div class="row"><span class="what"><b style="color:var(--gold)">承認を待っている提案が'+props+'件あります</b></span></div>':'')+list.map(function(p){
       if(p.status==='提案') return '<div class="row" style="flex-wrap:wrap;background:rgba(201,162,75,.06)"><span class="badge">'+esc(p.sns)+'</span><span class="badge" style="border-color:var(--gold);color:var(--gold)">提案（AI）</span>'
         +'<span class="what"><b>'+esc(p.itemName||'（商品なし）')+'</b><span style="white-space:pre-wrap;display:block;margin-top:4px">'+esc(p.body||'')+'</span>'+ppImgs(p, r.canWrite)+'</span>'
         +'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(canDecide?'<button class="btn sm main" data-ppok="'+esc(p.id)+'">承認する</button><button class="btn sm" data-ppng="'+esc(p.id)+'">却下</button>':'<span class="state">オーナー・管理者の承認待ち</span>')+'</span>'
         +'<div id="pp-'+esc(p.id)+'" style="flex-basis:100%"></div></div>';
-      return '<div class="row" style="flex-wrap:wrap"><span class="when">'+esc(p.postAt?crmWhen(p.postAt):'日時なし')+'</span><span class="badge">'+esc(p.sns)+'</span><span class="badge">'+esc(p.status)+'</span>'
-        +'<span class="what"><b>'+esc(p.itemName||'（商品なし）')+'</b>'+(p.body?'<span style="white-space:pre-wrap">'+esc(p.body.length>140?p.body.slice(0,140)+'…':p.body)+'</span>':'')+(p.note?'<span>'+esc(p.note)+'</span>':'')+ppImgs(p, r.canWrite && p.status!=='却下')+'</span>'
+      var busy=p.publishStatus==='投稿中'||p.publishStatus==='完了';
+      return '<div class="row" style="flex-wrap:wrap"><span class="when">'+esc(p.postAt?crmWhen(p.postAt):'日時なし')+'</span><span class="badge">'+esc(p.sns)+'</span><span class="badge">'+esc(p.status)+'</span>'+ppAutoBadge(p)
+        +'<span class="what"><b>'+esc(p.itemName||'（商品なし）')+'</b>'+(p.body?'<span style="white-space:pre-wrap">'+esc(p.body.length>140?p.body.slice(0,140)+'…':p.body)+'</span>':'')+(p.note?'<span>'+esc(p.note)+'</span>':'')
+        +(p.publishStatus==='失敗'&&p.publishError?'<span style="color:var(--bad);display:block;margin-top:4px">自動投稿できませんでした：'+esc(p.publishError)+'</span>':'')+ppImgs(p, r.canWrite && p.status!=='却下' && !busy)+'</span>'
         +'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(p.url?linkHtml(p.url,'投稿を開く'):'')+(p.body?'<button class="btn sm" data-ppcopy="'+esc(p.id)+'">文をコピー</button>':'')
-        +(r.canWrite?'<button class="btn sm" data-ppedit="'+esc(p.id)+'">直す</button><button class="btn sm" data-ppdel="'+esc(p.id)+'">消す</button>':'')+'</span>'
+        +ppAutoBtns(p)
+        +(r.canWrite&&!busy?'<button class="btn sm" data-ppedit="'+esc(p.id)+'">直す</button>':'')+(r.canWrite&&p.publishStatus!=='投稿中'?'<button class="btn sm" data-ppdel="'+esc(p.id)+'">消す</button>':'')+'</span>'
         +'<div id="pp-'+esc(p.id)+'" style="flex-basis:100%"></div></div>';
     }).join('');
   }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+/* 自動投稿の状態 */
+function ppAutoBadge(p){
+  var m={'待機':['自動で投稿：待機中','var(--gold)'],'投稿中':['自動で投稿中…','var(--gold)'],'完了':['自動で投稿しました','var(--ok,#3fae6a)'],'失敗':['自動投稿：失敗','var(--bad)']}[p.publishStatus||''];
+  return m?'<span class="badge" style="border-color:'+m[1]+';color:'+m[1]+'">'+m[0]+'</span>':'';
+}
+function ppAutoBtns(p){
+  if(!PP.canAuto || (p.sns!=='X'&&p.sns!=='Threads')) return '';
+  if(p.publishStatus==='待機') return '<button class="btn sm" data-ppauto="'+esc(p.id)+'" data-on="0">自動をやめる</button>';
+  if(p.publishStatus==='失敗') return '<button class="btn sm main" data-ppauto="'+esc(p.id)+'" data-on="1">もう一度（自動で投稿）</button>';
+  if(!p.publishStatus && p.status==='予定' && p.postAt) return '<button class="btn sm" data-ppauto="'+esc(p.id)+'" data-on="1">自動で投稿する</button>';
+  return '';
+}
+function ppAutoField(sns, on){
+  if(!PP.canAuto) return '';
+  return '<label class="wide" style="display:flex;flex-direction:row;gap:8px;align-items:flex-start"><input type="checkbox" data-ppa="1" style="width:auto;margin-top:3px"'+(on?' checked':'')+'>'
+    +'<span>予定の時間に、つないだアカウントから自動で投稿する（X・Threadsだけ）<br><span class="state">'+(PP.conn&&PP.conn.length?'つないであるSNS：'+esc(PP.conn.join('・')):'まだSNSとつないでいません（設定 → SNSとつなぐ）')+'。Xは1回約30円かかります。</span></span></label>';
 }
 /* 投稿の写真：小さな写真を並べる（押すと大きく開くので、そこから保存してSNSに付けられる） */
 function ppImgs(p, w){
@@ -3594,12 +3663,14 @@ function ppForm(id, target, itemId, after){
       +'<label class="wide">投稿の文<textarea data-pp="body" rows="4">'+esc(p&&p.body||'')+'</textarea></label>'
       +'<label>投稿のURL（投稿したあと）<input data-pp="url" value="'+esc(p&&p.url||'')+'"></label>'
       +'<label>メモ<input data-pp="note" value="'+esc(p&&p.note||'')+'"></label>'
+      +ppAutoField(p?p.sns:'X', !!(p&&p.autoPublish&&p.publishStatus==='待機'))
       +'</div><div class="bar"><button class="btn main sm" data-ppsave="'+esc(id||'')+'">保存する</button><span class="state" data-ppst></span></div></div>';
     box.querySelector('[data-ppsave]').onclick=function(){
       var b=this, v={}, st=box.querySelector('[data-ppst]');
       Array.prototype.forEach.call(box.querySelectorAll('[data-pp]'), function(el){ v[el.getAttribute('data-pp')]=el.value||null; });
+      var ac=box.querySelector('[data-ppa]'); v.autoPublish=!!(ac&&ac.checked);
       b.disabled=true; st.textContent='保存しています…';
-      api('/api/ppost-save', id?{id:id, post:v}:{post:v}).then(function(){ box.innerHTML=''; (after||ppLoad)(); }).catch(function(er){ st.textContent=er.message; b.disabled=false; });
+      api('/api/ppost-save', id?{id:id, post:v}:{post:v}).then(function(x){ PP.flash=x.autoOff||x.autoNote||null; box.innerHTML=''; (after||ppLoad)(); }).catch(function(er){ st.textContent=er.message; b.disabled=false; });
     };
   }).catch(function(e){ box.innerHTML='<div class="state">'+esc(e.message)+'</div>'; });
 }
@@ -3645,19 +3716,26 @@ document.getElementById('s12').addEventListener('click', function(e){
     bx.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
       +'<label>投稿する日時'+dtHtml('data-ok="postAt"', tomorrowNoon())+'</label>'
       +'<label class="wide">投稿の文（直してから承認できます）<textarea data-ok="body" rows="5">'+esc(pp&&pp.body||'')+'</textarea></label>'
+      +(pp&&(pp.sns==='X'||pp.sns==='Threads')?ppAutoField(pp.sns, PP.conn.indexOf(pp.sns)>=0):'')
       +'</div><div class="bar"><button class="btn main sm" data-ppokgo="'+esc(a)+'">この内容で承認する（予定に入れる）</button><span class="state" data-okst></span></div></div>';
     return;
   }
   if((a=t.getAttribute('data-ppokgo'))){
     var cb=t.closest('.card'), stt=cb.querySelector('[data-okst]');
     t.disabled=true; stt.textContent='承認しています…';
-    api('/api/ppost-decide',{id:a, approve:true, postAt:cb.querySelector('[data-ok="postAt"]').value, body:cb.querySelector('[data-ok="body"]').value})
-      .then(function(){ ppLoad(); }).catch(function(er){ stt.textContent=er.message; t.disabled=false; });
+    var acb=cb.querySelector('[data-ppa]');
+    api('/api/ppost-decide',{id:a, approve:true, postAt:cb.querySelector('[data-ok="postAt"]').value, body:cb.querySelector('[data-ok="body"]').value, autoPublish:!!(acb&&acb.checked)})
+      .then(function(x){ PP.flash=x.autoNote||null; ppLoad(); }).catch(function(er){ stt.textContent=er.message; t.disabled=false; });
     return;
   }
   if((a=t.getAttribute('data-ppng'))){
     if(t.getAttribute('data-sure')!=='1'){ t.setAttribute('data-sure','1'); t.textContent='本当に却下'; setTimeout(function(){ if(t.isConnected){ t.removeAttribute('data-sure'); t.textContent='却下'; } }, 4000); return; }
     t.disabled=true; api('/api/ppost-decide',{id:a, approve:false}).then(ppLoad).catch(function(er){ t.textContent=er.message; });
+    return;
+  }
+  if((a=t.getAttribute('data-ppauto'))){
+    var on=t.getAttribute('data-on')==='1'; t.disabled=true;
+    api('/api/ppost-auto',{id:a, on:on}).then(function(x){ PP.flash=on?(x.autoNote||'自動で投稿します'):'自動で投稿するのをやめました'; ppLoad(); }).catch(function(er){ t.textContent=er.message; t.disabled=false; });
     return;
   }
   if((a=t.getAttribute('data-ppcopy'))){ var p=PP.items.filter(function(x){ return x.id===a; })[0]; if(p&&navigator.clipboard){ navigator.clipboard.writeText(p.body||'').then(function(){ t.textContent='コピーしました'; setTimeout(function(){ t.textContent='文をコピー'; },1500); }); } return; }
