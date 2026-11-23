@@ -3386,7 +3386,7 @@ function piLoad(){
         +(it.url?'':'<span style="display:block;color:var(--bad)">紹介リンクが入っていません（「直す」で入れてください。AIの投稿提案にも必要です）</span>')
         +'<span style="display:block">売れた '+it.soldCount+'個・'+yenFmt(it.soldAmount)+'円　投稿 '+it.postedCount+'/'+it.postCount+'件'+(it.nextPost?'（次の予定 '+esc(crmWhen(it.nextPost))+'）':'')+'</span>'+(it.note?'<span>'+esc(it.note)+'</span>':'')+'</span>'
         +'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(it.url?linkHtml(it.url,'商品ページ'):'')
-        +(r.canWrite?'<button class="btn sm main" data-pisold="'+esc(it.id)+'">売れた</button><button class="btn sm" data-pipropose="'+esc(it.id)+'">投稿を提案（AI）</button><button class="btn sm" data-pipost="'+esc(it.id)+'">投稿を記録</button><button class="btn sm" data-piedit="'+esc(it.id)+'">直す</button>':'')
+        +(r.canWrite?'<button class="btn sm main" data-pisold="'+esc(it.id)+'">売れた</button><button class="btn sm" data-pipropose="'+esc(it.id)+'">投稿を提案（AI）</button><button class="btn sm" data-pipost="'+esc(it.id)+'">投稿を記録</button><button class="btn sm" data-piedit="'+esc(it.id)+'">直す</button><button class="btn sm" data-pidel="'+esc(it.id)+'">消す</button>':'')
         +'<button class="btn sm" data-pisales="'+esc(it.id)+'">売上を見る</button></span>'
         +'<div id="pi-'+esc(it.id)+'" style="flex-basis:100%"></div></div>';
     }).join('');
@@ -3484,6 +3484,15 @@ document.getElementById('s11').addEventListener('click', function(e){
   if((a=t.getAttribute('data-piedit'))){ piForm(a); return; }
   if((a=t.getAttribute('data-pisold'))){ piSoldForm(a); return; }
   if((a=t.getAttribute('data-pisales'))){ piSales(a); return; }
+  if((a=t.getAttribute('data-pidel'))){
+    // 2回押すと消える。売上（物販売上）と投稿は残る
+    if(t.getAttribute('data-sure')!=='1'){ t.setAttribute('data-sure','1'); t.textContent='本当に消す'; t.className='btn sm main';
+      var it0=PI.items.filter(function(x){ return x.id===a; })[0], bx=document.getElementById('pi-'+a);
+      if(bx){ bx.setAttribute('data-k','del'); bx.innerHTML='<div class="state" style="padding:6px 0">もう一度押すと「'+esc(it0?it0.name:'')+'」を消します。売れた記録（物販売上）と投稿の記録は消えずに残ります。</div>'; }
+      setTimeout(function(){ if(t.isConnected && t.getAttribute('data-sure')==='1'){ t.removeAttribute('data-sure'); t.textContent='消す'; t.className='btn sm'; if(bx&&bx.getAttribute('data-k')==='del'){ bx.innerHTML=''; bx.removeAttribute('data-k'); } } }, 5000); return; }
+    t.disabled=true; api('/api/pitem-delete',{id:a}).then(piLoad).catch(function(er){ t.textContent=er.message; });
+    return;
+  }
   if((a=t.getAttribute('data-pipropose'))){ tab(12); ppAiForm(a); return; }
   if((a=t.getAttribute('data-pipost'))){ var b=document.getElementById('pi-'+a); if(piToggle(b,'post')) ppForm(null, b, a, piLoad); return; }
   if(t.hasAttribute('data-pisave')){
