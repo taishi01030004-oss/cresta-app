@@ -3714,17 +3714,22 @@ document.getElementById('s12').addEventListener('click', function(e){
     var bx=document.getElementById('pp-'+a), pp=PP.items.filter(function(x){ return x.id===a; })[0];
     if(bx.innerHTML){ bx.innerHTML=''; return; }
     bx.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
+      +'<label>投稿するSNS<select data-ok="sns">'+['X','Threads'].map(function(x){ return '<option'+((pp&&pp.sns)===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
       +'<label>投稿する日時'+dtHtml('data-ok="postAt"', tomorrowNoon())+'</label>'
       +'<label class="wide">投稿の文（直してから承認できます）<textarea data-ok="body" rows="5">'+esc(pp&&pp.body||'')+'</textarea></label>'
-      +(pp&&(pp.sns==='X'||pp.sns==='Threads')?ppAutoField(pp.sns, PP.conn.indexOf(pp.sns)>=0):'')
-      +'</div><div class="bar"><button class="btn main sm" data-ppokgo="'+esc(a)+'">この内容で承認する（予定に入れる）</button><span class="state" data-okst></span></div></div>';
+      +ppAutoField(pp&&pp.sns, PP.conn.indexOf(pp&&pp.sns)>=0)
+      +'</div><div class="bar"><button class="btn main sm" data-ppokgo="'+esc(a)+'">承認して投稿予定に入れる</button><span class="state" data-okst></span></div></div>';
+    var sel=bx.querySelector('[data-ok="sns"]'), acb0=bx.querySelector('[data-ppa]');
+    // SNSを選び直したら、つないであるSNSなら「自動で投稿する」をオンにする
+    if(sel&&acb0) sel.onchange=function(){ acb0.checked=PP.conn.indexOf(sel.value)>=0; };
     return;
   }
   if((a=t.getAttribute('data-ppokgo'))){
     var cb=t.closest('.card'), stt=cb.querySelector('[data-okst]');
     t.disabled=true; stt.textContent='承認しています…';
     var acb=cb.querySelector('[data-ppa]');
-    api('/api/ppost-decide',{id:a, approve:true, postAt:cb.querySelector('[data-ok="postAt"]').value, body:cb.querySelector('[data-ok="body"]').value, autoPublish:!!(acb&&acb.checked)})
+    var snsSel=cb.querySelector('[data-ok="sns"]');
+    api('/api/ppost-decide',{id:a, approve:true, sns:snsSel?snsSel.value:undefined, postAt:cb.querySelector('[data-ok="postAt"]').value, body:cb.querySelector('[data-ok="body"]').value, autoPublish:!!(acb&&acb.checked)})
       .then(function(x){ PP.flash=x.autoNote||null; ppLoad(); }).catch(function(er){ stt.textContent=er.message; t.disabled=false; });
     return;
   }
