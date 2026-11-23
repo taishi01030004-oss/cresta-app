@@ -3402,7 +3402,7 @@ function piForm(id){
     +f('name','商品名（必須）',it&&it.name)+f('category','ジャンル（例 ガジェット・セール）',it&&it.category)
     +'<label>販売先・紹介先<select data-pi="ch">'+chs.map(function(c){ return '<option'+((it?(known?it.channel===c:c==='その他'):c===chs[0])?' selected':'')+'>'+esc(c)+'</option>'; }).join('')+'</select></label>'
     +f('chName','販売先の名前（「その他」のとき）',it&&!known?it.channel:'',' placeholder="例 メルカリ"')
-    +f('url','紹介リンク（https://〜・Amazonなら amzn.to の短いリンク）',it&&it.url,' placeholder="例 https://amzn.to/xxxxx"')
+    +f('url','紹介リンク（空なら自動・商品ページのURLを貼るとIDを付けます）',it&&it.url,' placeholder="例 https://www.amazon.co.jp/dp/〜"')
     +'<label>販売価格（円）<input class="yen" inputmode="numeric" data-pi="price" value="'+esc(it&&it.price!=null?yenFmt(it.price):'')+'"></label>'
     +'<label>紹介料率（%・アフィリエイト）<input inputmode="decimal" data-pi="commission" value="'+esc(it&&it.commission!=null?it.commission:'')+'" placeholder="例 3"></label>'
     +'<label>仕入れ値（円・自分で売るとき）<input class="yen" inputmode="numeric" data-pi="cost" value="'+esc(it&&it.cost!=null?yenFmt(it.cost):'')+'"></label>'
@@ -3481,8 +3481,9 @@ document.getElementById('piForm').addEventListener('click', function(e){
     var box=document.getElementById('piForm'); box.removeAttribute('data-k'); box.innerHTML='';
     piForm(null);
     var set=function(k,v){ var el=box.querySelector('[data-pi="'+k+'"]'); if(el) el.value=v; };
+    var cardEl=box.querySelector('.card'); if(cardEl) cardEl.setAttribute('data-kw', x.keywords||x.name);
     set('name', x.name); set('category', x.category); set('note', 'おすすめ：'+x.point+'\n向いている人：'+x.target);
-    var st=box.querySelector('[data-pist]'); if(st) st.textContent='商品名を実際の商品に合わせて直し、紹介リンクと価格を入れてから保存してください。';
+    var st=box.querySelector('[data-pist]'); if(st) st.textContent='紹介リンクは空のままでも、保存するとAmazon・楽天の検索リンク（ID付き）が自動で入ります。商品を1つに決めたら、その商品ページのURLを貼るとより確実です。';
   }
 });
 document.getElementById('s11').addEventListener('click', function(e){
@@ -3504,9 +3505,14 @@ document.getElementById('s11').addEventListener('click', function(e){
   if(t.hasAttribute('data-pisave')){
     var id=t.getAttribute('data-pisave'), box=t.closest('.card'), v={}, st=box.querySelector('[data-pist]');
     Array.prototype.forEach.call(box.querySelectorAll('[data-pi]'), function(el){ v[el.getAttribute('data-pi')]=el.value; });
-    var item={name:v.name, category:v.category, channel: v.ch==='その他' ? (v.chName.trim()||'その他') : v.ch, url:v.url, price:v.price, cost:v.cost, commission:v.commission, status:v.status, note:v.note};
+    var item={name:v.name, category:v.category, channel: v.ch==='その他' ? (v.chName.trim()||'その他') : v.ch, url:v.url, price:v.price, cost:v.cost, commission:v.commission, status:v.status, note:v.note,
+      keywords: box.getAttribute('data-kw')||''};
     t.disabled=true; st.textContent='保存しています…';
-    api('/api/pitem-save', id?{id:id, item:item}:{item:item}).then(function(){ document.getElementById('piForm').innerHTML=''; piLoad(); }).catch(function(er){ st.textContent=er.message; t.disabled=false; });
+    api('/api/pitem-save', id?{id:id, item:item}:{item:item}).then(function(res){
+      var pf=document.getElementById('piForm'); pf.removeAttribute('data-k');
+      pf.innerHTML = res.linkNote ? '<div class="note" style="margin:0 0 8px">'+esc(res.linkNote)+'</div>' : '';
+      piLoad();
+    }).catch(function(er){ st.textContent=er.message; t.disabled=false; });
     return;
   }
   if((a=t.getAttribute('data-pisoldgo'))){
