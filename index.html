@@ -3383,6 +3383,7 @@ function piLoad(){
     box.innerHTML=r.items.map(function(it){
       var meta=[it.channel, it.category, it.price!=null?yenFmt(it.price)+'円':'', it.commission!=null?'紹介料 '+it.commission+'%':''].filter(Boolean).map(esc).join('・');
       return '<div class="row" style="flex-wrap:wrap"><span class="badge">'+esc(it.status)+'</span><span class="what"><b>'+esc(it.name)+'</b><span>'+meta+'</span>'
+        +(it.url?'':'<span style="display:block;color:var(--bad)">紹介リンクが入っていません（「直す」で入れてください。AIの投稿提案にも必要です）</span>')
         +'<span style="display:block">売れた '+it.soldCount+'個・'+yenFmt(it.soldAmount)+'円　投稿 '+it.postedCount+'/'+it.postCount+'件'+(it.nextPost?'（次の予定 '+esc(crmWhen(it.nextPost))+'）':'')+'</span>'+(it.note?'<span>'+esc(it.note)+'</span>':'')+'</span>'
         +'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(it.url?linkHtml(it.url,'商品ページ'):'')
         +(r.canWrite?'<button class="btn sm main" data-pisold="'+esc(it.id)+'">売れた</button><button class="btn sm" data-pipropose="'+esc(it.id)+'">投稿を提案（AI）</button><button class="btn sm" data-pipost="'+esc(it.id)+'">投稿を記録</button><button class="btn sm" data-piedit="'+esc(it.id)+'">直す</button>':'')
@@ -3401,7 +3402,7 @@ function piForm(id){
     +f('name','商品名（必須）',it&&it.name)+f('category','ジャンル（例 ガジェット・セール）',it&&it.category)
     +'<label>販売先・紹介先<select data-pi="ch">'+chs.map(function(c){ return '<option'+((it?(known?it.channel===c:c==='その他'):c===chs[0])?' selected':'')+'>'+esc(c)+'</option>'; }).join('')+'</select></label>'
     +f('chName','販売先の名前（「その他」のとき）',it&&!known?it.channel:'',' placeholder="例 メルカリ"')
-    +f('url','商品ページ・紹介リンク（https://〜）',it&&it.url)
+    +f('url','紹介リンク（https://〜・Amazonなら amzn.to の短いリンク）',it&&it.url,' placeholder="例 https://amzn.to/xxxxx"')
     +'<label>販売価格（円）<input class="yen" inputmode="numeric" data-pi="price" value="'+esc(it&&it.price!=null?yenFmt(it.price):'')+'"></label>'
     +'<label>紹介料率（%・アフィリエイト）<input inputmode="decimal" data-pi="commission" value="'+esc(it&&it.commission!=null?it.commission:'')+'" placeholder="例 3"></label>'
     +'<label>仕入れ値（円・自分で売るとき）<input class="yen" inputmode="numeric" data-pi="cost" value="'+esc(it&&it.cost!=null?yenFmt(it.cost):'')+'"></label>'
@@ -3516,17 +3517,48 @@ function ppLoad(){
     var canDecide=!!(ME&&ME.can&&ME.can.decide) || !ME;
     box.innerHTML=(props?'<div class="row"><span class="what"><b style="color:var(--gold)">承認を待っている提案が'+props+'件あります</b></span></div>':'')+list.map(function(p){
       if(p.status==='提案') return '<div class="row" style="flex-wrap:wrap;background:rgba(201,162,75,.06)"><span class="badge">'+esc(p.sns)+'</span><span class="badge" style="border-color:var(--gold);color:var(--gold)">提案（AI）</span>'
-        +'<span class="what"><b>'+esc(p.itemName||'（商品なし）')+'</b><span style="white-space:pre-wrap;display:block;margin-top:4px">'+esc(p.body||'')+'</span></span>'
+        +'<span class="what"><b>'+esc(p.itemName||'（商品なし）')+'</b><span style="white-space:pre-wrap;display:block;margin-top:4px">'+esc(p.body||'')+'</span>'+ppImgs(p, r.canWrite)+'</span>'
         +'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(canDecide?'<button class="btn sm main" data-ppok="'+esc(p.id)+'">承認する</button><button class="btn sm" data-ppng="'+esc(p.id)+'">却下</button>':'<span class="state">オーナー・管理者の承認待ち</span>')+'</span>'
         +'<div id="pp-'+esc(p.id)+'" style="flex-basis:100%"></div></div>';
       return '<div class="row" style="flex-wrap:wrap"><span class="when">'+esc(p.postAt?crmWhen(p.postAt):'日時なし')+'</span><span class="badge">'+esc(p.sns)+'</span><span class="badge">'+esc(p.status)+'</span>'
-        +'<span class="what"><b>'+esc(p.itemName||'（商品なし）')+'</b>'+(p.body?'<span style="white-space:pre-wrap">'+esc(p.body.length>140?p.body.slice(0,140)+'…':p.body)+'</span>':'')+(p.note?'<span>'+esc(p.note)+'</span>':'')+'</span>'
+        +'<span class="what"><b>'+esc(p.itemName||'（商品なし）')+'</b>'+(p.body?'<span style="white-space:pre-wrap">'+esc(p.body.length>140?p.body.slice(0,140)+'…':p.body)+'</span>':'')+(p.note?'<span>'+esc(p.note)+'</span>':'')+ppImgs(p, r.canWrite && p.status!=='却下')+'</span>'
         +'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(p.url?linkHtml(p.url,'投稿を開く'):'')+(p.body?'<button class="btn sm" data-ppcopy="'+esc(p.id)+'">文をコピー</button>':'')
         +(r.canWrite?'<button class="btn sm" data-ppedit="'+esc(p.id)+'">直す</button><button class="btn sm" data-ppdel="'+esc(p.id)+'">消す</button>':'')+'</span>'
         +'<div id="pp-'+esc(p.id)+'" style="flex-basis:100%"></div></div>';
     }).join('');
   }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
 }
+/* 投稿の写真：小さな写真を並べる（押すと大きく開くので、そこから保存してSNSに付けられる） */
+function ppImgs(p, w){
+  var list=p.imageUrls||[];
+  var h='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;align-items:center">';
+  list.forEach(function(x){
+    h+='<span style="position:relative;display:inline-block">'+(x.url?'<a href="'+esc(x.url)+'" target="_blank" rel="noopener"><img src="'+esc(x.url)+'" alt="投稿の写真" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line)"></a>':'<span class="state">（写真）</span>')
+      +(w?'<button class="btn sm" data-ppimgdel="'+esc(p.id)+'" data-path="'+esc(x.path)+'" title="この写真を外す" style="position:absolute;top:-8px;right:-8px;padding:0 7px;border-radius:999px">×</button>':'')+'</span>';
+  });
+  if(w && list.length<4) h+='<label class="btn sm" style="cursor:pointer">📷 写真を付ける<input type="file" class="ppImgIn" data-post="'+esc(p.id)+'" accept="image/*" multiple style="display:none"></label>';
+  h+=(w && list.length<4?'<span class="state" data-ppimgst="'+esc(p.id)+'">自分で撮った写真・自分で作った画像だけ（4枚まで）</span>':'')+'</div>';
+  return h;
+}
+document.getElementById('s12').addEventListener('change', function(e){
+  var t=e.target; if(!t.classList || !t.classList.contains('ppImgIn') || !t.files || !t.files.length) return;
+  var pid=t.getAttribute('data-post'), st=document.querySelector('[data-ppimgst="'+pid+'"]'), list=Array.prototype.slice.call(t.files), n=0;
+  var say=function(m){ if(st) st.textContent=m; };
+  function next(){
+    if(!list.length) return Promise.resolve();
+    var f=list.shift(); say('写真を入れています…（'+(n+1)+'枚目）');
+    return crmShrink(f).then(function(g){
+      if(!/^image\/(jpeg|png|webp)$/.test(g.type)) throw new Error('この写真の形式は入れられません（JPEG・PNGにしてください）');
+      return api('/api/ppost-img-upload',{postId:pid, mime:g.type, size:g.size}).then(function(u){
+        return fetch(u.url,{method:'PUT', headers:{'content-type':g.type}, body:g}).then(function(res){
+          if(!res.ok) throw new Error('アップロードに失敗しました（'+res.status+'）');
+          return api('/api/ppost-img-done',{postId:pid, path:u.path});
+        });
+      });
+    }).then(function(){ n++; return next(); });
+  }
+  next().then(function(){ say(n+'枚入れました'); ppLoad(); }).catch(function(er){ say(er.message); t.value=''; });
+});
 function ppForm(id, target, itemId, after){
   var p=id?PP.items.filter(function(x){ return x.id===id; })[0]:null, box=target||document.getElementById(id?'pp-'+id:'ppForm');
   if(!target && box.innerHTML){ box.innerHTML=''; return; }
@@ -3581,6 +3613,11 @@ document.getElementById('ppSns').onchange=ppLoad; document.getElementById('ppSt'
 document.getElementById('s12').addEventListener('click', function(e){
   var t=e.target, a; if(!t.getAttribute) return;
   if((a=t.getAttribute('data-ppedit'))){ var b=document.getElementById('pp-'+a); if(b.innerHTML){ b.innerHTML=''; } else ppForm(a); return; }
+  if((a=t.getAttribute('data-ppimgdel'))){
+    if(t.getAttribute('data-sure')!=='1'){ t.setAttribute('data-sure','1'); t.textContent='外す？'; setTimeout(function(){ if(t.isConnected){ t.removeAttribute('data-sure'); t.textContent='×'; } }, 3000); return; }
+    t.disabled=true; api('/api/ppost-img-delete',{postId:a, path:t.getAttribute('data-path')}).then(ppLoad).catch(function(er){ t.textContent='!'; t.title=er.message; });
+    return;
+  }
   if((a=t.getAttribute('data-ppok'))){
     var bx=document.getElementById('pp-'+a), pp=PP.items.filter(function(x){ return x.id===a; })[0];
     if(bx.innerHTML){ bx.innerHTML=''; return; }
