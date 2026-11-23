@@ -626,7 +626,7 @@
     <div class="inl" style="padding:0 0 10px">
       <input id="piQ" placeholder="商品名・ジャンル・メモで探す">
       <select id="piS"><option value="">すべての状態</option><option>準備中</option><option>出品中</option><option>販売終了</option></select>
-      <button class="btn" id="piGo">探す</button><button class="btn main" id="piNew">＋ 商品を登録</button>
+      <button class="btn" id="piGo">探す</button><button class="btn main" id="piAi">🤖 AIに商品を提案してもらう</button><button class="btn" id="piNew">＋ 商品を登録</button>
     </div>
     <div id="piForm"></div>
     <div class="card" id="piList"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
@@ -3436,6 +3436,48 @@ document.getElementById('piGo').onclick=piLoad;
 document.getElementById('piQ').addEventListener('keydown',function(e){ if(e.key==='Enter') piLoad(); });
 document.getElementById('piS').onchange=piLoad;
 document.getElementById('piNew').onclick=function(){ piForm(null); };
+/* AIに商品（の種類）を提案してもらう → 「Amazonで探す」で実際の商品を見つけ → 「採用」で登録画面に入れる */
+var PI_IDEAS=[];
+function piAiForm(){
+  var box=document.getElementById('piForm');
+  if(box.getAttribute('data-k')==='ai' && box.innerHTML){ box.innerHTML=''; box.removeAttribute('data-k'); return; }
+  box.setAttribute('data-k','ai');
+  box.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
+    +'<label>ジャンル<select id="pgG"><option>売れ筋・セール</option><option>ガジェット・仕事効率化</option><option value="">（自由に入れる）</option></select></label>'
+    +'<label>自由に入れるジャンル<input id="pgF" placeholder="例 在宅ワーク・冬の便利グッズ"></label>'
+    +'<label>何件<select id="pgN"><option>3</option><option selected>5</option><option>8</option></select></label>'
+    +'</div><div class="bar"><button class="btn main sm" id="pgGo">提案してもらう</button><span class="state" id="pgSt">AIは実際の商品ページを見られないので、提案は「商品の種類」までです。「Amazonで探す」で実際の商品を選んでください。</span></div>'
+    +'<div id="pgOut"></div></div>';
+  document.getElementById('pgGo').onclick=function(){
+    var b=this, st=document.getElementById('pgSt'), g=document.getElementById('pgG').value||document.getElementById('pgF').value.trim();
+    if(!g){ st.textContent='ジャンルを選ぶか入れてください'; return; }
+    b.disabled=true; st.textContent='AIが商品の候補を考えています…（20〜40秒）';
+    api('/api/pitem-propose',{genre:g, count:Number(document.getElementById('pgN').value)}).then(function(r){
+      b.disabled=false; st.textContent=r.ideas.length+'件の候補です。良さそうなものは「Amazonで探す」で実際の商品を見つけてから「採用」してください。';
+      PI_IDEAS=r.ideas;
+      document.getElementById('pgOut').innerHTML=r.ideas.map(function(x,i){
+        var q=encodeURIComponent(x.keywords||x.name);
+        return '<div class="row" style="flex-wrap:wrap;border-top:1px solid var(--line)"><span class="what"><b>'+esc(x.name)+'</b><span style="display:block">'+esc(x.category)+'</span>'
+          +'<span style="display:block">'+esc(x.point)+'</span><span style="display:block">向いている人：'+esc(x.target)+'</span></span>'
+          +'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+linkHtml('https://www.amazon.co.jp/s?k='+q,'Amazonで探す')+linkHtml('https://search.rakuten.co.jp/search/mall/'+q+'/','楽天で探す')
+          +'<button class="btn sm main" data-pgok="'+i+'">採用（登録へ）</button><button class="btn sm" data-pgng="'+i+'">見送り</button></span></div>';
+      }).join('');
+    }).catch(function(er){ st.textContent=er.message; b.disabled=false; });
+  };
+}
+document.getElementById('piAi').onclick=piAiForm;
+document.getElementById('piForm').addEventListener('click', function(e){
+  var t=e.target, a; if(!t.getAttribute) return;
+  if((a=t.getAttribute('data-pgng'))!=null){ t.closest('.row').remove(); return; }
+  if((a=t.getAttribute('data-pgok'))!=null){
+    var x=PI_IDEAS[Number(a)]; if(!x) return;
+    var box=document.getElementById('piForm'); box.removeAttribute('data-k'); box.innerHTML='';
+    piForm(null);
+    var set=function(k,v){ var el=box.querySelector('[data-pi="'+k+'"]'); if(el) el.value=v; };
+    set('name', x.name); set('category', x.category); set('note', 'おすすめ：'+x.point+'\n向いている人：'+x.target);
+    var st=box.querySelector('[data-pist]'); if(st) st.textContent='商品名を実際の商品に合わせて直し、紹介リンクと価格を入れてから保存してください。';
+  }
+});
 document.getElementById('s11').addEventListener('click', function(e){
   var t=e.target, a; if(!t.getAttribute) return;
   if((a=t.getAttribute('data-piedit'))){ piForm(a); return; }
