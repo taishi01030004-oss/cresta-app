@@ -3433,6 +3433,12 @@ function piSales(id){
     box.innerHTML='<div style="padding:6px 0">'+(r.items.length?r.items.map(function(x){ return '<div class="state">'+esc(x.soldOn.replace(/-/g,'/'))+'　'+(x.quantity||1)+'個　'+yenFmt(x.amount)+'円　'+esc(x.status)+'</div>'; }).join(''):'<div class="state">まだ売れた記録はありません。</div>')+'</div>';
   }).catch(function(e){ box.innerHTML='<div class="state">'+esc(e.message)+'</div>'; });
 }
+/* 紹介リンクの欄：商品名などが一緒に貼られても、リンクの部分だけを残す */
+document.getElementById('s11').addEventListener('input', function(e){
+  var t=e.target; if(!t.getAttribute || t.getAttribute('data-pi')!=='url') return;
+  var m=/https?:\/\/[^\s"'<>（）「」、。]+/i.exec(t.value.replace(/\u3000/g,' '));
+  if(m && m[0]!==t.value.trim()){ t.value=m[0]; var st=t.closest('.card').querySelector('[data-pist]'); if(st) st.textContent='リンクの部分だけを取り出しました。'; }
+});
 document.getElementById('piGo').onclick=piLoad;
 document.getElementById('piQ').addEventListener('keydown',function(e){ if(e.key==='Enter') piLoad(); });
 document.getElementById('piS').onchange=piLoad;
