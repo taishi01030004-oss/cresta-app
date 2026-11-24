@@ -2137,7 +2137,7 @@ var AP_CSS_ED='.ed{border:2px solid #c9a54a;background:#fffbea;padding:12px 14px
   +'.ed label{display:flex;flex-direction:column;gap:3px;color:#333}.ed label span{display:flex;align-items:center;gap:4px}'
   +'.ed input{width:110px;padding:5px 6px;font-size:14px;border:1px solid #aaa;border-radius:4px;text-align:right}.ed .hint{color:#666;font-size:11.5px;margin:6px 0 0}'
   +'.ct th,.ct td{text-align:center!important;vertical-align:middle;white-space:nowrap;font-size:12px;padding:6px 5px;width:auto!important}'
-  +'.ct th.m,.ct td.m{white-space:normal;text-align:left!important;font-size:11.5px;min-width:9em}'
+  +'.ct{table-layout:auto}.ct th.m,.ct td.m{text-align:left!important}'
   +'.edit .ev{outline:2px dashed #c9a54a;outline-offset:2px;background:#fffbea;cursor:pointer;border-radius:3px}.edit .ev:hover{background:#ffef9f}'
   +'.ev input{width:7em;font:inherit;font-size:16px;padding:2px 4px;text-align:right;border:2px solid #c9a54a;border-radius:4px}'
   +'@media print{.ev{outline:none!important;background:none!important}}';
@@ -2149,9 +2149,11 @@ function apCommentHtml(r, ph){
 function apCompTable(a){
   var cs=a.comparables||[];
   if(!cs.length) return '<p class="small">同じ町名の取引も、似ている点が3つ以上ある取引も見つかりませんでした。</p>';
-  var per=function(c){ var t=esc(c.period||'—'); return t.replace(/^(\d{4}年)(.+)$/,'$1<br><span style="font-size:11px">$2</span>'); };
+  var per=function(c){ return esc(String(c.period||'—').replace(/第(\d)四半期/,'$1Q').normalize('NFKC')); };
+  var SHORT={'同じ町名':'町名','同じマンションの可能性':'同じ建物?','面積が近い':'面積','築年が近い':'築年','同じ間取り':'間取り','最近の取引':'直近'};
   return '<table class="ct"><tr><th>時期</th><th>町名</th><th>価格</th><th>面積</th><th>㎡単価</th><th>築年</th><th>間取り</th><th class="m">似ている点</th></tr>'
-    +cs.map(function(c){ return '<tr><td>'+per(c)+'</td><td>'+esc(c.district||'—')+'</td><td>'+man(c.price)+'</td><td>'+c.area+'㎡</td><td>'+Math.round(c.perSqm/1e3).toLocaleString('ja-JP')+'千円</td><td>'+esc(c.built||'—')+'</td><td>'+esc(String(c.plan||'—').normalize('NFKC'))+'</td><td class="m">'+esc((c.matches||[]).join('・')||'—')+'</td></tr>'; }).join('')+'</table>'
+    +cs.map(function(c){ return '<tr><td>'+per(c)+'</td><td>'+esc(c.district||'—')+'</td><td>'+man(c.price)+'</td><td>'+c.area+'㎡</td><td>'+Math.round(c.perSqm/1e3).toLocaleString('ja-JP')+'千円</td><td>'+esc(c.built||'—')+'</td><td>'+esc(String(c.plan||'—').normalize('NFKC'))+'</td><td class="m">'+esc((c.matches||[]).map(function(x){ return SHORT[x]||x; }).join('・')||'—')+'</td></tr>'; }).join('')+'</table>'
+    +'<p class="small">似ている点：町名＝同じ町名／同じ建物?＝同じ町名・同じ築年（同じマンションの可能性）／面積＝±20%／築年＝±5年／間取り＝同じ間取り／直近＝1年以内の取引。時期の「3Q」は第3四半期（7〜9月）。</p>'
     +(cs.length<5?'<p class="small">条件に合う取引は'+cs.length+'件でした。</p>':'');
 }
 /* マンション：賃貸に出した場合の目安（想定賃料は担当者が入れる。利回りは価格に合わせて計算し直す） */
