@@ -2124,47 +2124,48 @@ function openInvoice(c, is){
   w.document.open(); w.document.write(h); w.document.close();
 }
 
-/* ---------- 価格査定書（簡易） ---------- */
+/* ---------- 価格査定書（簡易・詳細） ----------
+   社内の人が開いたときだけ「数字を直す」が出る。1つ直すと、つながっている数字がすべて計算し直される。
+   直した数字はこの画面の中だけ（印刷・PDFにはそのまま出る）。元の査定データは変えない。 */
 function man(v){ if(v==null) return '—'; return v>=1e8 ? (v/1e8).toFixed(2)+'億円' : Math.round(v/1e4).toLocaleString('ja-JP')+'万円'; }
-function appraisalHtml(r){
+function apR10(x){ return Math.round(x/1e5)*1e5; }
+var AP_CSS_ED='.ed{border:2px solid #c9a54a;background:#fffbea;padding:12px 14px;margin:10px 0;border-radius:6px;font-size:13px}'
+  +'.ed h4{margin:10px 0 6px;font-size:13px;color:#1f3d2e}.ed .g{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px 14px}'
+  +'.ed label{display:flex;flex-direction:column;gap:3px;color:#333}.ed label span{display:flex;align-items:center;gap:4px}'
+  +'.ed input{width:110px;padding:5px 6px;font-size:14px;border:1px solid #aaa;border-radius:4px;text-align:right}.ed .hint{color:#666;font-size:11.5px;margin:6px 0 0}'
+  +'#doc .chg{background:#fff3b0}';
+function apCommentHtml(r, ph){
+  if(r.commentHtml!=null) return r.commentHtml;
+  return r.comment ? esc(r.comment).replace(/\n/g,'<br>') : ph;
+}
+function apSpec(p){
+  return [p.kind, p.city?(p.city+(p.address||'')):null, p.layout, p.landArea?('土地 '+p.landArea+'㎡'):null, p.buildingArea?((p.kind==='マンション'?'専有 ':'延床 ')+p.buildingArea+'㎡'):null, p.builtYear?(p.builtYear+'年築'):null, p.station?(p.station+(p.walkMin?' 徒歩'+p.walkMin+'分':'')):null].filter(Boolean).join('／');
+}
+/* 文書の本体（簡易） */
+function apBodySimple(r){
   var p=r.property, a=r.appraisal, is=r.issuer||{};
-  var spec=[p.kind, p.city?(p.city+(p.address||'')):null, p.layout, p.landArea?('土地 '+p.landArea+'㎡'):null, p.buildingArea?((p.kind==='マンション'?'専有 ':'延床 ')+p.buildingArea+'㎡'):null, p.builtYear?(p.builtYear+'年築'):null, p.station?(p.station+(p.walkMin?' 徒歩'+p.walkMin+'分':'')):null].filter(Boolean).join('／');
-  var css='body{font-family:"Hiragino Sans","Noto Sans JP",sans-serif;color:#111;max-width:760px;margin:28px auto;padding:0 24px;font-size:14px}h1{text-align:center;letter-spacing:.3em;font-weight:600;border-bottom:3px solid #1f3d2e;padding-bottom:8px}'
-    +'table{width:100%;border-collapse:collapse;margin:10px 0}th,td{border:1px solid #aaa;padding:6px 8px}th{background:#eef3ef;text-align:left;width:28%}.r{text-align:right}'
-    +'.big{font-size:28px;font-weight:700;color:#1f3d2e}.box{border:2px solid #1f3d2e;padding:14px;margin:14px 0;text-align:center}.small{font-size:11px;color:#444}'
-    +'.cm{min-height:70px;border:1px dashed #999;padding:8px}.top{display:flex;justify-content:space-between;align-items:flex-end}@media print{.noprint{display:none}.cm{border:1px solid #aaa}}';
-  var h='<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>価格査定書 '+esc(p.title)+'</title><style>'+css+'</style></head><body>'
-    +'<div class="noprint" style="text-align:right"><button onclick="print()">印刷・PDFで保存</button></div>'
-    +'<h1>価格査定書（簡易）</h1>'
+  return '<h1>価格査定書（簡易）</h1>'
     +'<div class="top"><div>作成日：'+esc(a.checkedOn)+'</div><div style="text-align:right"><b>'+esc(is.name||'')+'</b>'+(is.license?'<br>'+esc(is.license):'')+(r.staff?'<br>担当：'+esc(r.staff):'')+'</div></div>'
-    +'<h3>対象の物件</h3><table><tr><th>物件名</th><td>'+esc(p.title)+'</td></tr><tr><th>概要</th><td>'+esc(spec)+'</td></tr>'+(p.price!=null?'<tr><th>現在の売出価格</th><td>'+man(p.price)+'</td></tr>':'')+'</table>'
-    +'<div class="box">査定価格<div class="big">'+man(a.mid)+'</div>査定の幅：'+man(a.low)+' 〜 '+man(a.high)+'</div>'
+    +'<h3>対象の物件</h3><table><tr><th>物件名</th><td>'+esc(p.title)+'</td></tr><tr><th>概要</th><td>'+esc(apSpec(p))+'</td></tr>'+(p.price!=null?'<tr><th>現在の売出価格</th><td>'+man(p.price)+'</td></tr>':'')+'</table>'
+    +'<div class="box">査定価格<div class="big">'+man(a.mid)+'</div>査定の幅：'+man(a.low)+' 〜 '+man(a.high)+(r.manualMid?'<div class="small">（担当者が査定価格を調整しました）</div>':'')+'</div>'
     +'<h3>査定の根拠</h3><table><tr><th>方法</th><td>近い取引の㎡単価（中央値）× 物件の面積（取引事例をもとにした簡易計算）</td></tr>'
     +'<tr><th>使ったデータ</th><td>'+esc(a.basis)+'</td></tr><tr><th>㎡単価の中央値</th><td>'+Math.round(a.perSqmMid/1e3).toLocaleString('ja-JP')+'千円/㎡ × '+a.area+'㎡</td></tr></table>'
     +'<h3>近い取引の例（面積が近い順）</h3><table><tr><th style="width:auto">時期</th><th style="width:auto">地区</th><th style="width:auto" class="r">価格</th><th style="width:auto" class="r">面積</th><th style="width:auto" class="r">㎡単価</th><th style="width:auto">築年</th></tr>'
     +a.comparables.map(function(c){ return '<tr><td>'+esc(c.period)+'</td><td>'+esc(c.district||'—')+'</td><td class="r">'+man(c.price)+'</td><td class="r">'+c.area+'㎡</td><td class="r">'+Math.round(c.perSqm/1e3).toLocaleString('ja-JP')+'千円</td><td>'+esc(c.built||'—')+'</td></tr>'; }).join('')+'</table>'
-    +'<h3>担当者のコメント</h3><div class="cm" contenteditable="true">'+(r.comment?esc(r.comment).replace(/\n/g,'<br>'):'（ここをクリックして、物件の状態・周辺の様子・売り出しの方針などを書き込めます）')+'</div>'
-    +'<p class="small">'+a.notices.map(esc).join('<br>')+'<br>出典：国土交通省 不動産情報ライブラリ（'+esc(a.source)+'）取得日 '+esc(a.checkedOn)+'</p></body></html>';
-  return h;
+    +'<h3>担当者のコメント</h3><div class="cm" contenteditable="true">'+apCommentHtml(r,'（ここをクリックして、物件の状態・周辺の様子・売り出しの方針などを書き込めます）')+'</div>'
+    +'<p class="small">'+a.notices.map(esc).join('<br>')+'<br>出典：国土交通省 不動産情報ライブラリ（'+esc(a.source)+'）取得日 '+esc(a.checkedOn)+'</p>';
 }
-/* 詳細査定書 */
-function detailHtml(r){
+/* 文書の本体（詳細） */
+function apBodyDetail(r){
   var p=r.property, d=r.detail, a=d.base, is=r.issuer||{};
   var yen=function(v){ return Math.round(v/1e3).toLocaleString('ja-JP')+'千円'; };
-  var spec=[p.kind, p.city?(p.city+(p.address||'')):null, p.layout, p.landArea?('土地 '+p.landArea+'㎡'):null, p.buildingArea?((p.kind==='マンション'?'専有 ':'延床 ')+p.buildingArea+'㎡'):null, p.builtYear?(p.builtYear+'年築'):null, p.station?(p.station+(p.walkMin?' 徒歩'+p.walkMin+'分':'')):null].filter(Boolean).join('／');
-  var css='body{font-family:"Hiragino Sans","Noto Sans JP",sans-serif;color:#111;max-width:760px;margin:28px auto;padding:0 24px;font-size:13.5px}h1{text-align:center;letter-spacing:.3em;font-weight:600;border-bottom:3px solid #1f3d2e;padding-bottom:8px}'
-    +'h3{border-left:5px solid #1f3d2e;padding-left:8px;margin-top:22px}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{border:1px solid #aaa;padding:6px 8px}th{background:#eef3ef;text-align:left}.r{text-align:right}'
-    +'.big{font-size:30px;font-weight:700;color:#1f3d2e}.box{border:2px solid #1f3d2e;padding:14px;margin:14px 0;text-align:center}.small{font-size:11px;color:#444}.plan{display:flex;gap:8px}.plan div{flex:1;border:1px solid #aaa;padding:10px;text-align:center}.plan b{display:block;font-size:20px;color:#1f3d2e;margin:4px 0}'
-    +'.cm{min-height:80px;border:1px dashed #999;padding:8px}.top{display:flex;justify-content:space-between;align-items:flex-end}.pb{page-break-before:always}@media print{.noprint{display:none}.cm{border:1px solid #aaa}}';
-  var h='<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>詳細査定書 '+esc(p.title)+'</title><style>'+css+'</style></head><body>'
-    +'<div class="noprint" style="text-align:right"><button onclick="print()">印刷・PDFで保存</button></div>'
-    +'<h1>価格査定書（詳細）</h1>'
+  return '<h1>価格査定書（詳細）</h1>'
     +'<div class="top"><div>作成日：'+esc(d.checkedOn)+'</div><div style="text-align:right"><b>'+esc(is.name||'')+'</b>'+(is.license?'<br>'+esc(is.license):'')+(r.staff?'<br>担当：'+esc(r.staff):'')+'</div></div>'
-    +'<h3>1. 対象の物件</h3><table><tr><th style="width:28%">物件名</th><td>'+esc(p.title)+'</td></tr><tr><th>概要</th><td>'+esc(spec)+'</td></tr>'+(p.price!=null?'<tr><th>現在の売出価格</th><td>'+man(p.price)+'</td></tr>':'')+'</table>'
+    +'<h3>1. 対象の物件</h3><table><tr><th style="width:28%">物件名</th><td>'+esc(p.title)+'</td></tr><tr><th>概要</th><td>'+esc(apSpec(p))+'</td></tr>'+(p.price!=null?'<tr><th>現在の売出価格</th><td>'+man(p.price)+'</td></tr>':'')+'</table>'
     +'<div class="box">査定価格<div class="big">'+man(d.mid)+'</div><span class="small">'+esc(d.weights)+'</span></div>'
     +(d.gapWarn?'<p style="border:1px solid #c9a54a;background:#fff8e6;padding:8px;font-size:12.5px">⚠ '+esc(d.gapWarn)+'</p>':'')+'<h3>2. 売り出し価格のご提案</h3><div class="plan">'+d.plans.map(function(x){ return '<div>'+esc(x.label)+'<b>'+man(x.price)+'</b><span class="small">'+esc(x.note)+'</span></div>'; }).join('')+'</div>'
     +'<h3>3. 取引事例をもとにした価格</h3><table><tr><th style="width:40%">周辺の取引（'+esc(a.basis)+'）</th><td>'+man(a.mid)+'（幅 '+man(a.low)+'〜'+man(a.high)+'）<br>㎡単価の中央値 '+yen(a.perSqmMid)+'/㎡ × '+a.area+'㎡</td></tr>'
-    +'<tr><th>物件ごとの条件による補正</th><td>'+(d.adjust.lines.length? d.adjust.lines.map(function(l){ return esc(l.label)+'：'+esc(l.choice)+'（'+(l.adj>0?'+':'')+l.adj+'%）'; }).join('<br>') : '（条件の入力なし）')+'<br><b>合計 '+(d.adjust.pct>=0?'+':'')+d.adjust.pct+'%</b>（社内の目安。小さな補正は合計±30%まで）</td></tr>'
+    +'<tr><th>物件ごとの条件による補正</th><td>'+(d.adjust.lines.length? d.adjust.lines.map(function(l){ return esc(l.label)+'：'+esc(l.choice)+'（'+(l.adj>0?'+':'')+l.adj+'%）'; }).join('<br>') : '（条件の入力なし）')+'<br><b>合計 '+(d.adjust.pct>=0?'+':'')+d.adjust.pct+'%</b>'+(d.adjust.manual?'（担当者が調整）':'（社内の目安。小さな補正は合計±30%まで）')+'</td></tr>'
     +'<tr><th>補正後の価格</th><td><b>'+man(d.compareValue)+'</b></td></tr></table>'
     +(d.cost?'<h3>4. 土地と建物を分けた計算</h3><table><tr><th style="width:40%">土地</th><td>'+(d.cost.landFrom==='public'?'公示地価・地価調査（住宅地）'+d.cost.landCount+'地点':'周辺の住宅向けの土地の取引 '+d.cost.landCount+'件')+'の㎡単価の中央値 '+yen(d.cost.landPerSqm)+'/㎡ × '+p.landArea+'㎡（条件で補正）＝ <b>'+man(d.cost.landValue)+'</b></td></tr>'
       +'<tr><th>建物</th><td>'+esc(d.cost.structure)+'：新しく建てた場合の目安 '+yen(d.cost.unit)+'/㎡ × '+p.buildingArea+'㎡ × 残りの価値 '+Math.round(d.cost.remain*100)+'%（'+(d.cost.age!=null?'築'+d.cost.age+'年／':'築年不明のため50%／')+'耐用年数の目安 '+d.cost.life+'年）＝ <b>'+man(d.cost.buildingValue)+'</b></td></tr>'
@@ -2172,10 +2173,109 @@ function detailHtml(r){
     +'<h3>'+(d.cost?'5':'4')+'. 公示地価・地価調査（住宅地）</h3>'+(d.land.median?'<table><tr><th style="width:40%">同じ市区町村の地点（'+d.land.year+'年・'+d.land.count+'地点）</th><td>㎡単価の中央値 <b>'+yen(d.land.median)+'/㎡</b></td></tr>'+d.land.samples.map(function(x){ return '<tr><td>'+esc(x.place)+'</td><td class="r">'+yen(x.price)+'/㎡</td></tr>'; }).join('')+'</table><p class="small">公示地価・地価調査は、土地の正常な価格の目安です。取引の価格とは差が出ることがあります。</p>':'<p class="small">この地域の公示地価・地価調査のデータを取得できませんでした。</p>')
     +'<h3 class="pb">'+(d.cost?'6':'5')+'. 周辺の取引の例（面積が近い順）</h3><table><tr><th>時期</th><th>地区</th><th class="r">価格</th><th class="r">面積</th><th class="r">㎡単価</th><th>築年</th></tr>'
     +a.comparables.map(function(c){ return '<tr><td>'+esc(c.period)+'</td><td>'+esc(c.district||'—')+'</td><td class="r">'+man(c.price)+'</td><td class="r">'+c.area+'㎡</td><td class="r">'+yen(c.perSqm)+'</td><td>'+esc(c.built||'—')+'</td></tr>'; }).join('')+'</table>'
-    +'<h3>'+(d.cost?'7':'6')+'. 担当者のコメント・売り出しの方針</h3><div class="cm" contenteditable="true">'+(r.comment?esc(r.comment).replace(/\n/g,'<br>'):'（ここをクリックして書き込めます）')+'</div>'
-    +'<p class="small">'+d.notices.map(esc).join('<br>')+'<br>補正の%・建物の単価・耐用年数は、当社の目安です。<br>出典：国土交通省 不動産情報ライブラリ（'+esc(d.source)+'）取得日 '+esc(d.checkedOn)+'</p></body></html>';
-  return h;
+    +'<h3>'+(d.cost?'7':'6')+'. 担当者のコメント・売り出しの方針</h3><div class="cm" contenteditable="true">'+apCommentHtml(r,'（ここをクリックして書き込めます）')+'</div>'
+    +'<p class="small">'+d.notices.map(esc).join('<br>')+'<br>補正の%・建物の単価・耐用年数は、当社の目安です。<br>出典：国土交通省 不動産情報ライブラリ（'+esc(d.source)+'）取得日 '+esc(d.checkedOn)+'</p>';
 }
+/* 直した数字から計算し直す（簡易）。v は直した項目だけ（空欄は元の数字） */
+function apRecalcSimple(o, v){
+  var r=JSON.parse(JSON.stringify(o)), a=r.appraisal, oa=o.appraisal, p=r.property;
+  var unit=v.unit!=null?v.unit*1000:oa.perSqmMid, area=v.area!=null?v.area:oa.area;
+  var mid=apR10(unit*area);
+  r.manualMid=v.mid!=null; if(v.mid!=null) mid=v.mid*1e4;
+  a.perSqmMid=unit; a.area=area; a.mid=mid;
+  a.low=oa.mid?apR10(mid*oa.low/oa.mid):null; a.high=oa.mid?apR10(mid*oa.high/oa.mid):null;
+  if(v.area!=null){ if(p.kind==='土地') p.landArea=area; else p.buildingArea=area; }
+  if(v.price!=null) p.price=v.price*1e4;
+  return r;
+}
+/* 直した数字から計算し直す（詳細）：取引事例 → 条件の補正 → 土地と建物 → 割合 → 査定価格 → 売り出し3案 */
+function apRecalcDetail(o, v){
+  var r=JSON.parse(JSON.stringify(o)), d=r.detail, od=o.detail, a=d.base, oa=od.base, p=r.property, op=o.property;
+  var unit=v.unit!=null?v.unit*1000:oa.perSqmMid, area=v.area!=null?v.area:oa.area;
+  a.perSqmMid=unit; a.area=area; a.mid=apR10(unit*area);
+  a.low=oa.mid?apR10(a.mid*oa.low/oa.mid):null; a.high=oa.mid?apR10(a.mid*oa.high/oa.mid):null;
+  var pct=v.pct!=null?v.pct:od.adjust.pct; d.adjust.pct=pct; d.adjust.manual=(v.pct!=null&&v.pct!==od.adjust.pct);
+  d.compareValue=apR10(a.mid*(1+pct/100));
+  if(od.cost){
+    var c=d.cost, oc=od.cost;
+    var lu=v.landUnit!=null?v.landUnit*1000:oc.landPerSqm, la=v.landArea!=null?v.landArea:op.landArea;
+    var lf=(oc.landPerSqm&&op.landArea)?oc.landValue/(oc.landPerSqm*op.landArea):1;
+    var bu=v.bUnit!=null?v.bUnit*1000:oc.unit, ba=v.bArea!=null?v.bArea:op.buildingArea, rm=v.remain!=null?v.remain/100:oc.remain;
+    var bf=(oc.unit&&op.buildingArea&&oc.remain)?oc.buildingValue/(oc.unit*op.buildingArea*oc.remain):1;
+    c.landPerSqm=lu; c.landValue=apR10(lu*la*lf); c.unit=bu; c.remain=rm; c.buildingValue=apR10(bu*ba*rm*bf); c.total=c.landValue+c.buildingValue;
+    p.landArea=la; p.buildingArea=ba;
+  } else if(v.area!=null){ if(p.kind==='土地') p.landArea=area; else p.buildingArea=area; }
+  var w=(v.weight!=null?Math.max(0,Math.min(100,v.weight)):60)/100;
+  var mid=d.cost?apR10(d.compareValue*w+d.cost.total*(1-w)):d.compareValue;
+  if(v.mid!=null) mid=v.mid*1e4;
+  d.mid=mid;
+  d.weights=v.mid!=null?'担当者が査定価格を調整しました':(d.cost?'取引事例をもとにした価格 '+Math.round(w*100)+'% ＋ 土地と建物を分けた計算 '+Math.round((1-w)*100)+'%':od.weights);
+  var q=v.quick!=null?v.quick:-5, hi=v.high!=null?v.high:8;
+  d.plans=od.plans.map(function(x){ var y=JSON.parse(JSON.stringify(x)); y.price=x.key==='quick'?apR10(mid*(1+q/100)):x.key==='high'?apR10(mid*(1+hi/100)):mid; return y; });
+  d.notices=od.notices.filter(function(n){ return n!==od.gapWarn; });
+  d.gapWarn=(d.cost&&d.compareValue&&Math.abs(d.cost.total-d.compareValue)/d.compareValue>0.3)
+    ?'取引事例からの価格（'+man(d.compareValue)+'）と、土地と建物を分けた計算（'+man(d.cost.total)+'）に3割以上の差があります。土地の広さ・形、周辺の取引の傾向などが原因として考えられます。現地を確認のうえ、担当者が判断してください。':null;
+  if(d.gapWarn) d.notices.splice(1,0,d.gapWarn);
+  if(v.price!=null) p.price=v.price*1e4;
+  return r;
+}
+/* 「数字を直す」の入力欄（最初に見せる数字） */
+function apPanelHtml(o){
+  var f=function(k,label,val,unit,hint){ return '<label>'+label+'<span><input data-k="'+k+'" inputmode="decimal" value="'+(val==null?'':val)+'">'+unit+'</span>'+(hint?'<em class="hint">'+hint+'</em>':'')+'</label>'; };
+  var p=o.property, h='<b>数字を直す（社内用・この画面だけ）</b><div class="hint">1つ直すと、つながっている数字（査定価格・幅・売り出し3案など）がすべて計算し直されます。空欄にすると元の数字に戻ります。直したら「印刷・PDFで保存」でそのまま出せます。</div>';
+  var price=p.price!=null?Math.round(p.price/1e4):null;
+  if(o.detail){
+    var d=o.detail, c=d.cost;
+    h+='<h4>取引事例をもとにした価格</h4><div class="g">'+f('unit','㎡単価の中央値',Math.round(d.base.perSqmMid/1e3),'千円/㎡')+f('area','面積',d.base.area,'㎡')+f('pct','条件による補正（合計）',d.adjust.pct,'%')+'</div>';
+    if(c) h+='<h4>土地と建物を分けた計算</h4><div class="g">'+f('landUnit','土地の㎡単価',Math.round(c.landPerSqm/1e3),'千円/㎡')+f('landArea','土地の面積',p.landArea,'㎡')
+      +f('bUnit','建物の㎡単価（新築の目安）',Math.round(c.unit/1e3),'千円/㎡')+f('bArea','建物の面積',p.buildingArea,'㎡')+f('remain','建物の残りの価値',Math.round(c.remain*100),'%')
+      +f('weight','取引事例の割合',60,'%','残りは土地と建物の計算')+'</div>';
+    h+='<h4>査定価格と売り出し価格</h4><div class="g">'+f('mid','査定価格を直接入れる','','万円','空欄なら計算で決まります')+f('quick','「早めに売る」の割合',-5,'%')+f('high','「高めに出す」の割合',8,'%')+f('price','現在の売出価格',price,'万円')+'</div>';
+  } else {
+    var a=o.appraisal;
+    h+='<div class="g">'+f('unit','㎡単価の中央値',Math.round(a.perSqmMid/1e3),'千円/㎡')+f('area','面積',a.area,'㎡')+f('mid','査定価格を直接入れる','','万円','空欄なら計算で決まります')+f('price','現在の売出価格',price,'万円')+'</div>';
+  }
+  return h+'<div style="margin-top:10px"><button id="edReset">元の数字に戻す</button></div>';
+}
+/* 文書の画面で動く部分（ここだけは、文書の中にそのまま書き込まれる） */
+function apBoot(){
+  var v={}, cur=ORIG, doc=document.getElementById('doc'), ed=document.getElementById('ed'), btn=document.getElementById('edBtn');
+  if(!btn) return;
+  function keepComment(){ var c=doc.querySelector('.cm'); if(c) cur.commentHtml=c.innerHTML; }
+  function draw(){ keepComment(); var cm=cur.commentHtml; cur=RECALC(ORIG, v); cur.commentHtml=cm; doc.innerHTML=BODY(cur); }
+  function open(){ ed.innerHTML=apPanelHtml(ORIG); Array.prototype.forEach.call(ed.querySelectorAll('[data-k]'), function(el){ if(v[el.getAttribute('data-k')]!=null) el.value=v[el.getAttribute('data-k')]; }); }
+  btn.onclick=function(){ if(ed.style.display==='none'){ open(); ed.style.display=''; btn.textContent='入力欄を閉じる'; } else { ed.style.display='none'; btn.textContent='数字を直す'; } };
+  ed.oninput=function(e){
+    var k=e.target.getAttribute&&e.target.getAttribute('data-k'); if(!k) return;
+    var s=String(e.target.value).replace(/[０-９．－]/g,function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); }).replace(/[^\d.\-]/g,'');
+    var x=Number(s); v[k]=(s===''||s==='-'||!isFinite(x))?null:x; draw();
+  };
+  ed.onclick=function(e){ if(e.target.id==='edReset'){ v={}; open(); draw(); } };
+}
+/* 査定書の画面を作る（editable：社内の人が開いたときだけ「数字を直す」を出す） */
+function apDoc(r, kind, editable){
+  var p=r.property, detail=kind==='detail';
+  var css=detail
+    ? 'body{font-family:"Hiragino Sans","Noto Sans JP",sans-serif;color:#111;max-width:760px;margin:28px auto;padding:0 24px;font-size:13.5px}h1{text-align:center;letter-spacing:.3em;font-weight:600;border-bottom:3px solid #1f3d2e;padding-bottom:8px}'
+      +'h3{border-left:5px solid #1f3d2e;padding-left:8px;margin-top:22px}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{border:1px solid #aaa;padding:6px 8px}th{background:#eef3ef;text-align:left}.r{text-align:right}'
+      +'.big{font-size:30px;font-weight:700;color:#1f3d2e}.box{border:2px solid #1f3d2e;padding:14px;margin:14px 0;text-align:center}.small{font-size:11px;color:#444}.plan{display:flex;gap:8px}.plan div{flex:1;border:1px solid #aaa;padding:10px;text-align:center}.plan b{display:block;font-size:20px;color:#1f3d2e;margin:4px 0}'
+      +'.cm{min-height:80px;border:1px dashed #999;padding:8px}.top{display:flex;justify-content:space-between;align-items:flex-end}.pb{page-break-before:always}@media print{.noprint{display:none!important}.cm{border:1px solid #aaa}}'
+    : 'body{font-family:"Hiragino Sans","Noto Sans JP",sans-serif;color:#111;max-width:760px;margin:28px auto;padding:0 24px;font-size:14px}h1{text-align:center;letter-spacing:.3em;font-weight:600;border-bottom:3px solid #1f3d2e;padding-bottom:8px}'
+      +'table{width:100%;border-collapse:collapse;margin:10px 0}th,td{border:1px solid #aaa;padding:6px 8px}th{background:#eef3ef;text-align:left;width:28%}.r{text-align:right}'
+      +'.big{font-size:28px;font-weight:700;color:#1f3d2e}.box{border:2px solid #1f3d2e;padding:14px;margin:14px 0;text-align:center}.small{font-size:11px;color:#444}'
+      +'.cm{min-height:70px;border:1px dashed #999;padding:8px}.top{display:flex;justify-content:space-between;align-items:flex-end}@media print{.noprint{display:none!important}.cm{border:1px solid #aaa}}';
+  var body=detail?apBodyDetail:apBodySimple, recalc=detail?apRecalcDetail:apRecalcSimple;
+  var js='var ORIG='+JSON.stringify(r).replace(/</g,'\\u003c')+';'
+    +[esc, man, apR10, apSpec, apCommentHtml, body, recalc, apPanelHtml, apBoot].map(function(f){ return f.toString(); }).join('\n')
+    +'\nvar BODY='+body.name+', RECALC='+recalc.name+';apBoot();';
+  return '<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>'+(detail?'詳細査定書 ':'価格査定書 ')+esc(p.title)+'</title><style>'+css+AP_CSS_ED+'</style></head><body>'
+    +'<div class="noprint" style="text-align:right">'+(editable?'<button id="edBtn">数字を直す</button> ':'')+'<button onclick="print()">印刷・PDFで保存</button></div>'
+    +'<div id="ed" class="ed noprint" style="display:none"></div><div id="doc">'+body(r)+'</div>'
+    +'<script>'+js+'<\/script></body></html>';
+}
+function apInside(){ try{ return !!localStorage.getItem('cresta-auth') || !!localStorage.getItem('cresta-dash'); }catch(e){ return false; } }
+function appraisalHtml(r){ return apDoc(r, 'simple', apInside()); }
+function detailHtml(r){ return apDoc(r, 'detail', apInside()); }
 function openAppraisal(r, w){ var h=appraisalHtml(r); w.document.open(); w.document.write(h); w.document.close(); }
 
 /* ---------- 会社の設定 ---------- */
