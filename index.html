@@ -2147,9 +2147,24 @@ function apCommentHtml(r, ph){
 function apCompTable(a){
   var cs=a.comparables||[];
   if(!cs.length) return '<p class="small">同じ町名の取引も、似ている点が3つ以上ある取引も見つかりませんでした。</p>';
-  return '<table><tr><th style="width:auto">時期</th><th style="width:auto">町名</th><th style="width:auto" class="r">価格</th><th style="width:auto" class="r">面積</th><th style="width:auto" class="r">㎡単価</th><th style="width:auto">築年・間取り</th><th style="width:auto">似ている点</th></tr>'
-    +cs.map(function(c){ return '<tr><td>'+esc(c.period)+'</td><td>'+esc(c.district||'—')+'</td><td class="r">'+man(c.price)+'</td><td class="r">'+c.area+'㎡</td><td class="r">'+Math.round(c.perSqm/1e3).toLocaleString('ja-JP')+'千円</td><td>'+esc([c.built,c.plan].filter(Boolean).join('・')||'—')+'</td><td style="font-size:11.5px">'+esc((c.matches||[]).join('・')||'—')+'</td></tr>'; }).join('')+'</table>'
+  return '<table><tr><th style="width:auto">時期</th><th style="width:auto">町名</th><th style="width:auto" class="r">価格</th><th style="width:auto" class="r">面積</th><th style="width:auto" class="r">㎡単価</th><th style="width:auto">築年</th><th style="width:auto">間取り</th><th style="width:auto">似ている点</th></tr>'
+    +cs.map(function(c){ return '<tr><td>'+esc(c.period)+'</td><td>'+esc(c.district||'—')+'</td><td class="r">'+man(c.price)+'</td><td class="r">'+c.area+'㎡</td><td class="r">'+Math.round(c.perSqm/1e3).toLocaleString('ja-JP')+'千円</td><td>'+esc(c.built||'—')+'</td><td>'+esc(c.plan||'—')+'</td><td style="font-size:11.5px">'+esc((c.matches||[]).join('・')||'—')+'</td></tr>'; }).join('')+'</table>'
     +(cs.length<5?'<p class="small">条件に合う取引は'+cs.length+'件でした。</p>':'');
+}
+/* マンション：賃貸に出した場合の目安（想定賃料は担当者が入れる。利回りは価格に合わせて計算し直す） */
+function apRentSection(r, prices){
+  var p=r.property; if(p.kind!=='マンション') return '';
+  var rent=p.rent, fee=r.fee==null?null:r.fee;
+  var pct=function(x, price){ return (x!=null&&price)?(Math.round(x*12/price*1000)/10).toFixed(1)+'%':'—'; };
+  var yenT=function(x){ return x==null?'未入力':Math.round(x).toLocaleString('ja-JP')+'円'; };
+  var rows=prices.map(function(x){
+    return '<tr><td>'+esc(x[0])+'</td><td class="r">'+man(x[1])+'</td><td class="r">'+pct(rent,x[1])+'</td><td class="r">'+(fee!=null?pct(rent!=null?rent-fee:null,x[1]):'—')+'</td></tr>';
+  }).join('');
+  return '<div class="'+(rent==null?'noprint':'')+'"><h3>賃貸に出した場合の目安</h3>'
+    +'<table><tr><th style="width:40%">想定賃料（月）</th><td>'+apEv('rent',yenT(rent),rent==null?'':Math.round(rent))+(rent==null?'<span class="small">（「数字を直す」で入れると、利回りが出ます）</span>':'')+'</td></tr>'
+    +'<tr><th>管理費・修繕積立金（月）</th><td>'+apEv('fee',yenT(fee),fee==null?'':Math.round(fee))+'</td></tr></table>'
+    +'<table><tr><th style="width:auto">価格</th><th style="width:auto" class="r">金額</th><th style="width:auto" class="r">表面利回り</th><th style="width:auto" class="r">実質利回り（概算）</th></tr>'+rows+'</table>'
+    +'<p class="small">表面利回り＝想定賃料×12か月÷価格。実質利回り（概算）＝（想定賃料－管理費・修繕積立金）×12か月÷価格。空室・固定資産税・修繕費・仲介手数料などは含みません。想定賃料は担当者が入れた目安です。</p></div>';
 }
 function apSpec(p){
   return [p.kind, p.city?(p.city+(p.address||'')):null, p.layout, p.landArea?('土地 '+p.landArea+'㎡'):null, p.buildingArea?((p.kind==='マンション'?'専有 ':'延床 ')+p.buildingArea+'㎡'):null, p.builtYear?(p.builtYear+'年築'):null, p.station?(p.station+(p.walkMin?' 徒歩'+p.walkMin+'分':'')):null].filter(Boolean).join('／');
@@ -2163,6 +2178,7 @@ function apBodySimple(r){
     +'<div class="box">査定価格<div class="big">'+apMan('mid',a.mid)+'</div>査定の幅：'+man(a.low)+' 〜 '+man(a.high)+(r.manualMid?'<div class="small">（担当者が査定価格を調整しました）</div>':'')+'</div>'
     +'<h3>査定の根拠</h3><table><tr><th>方法</th><td>近い取引の㎡単価（中央値）× 物件の面積（取引事例をもとにした簡易計算）</td></tr>'
     +'<tr><th>使ったデータ</th><td>'+esc(a.basis)+'</td></tr><tr><th>㎡単価の中央値</th><td>'+apEv('unit',Math.round(a.perSqmMid/1e3).toLocaleString('ja-JP')+'千円',Math.round(a.perSqmMid/1e3))+'/㎡ × '+apEv('area',a.area+'㎡',a.area)+'</td></tr></table>'
+    +apRentSection(r, [['査定価格',a.mid],['幅の下',a.low],['幅の上',a.high]].concat(p.price!=null?[['現在の売出価格',p.price]]:[]))
     +'<h3>周辺の取引事例</h3>'+apCompTable(a)
     +'<h3>担当者のコメント</h3><div class="cm" contenteditable="true">'+apCommentHtml(r,'（ここをクリックして、物件の状態・周辺の様子・売り出しの方針などを書き込めます）')+'</div>'
     +'<p class="small">'+a.notices.map(esc).join('<br>')+'<br>出典：国土交通省 不動産情報ライブラリ（'+esc(a.source)+'）取得日 '+esc(a.checkedOn)+'</p>';
@@ -2176,6 +2192,7 @@ function apBodyDetail(r){
     +'<h3>1. 対象の物件</h3><table><tr><th style="width:28%">物件名</th><td>'+esc(p.title)+'</td></tr><tr><th>概要</th><td>'+esc(apSpec(p))+'</td></tr>'+(p.price!=null?'<tr><th>現在の売出価格</th><td>'+apMan('price',p.price)+'</td></tr>':'')+'</table>'
     +'<div class="box">査定価格<div class="big">'+apMan('mid',d.mid)+'</div><span class="small">'+(d.cost&&!r.manualMid?'取引事例をもとにした価格 '+apEv('weight',(d.weightPct==null?60:d.weightPct)+'%',d.weightPct==null?60:d.weightPct)+' ＋ 土地と建物を分けた計算 '+(100-(d.weightPct==null?60:d.weightPct))+'%':esc(d.weights))+'</span></div>'
     +(d.gapWarn?'<p style="border:1px solid #c9a54a;background:#fff8e6;padding:8px;font-size:12.5px">⚠ '+esc(d.gapWarn)+'</p>':'')+'<h3>2. 売り出し価格のご提案</h3><div class="plan">'+d.plans.map(function(x){ return '<div>'+esc(x.label)+'<b>'+apMan(x.key==='quick'?'quickP':x.key==='high'?'highP':'mid',x.price)+'</b><span class="small">'+esc(x.note)+'</span></div>'; }).join('')+'</div>'
+    +apRentSection(r, d.plans.map(function(x){ return [x.label, x.price]; }).concat(p.price!=null?[['現在の売出価格',p.price]]:[]))
     +'<h3>3. 取引事例をもとにした価格</h3><table><tr><th style="width:40%">周辺の取引（'+esc(a.basis)+'）</th><td>'+apMan('baseMid',a.mid)+'（幅 '+man(a.low)+'〜'+man(a.high)+'）<br>㎡単価の中央値 '+apEv('unit',yen(a.perSqmMid),Math.round(a.perSqmMid/1e3))+'/㎡ × '+apEv('area',a.area+'㎡',a.area)+'</td></tr>'
     +'<tr><th>物件ごとの条件による補正</th><td>'+(d.adjust.lines.length? d.adjust.lines.map(function(l){ return esc(l.label)+'：'+esc(l.choice)+'（'+(l.adj>0?'+':'')+l.adj+'%）'; }).join('<br>') : '（条件の入力なし）')+'<br><b>合計 '+apEv('pct',(d.adjust.pct>=0?'+':'')+d.adjust.pct+'%',d.adjust.pct)+'</b>'+(d.adjust.manual?'（担当者が調整）':'（社内の目安。小さな補正は合計±30%まで）')+'</td></tr>'
     +'<tr><th>補正後の価格</th><td><b>'+apMan('compare',d.compareValue)+'</b></td></tr></table>'
@@ -2197,6 +2214,7 @@ function apRecalcSimple(o, v){
   a.low=oa.mid?apR10(mid*oa.low/oa.mid):null; a.high=oa.mid?apR10(mid*oa.high/oa.mid):null;
   if(v.area!=null){ if(p.kind==='土地') p.landArea=area; else p.buildingArea=area; }
   if(v.price!=null) p.price=v.price*1e4;
+  if(v.rent!=null) p.rent=v.rent; if(v.fee!=null) r.fee=v.fee;
   return r;
 }
 /* 直した数字から計算し直す（詳細）：取引事例 → 条件の補正 → 土地と建物 → 割合 → 査定価格 → 売り出し3案 */
@@ -2228,6 +2246,7 @@ function apRecalcDetail(o, v){
     ?'取引事例からの価格（'+man(d.compareValue)+'）と、土地と建物を分けた計算（'+man(d.cost.total)+'）に3割以上の差があります。土地の広さ・形、周辺の取引の傾向などが原因として考えられます。現地を確認のうえ、担当者が判断してください。':null;
   if(d.gapWarn) d.notices.splice(1,0,d.gapWarn);
   if(v.price!=null) p.price=v.price*1e4;
+  if(v.rent!=null) p.rent=v.rent; if(v.fee!=null) r.fee=v.fee;
   return r;
 }
 /* 文書の画面で動く部分（ここだけは、文書の中にそのまま書き込まれる）。
@@ -2282,7 +2301,7 @@ function apDoc(r, kind, editable){
       +'.cm{min-height:70px;border:1px dashed #999;padding:8px}.top{display:flex;justify-content:space-between;align-items:flex-end}@media print{.noprint{display:none!important}.cm{border:1px solid #aaa}}';
   var body=detail?apBodyDetail:apBodySimple, recalc=detail?apRecalcDetail:apRecalcSimple;
   var js='var ORIG='+JSON.stringify(r).replace(/</g,'\\u003c')+';'
-    +[esc, man, apR10, apEv, apMan, apCompTable, apSpec, apCommentHtml, body, recalc, apBoot].map(function(f){ return f.toString(); }).join('\n')
+    +[esc, man, apR10, apEv, apMan, apCompTable, apRentSection, apSpec, apCommentHtml, body, recalc, apBoot].map(function(f){ return f.toString(); }).join('\n')
     +'\nvar BODY='+body.name+', RECALC='+recalc.name+';apBoot();';
   return '<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>'+(detail?'詳細査定書 ':'価格査定書 ')+esc(p.title)+'</title><style>'+css+AP_CSS_ED+'</style></head><body>'
     +'<div class="noprint" style="text-align:right">'+(editable?'<button id="edBtn">数字を直す</button> ':'')+'<button onclick="print()">印刷・PDFで保存</button></div>'
