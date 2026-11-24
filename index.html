@@ -3601,6 +3601,11 @@ function ppLoad(){
     }).join('');
   }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
 }
+/* 新しく投稿を記録するとき：紹介リンクと #PR を先に入れておく */
+function ppBodyTemplate(items, itemId){
+  var it=items.filter(function(x){ return x.id===itemId; })[0];
+  return it ? '\n\n'+(it.url?it.url+'\n':'')+'#PR' : '';
+}
 /* 自動投稿の状態 */
 function ppAutoBadge(p){
   var m={'待機':['自動で投稿：待機中','var(--gold)'],'投稿中':['自動で投稿中…','var(--gold)'],'完了':['自動で投稿しました','var(--ok,#3fae6a)'],'失敗':['自動投稿：失敗','var(--bad)']}[p.publishStatus||''];
@@ -3660,7 +3665,7 @@ function ppForm(id, target, itemId, after){
       +'<label>SNS<select data-pp="sns">'+['X','Threads','Instagram','その他'].map(function(x){ return '<option'+((p?p.sns:'X')===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
       +'<label>状態<select data-pp="status">'+['下書き','予定','投稿済み'].map(function(x){ return '<option'+((p?p.status:'下書き')===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
       +'<label>日時（予定・投稿した日時）'+dtHtml('data-pp="postAt"', p&&p.postAt?jstInput(p.postAt):'')+'</label>'
-      +'<label class="wide">投稿の文<textarea data-pp="body" rows="4">'+esc(p&&p.body||'')+'</textarea></label>'
+      +'<label class="wide">投稿の文（物販の投稿は、紹介リンクと最後の「#PR」が必要です）<textarea data-pp="body" rows="5">'+esc(p?(p.body||''):ppBodyTemplate(r.items, cur))+'</textarea></label>'
       +'<label>投稿のURL（投稿したあと）<input data-pp="url" value="'+esc(p&&p.url||'')+'"></label>'
       +'<label>メモ<input data-pp="note" value="'+esc(p&&p.note||'')+'"></label>'
       +ppAutoField(p?p.sns:'X', !!(p&&p.autoPublish&&p.publishStatus==='待機'))
