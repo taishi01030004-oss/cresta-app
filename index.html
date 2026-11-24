@@ -2136,6 +2136,8 @@ var AP_CSS_ED='.ed{border:2px solid #c9a54a;background:#fffbea;padding:12px 14px
   +'.ed h4{margin:10px 0 6px;font-size:13px;color:#1f3d2e}.ed .g{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px 14px}'
   +'.ed label{display:flex;flex-direction:column;gap:3px;color:#333}.ed label span{display:flex;align-items:center;gap:4px}'
   +'.ed input{width:110px;padding:5px 6px;font-size:14px;border:1px solid #aaa;border-radius:4px;text-align:right}.ed .hint{color:#666;font-size:11.5px;margin:6px 0 0}'
+  +'.ct th,.ct td{text-align:center!important;vertical-align:middle;white-space:nowrap;font-size:12px;padding:6px 5px;width:auto!important}'
+  +'.ct th.m,.ct td.m{white-space:normal;text-align:left!important;font-size:11.5px;min-width:9em}'
   +'.edit .ev{outline:2px dashed #c9a54a;outline-offset:2px;background:#fffbea;cursor:pointer;border-radius:3px}.edit .ev:hover{background:#ffef9f}'
   +'.ev input{width:7em;font:inherit;font-size:16px;padding:2px 4px;text-align:right;border:2px solid #c9a54a;border-radius:4px}'
   +'@media print{.ev{outline:none!important;background:none!important}}';
@@ -2147,8 +2149,9 @@ function apCommentHtml(r, ph){
 function apCompTable(a){
   var cs=a.comparables||[];
   if(!cs.length) return '<p class="small">同じ町名の取引も、似ている点が3つ以上ある取引も見つかりませんでした。</p>';
-  return '<table><tr><th style="width:auto">時期</th><th style="width:auto">町名</th><th style="width:auto" class="r">価格</th><th style="width:auto" class="r">面積</th><th style="width:auto" class="r">㎡単価</th><th style="width:auto">築年</th><th style="width:auto">間取り</th><th style="width:auto">似ている点</th></tr>'
-    +cs.map(function(c){ return '<tr><td>'+esc(c.period)+'</td><td>'+esc(c.district||'—')+'</td><td class="r">'+man(c.price)+'</td><td class="r">'+c.area+'㎡</td><td class="r">'+Math.round(c.perSqm/1e3).toLocaleString('ja-JP')+'千円</td><td>'+esc(c.built||'—')+'</td><td>'+esc(c.plan||'—')+'</td><td style="font-size:11.5px">'+esc((c.matches||[]).join('・')||'—')+'</td></tr>'; }).join('')+'</table>'
+  var per=function(c){ var t=esc(c.period||'—'); return t.replace(/^(\d{4}年)(.+)$/,'$1<br><span style="font-size:11px">$2</span>'); };
+  return '<table class="ct"><tr><th>時期</th><th>町名</th><th>価格</th><th>面積</th><th>㎡単価</th><th>築年</th><th>間取り</th><th class="m">似ている点</th></tr>'
+    +cs.map(function(c){ return '<tr><td>'+per(c)+'</td><td>'+esc(c.district||'—')+'</td><td>'+man(c.price)+'</td><td>'+c.area+'㎡</td><td>'+Math.round(c.perSqm/1e3).toLocaleString('ja-JP')+'千円</td><td>'+esc(c.built||'—')+'</td><td>'+esc(String(c.plan||'—').normalize('NFKC'))+'</td><td class="m">'+esc((c.matches||[]).join('・')||'—')+'</td></tr>'; }).join('')+'</table>'
     +(cs.length<5?'<p class="small">条件に合う取引は'+cs.length+'件でした。</p>':'');
 }
 /* マンション：賃貸に出した場合の目安（想定賃料は担当者が入れる。利回りは価格に合わせて計算し直す） */
