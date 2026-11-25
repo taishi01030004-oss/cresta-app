@@ -2272,20 +2272,36 @@ function apBoot(){
   // コメントの中の金額に印を付ける。どの数字か分からないものには付けない
   var KEYS=['mid','p_market','cv','bm','p_quick','p_high','bl','bh','lo','hi','ct','lv','bv','price'];
   function manN(x){ return x==null?null:Math.round(x/1e4); }
+  // コメントの文章を1つずつ見て、金額に印を付ける（文字の並びではなく画面の部品で見るので、書き直しても印が崩れない）
+  function fmtN(n, c){ return c==='1'||n>=1000 ? n.toLocaleString('ja-JP') : String(n); }
   function tagComment(html, base){
     if(!html) return html;
     var byVal={}; KEYS.forEach(function(k){ var n=manN(base[k]); if(n!=null&&byVal[n]==null) byVal[n]=k; });
-    return html.replace(/(\d{1,3}(?:,\d{3})+|\d+)(\s*万)/g, function(m, num, tail){
-      var k=byVal[Number(num.replace(/,/g,''))]; if(!k) return m;
-      return '<span class="cn" data-n="'+k+'" data-c="'+(num.indexOf(',')>=0?1:0)+'">'+num+'</span>'+tail;
+    var box=document.createElement('div'); box.innerHTML=html;
+    // 印の中を書き換えられて数字でなくなったものは、印を外す
+    Array.prototype.forEach.call(box.querySelectorAll('span.cn'), function(el){ if(!/^[\d,]+$/.test(el.textContent)) el.replaceWith(document.createTextNode(el.textContent)); });
+    box.normalize();
+    var tw=document.createTreeWalker(box, NodeFilter.SHOW_TEXT), list=[], t;
+    while((t=tw.nextNode())){ if(!(t.parentNode.closest && t.parentNode.closest('span.cn'))) list.push(t); }
+    list.forEach(function(node){
+      var txt=node.nodeValue, re=/(\d{1,3}(?:,\d{3})+|\d+)(\s*万)/g, m, last=0, frag=document.createDocumentFragment(), hit=false;
+      while((m=re.exec(txt))){
+        var k=byVal[Number(m[1].replace(/,/g,''))]; if(!k) continue;
+        hit=true; frag.appendChild(document.createTextNode(txt.slice(last, m.index)));
+        var sp=document.createElement('span'); sp.className='cn'; sp.setAttribute('data-n',k); sp.setAttribute('data-c', m[1].indexOf(',')>=0?'1':'0'); sp.textContent=m[1];
+        frag.appendChild(sp); last=m.index+m[1].length;
+      }
+      if(hit){ frag.appendChild(document.createTextNode(txt.slice(last))); node.parentNode.replaceChild(frag, node); }
     });
+    return box.innerHTML;
   }
   function fillComment(html, now){
     if(!html) return html;
-    return html.replace(/<span class="cn" data-n="(\w+)" data-c="(\d)">[^<]*<\/span>/g, function(m, k, c){
-      var n=manN(now[k]); if(n==null) return m;
-      return '<span class="cn" data-n="'+k+'" data-c="'+c+'">'+(c==='1'||n>=1000?n.toLocaleString('ja-JP'):String(n))+'</span>';
+    var box=document.createElement('div'); box.innerHTML=html;
+    Array.prototype.forEach.call(box.querySelectorAll('span.cn'), function(el){
+      var n=manN(now[el.getAttribute('data-n')]); if(n!=null) el.textContent=fmtN(n, el.getAttribute('data-c'));
     });
+    return box.innerHTML;
   }
   function draw(){
     // 直す前に出ていた数字に印を付ける（毎回やるので、あとから書き直したり貼り付けたコメントの金額も追いかける）
