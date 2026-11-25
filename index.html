@@ -2321,6 +2321,16 @@ function apBoot(){
     inp.onblur=function(){ commit(true); };
   });
   bar.onclick=function(e){ if(e.target.id==='edReset'){ v={}; draw(); } };
+  // 物件に保存：今の数字・コメントのまま、アプリの物件に残す
+  var sv=document.getElementById('svBtn'), ss=document.getElementById('svSt');
+  if(sv) sv.onclick=function(){
+    var host=null; try{ host=window.opener && window.opener.apSaveReport ? window.opener : null; }catch(_){}
+    if(!host){ ss.textContent='アプリの画面が閉じられているため保存できません。アプリから査定書を開き直してください。'; return; }
+    keepComment(); sv.disabled=true; ss.textContent='保存しています…';
+    var data=JSON.parse(JSON.stringify(cur));
+    host.apSaveReport(KIND, data).then(function(at){ ss.textContent='物件に保存しました（'+at+'）'; sv.disabled=false; })
+      .catch(function(er){ ss.textContent=(er&&er.message)||'保存できませんでした'; sv.disabled=false; });
+  };
 }
 /* 査定書の画面を作る（editable：社内の人が開いたときだけ「数字を直す」を出す） */
 function apDoc(r, kind, editable){
@@ -2335,11 +2345,11 @@ function apDoc(r, kind, editable){
       +'.big{font-size:28px;font-weight:700;color:#1f3d2e}.box{border:2px solid #1f3d2e;padding:14px;margin:14px 0;text-align:center}.small{font-size:11px;color:#444}'
       +'.cm{min-height:70px;border:1px dashed #999;padding:8px}.top{display:flex;justify-content:space-between;align-items:flex-end}@media print{.noprint{display:none!important}.cm{border:1px solid #aaa}}';
   var body=detail?apBodyDetail:apBodySimple, recalc=detail?apRecalcDetail:apRecalcSimple;
-  var js='var ORIG='+JSON.stringify(r).replace(/</g,'\\u003c')+';'
+  var js='var ORIG='+JSON.stringify(r).replace(/</g,'\\u003c')+';var KIND='+JSON.stringify(kind)+';'
     +[esc, man, apR10, apEv, apMan, apCompTable, apRentSection, apSpec, apCommentHtml, body, recalc, apBoot].map(function(f){ return f.toString(); }).join('\n')
     +'\nvar BODY='+body.name+', RECALC='+recalc.name+';apBoot();';
   return '<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>'+(detail?'詳細査定書 ':'価格査定書 ')+esc(p.title)+'</title><style>'+css+AP_CSS_ED+'</style></head><body>'
-    +'<div class="noprint" style="text-align:right">'+(editable?'<button id="edBtn">数字を直す</button> ':'')+'<button onclick="print()">印刷・PDFで保存</button></div>'
+    +'<div class="noprint" style="text-align:right">'+(editable?'<span id="svSt" style="font-size:12px;color:#1f3d2e;margin-right:6px"></span><button id="svBtn">物件に保存</button> <button id="edBtn">数字を直す</button> ':'')+'<button onclick="print()">印刷・PDFで保存</button></div>'
     +'<div id="ed" class="ed noprint" style="display:none"><b>点線で囲まれた数字を押すと、その場で直せます。</b>（Enterで決定・Escで取り消し）<br>'
     +'<span class="hint">1つ直すと、つながっている数字（査定価格・幅・売り出し3案など）がすべて計算し直されます。直した数字はこの画面だけで、そのまま「印刷・PDFで保存」できます。査定価格を直接直すと、売り出し3案だけがそれに合わせて変わります。</span>'
     +' <button id="edReset">元の数字に戻す</button></div><div id="doc">'+body(r)+'</div>'
@@ -2348,6 +2358,27 @@ function apDoc(r, kind, editable){
 function apInside(){ try{ return !!localStorage.getItem('cresta-auth') || !!localStorage.getItem('cresta-dash'); }catch(e){ return false; } }
 function appraisalHtml(r){ return apDoc(r, 'simple', apInside()); }
 function detailHtml(r){ return apDoc(r, 'detail', apInside()); }
+/* 査定書の画面から呼ばれる：物件に保存する（保存した日時を返す） */
+function apSaveReport(kind, data){
+  var pid=data && data.property && data.property.id;
+  if(!pid) return Promise.reject(new Error('物件が分からないため保存できません'));
+  return api('/api/apr-save',{propertyId:pid, kind:kind, data:data}).then(function(r){
+    if(CRM.p && CRM.p.property && CRM.p.property.id===pid && document.getElementById('aprList')) document.getElementById('aprList').innerHTML=aprListHtml(r.appraisals, CRM.p.canWrite);
+    return crmWhen(r.appraisal.createdAt);
+  });
+}
+function aprListHtml(list, w){
+  if(!list || !list.length) return '<div class="state">まだありません。台帳の物件の「査定書」ボタンから査定書を作り、査定書の画面の「物件に保存」を押すとここに残ります。</div>';
+  return list.map(function(a){
+    var d=jst(a.createdAt);
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line,#eee);font-size:13.5px">'
+      +'<b>'+d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()+' '+z(d.getHours())+':'+z(d.getMinutes())+'</b>'
+      +'<span class="badge">'+(a.kind==='detail'?'詳細':'簡易')+'</span>'
+      +'<span>'+(a.mid!=null?man(a.mid):'—')+'</span>'
+      +(a.createdByName?'<span class="state">'+esc(a.createdByName)+'</span>':'')
+      +'<span style="margin-left:auto"><button class="btn sm" data-apr-open="'+esc(a.id)+'">開く</button>'+(w?' <button class="btn sm" data-apr-del="'+esc(a.id)+'">消す</button>':'')+'</span></div>';
+  }).join('');
+}
 function openAppraisal(r, w){ var h=appraisalHtml(r); w.document.open(); w.document.write(h); w.document.close(); }
 
 /* ---------- 会社の設定 ---------- */
@@ -3097,6 +3128,7 @@ function crmProperty(id){
     if(r.owner) h+='<div class="card crm-sec"><h4>'+(p.deal==='賃貸'?'貸主さん':'売主さん')+'（社内だけ・AIには渡しません）</h4><div class="lform one" style="padding:0" id="poF">'+CRM_OWNER.map(function(o){
       return '<label>'+esc(o[1])+(o[0]==='memo'?'<textarea data-ok="memo" rows="2">'+esc(r.owner.memo||'')+'</textarea>':'<input data-ok="'+o[0]+'" value="'+esc(r.owner[o[0]]||'')+'">')+'</label>';
     }).join('')+'</div><div class="bar"><button class="btn main sm" data-posave="1">保存する</button><span class="state" id="poSt"></span></div></div>';
+    h+='<div class="card crm-sec"><h4>保存した査定書（'+(r.appraisals||[]).length+'件）</h4><div id="aprList">'+aprListHtml(r.appraisals||[], w)+'</div></div>';
     h+=crmDealCard(r.deals||[], w, {propertyId:p.id}, 'property');
     h+='<div class="card crm-sec"><h4>案内した記録（'+r.viewings.length+'件）</h4>'+(r.viewings.length?r.viewings.map(function(v){
       return '<div style="padding:4px 0;font-size:13.5px;cursor:pointer" data-c="'+esc(v.customerId)+'"><b>'+esc(crmWhen(v.at))+'</b> '+esc(v.customer||'')+'様 <span class="badge">'+esc(v.status)+'</span>'+(v.reaction?' <span class="state">'+esc(v.reaction)+'</span>':'')+(v.feedback?'<div class="state">'+esc(v.feedback)+'</div>':'')+'</div>';
@@ -3396,6 +3428,19 @@ function crmClick(e){
   if(t.getAttribute('data-posave')){
     var ow={}, st5=document.getElementById('poSt'); Array.prototype.forEach.call(document.querySelectorAll('#poF [data-ok]'), function(el){ ow[el.getAttribute('data-ok')]=el.value; });
     st5.textContent='保存しています…'; api('/api/crm-property-extra',{id:CRM.p.property.id, owner:ow}).then(function(){ st5.textContent='保存しました。'; }).catch(function(er){ st5.textContent=er.message; });
+    return;
+  }
+  if((a=t.getAttribute('data-apr-open'))){
+    var ow2=window.open('','_blank'); if(ow2) ow2.document.write('<p style="font-family:sans-serif">査定書を開いています…</p>');
+    api('/api/apr-get',{id:a}).then(function(r){
+      if(!ow2){ t.textContent='画面を開けませんでした'; return; }
+      ow2.document.open(); ow2.document.write(apDoc(r.appraisal.data, r.appraisal.kind, apInside())); ow2.document.close();
+    }).catch(function(er){ if(ow2) ow2.close(); t.textContent=er.message; });
+    return;
+  }
+  if((a=t.getAttribute('data-apr-del'))){
+    if(t.getAttribute('data-sure')!=='1'){ t.setAttribute('data-sure','1'); t.textContent='本当に消す'; setTimeout(function(){ if(t.isConnected){ t.removeAttribute('data-sure'); t.textContent='消す'; } }, 6000); return; }
+    t.disabled=true; api('/api/apr-delete',{id:a}).then(function(){ crmProperty(CRM.p.property.id); }).catch(function(er){ t.textContent=er.message; });
     return;
   }
   if((a=t.getAttribute('data-fdel'))){
