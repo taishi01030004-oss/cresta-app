@@ -2299,7 +2299,9 @@ function apBoot(){
     if(!html) return html;
     var box=document.createElement('div'); box.innerHTML=html;
     Array.prototype.forEach.call(box.querySelectorAll('span.cn'), function(el){
-      var n=manN(now[el.getAttribute('data-n')]); if(n!=null) el.textContent=fmtN(n, el.getAttribute('data-c'));
+      // コメントの「査定価格」（取引事例からの740万円など）は、今の査定価格（一番上の大きい数字）に合わせる
+      var k=el.getAttribute('data-n'); if(k==='bm' && now.mid!=null) k='mid';
+      var n=manN(now[k]); if(n!=null) el.textContent=fmtN(n, el.getAttribute('data-c'));
     });
     return box.innerHTML;
   }
@@ -2337,6 +2339,8 @@ function apBoot(){
     inp.onblur=function(){ commit(true); };
   });
   bar.onclick=function(e){ if(e.target.id==='edReset'){ v={}; draw(); } };
+  // 開いた時点で、コメントの「査定価格」を今の査定価格にそろえる
+  (function(){ var c=doc.querySelector('.cm'); if(!c) return; keepComment(); cur.commentHtml=fillComment(tagComment(cur.commentHtml, nums(cur)), nums(cur)); c.innerHTML=cur.commentHtml; })();
   // 物件に保存：今の数字・コメントのまま、アプリの物件に残す
   var sv=document.getElementById('svBtn'), ss=document.getElementById('svSt');
   if(sv) sv.onclick=function(){
