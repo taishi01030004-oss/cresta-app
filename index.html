@@ -2269,8 +2269,8 @@ function apBoot(){
     else { var a=r.appraisal; o.mid=a.mid; o.lo=a.low; o.hi=a.high; }
     return o;
   }
-  // コメントの中の金額に印を付ける（最初の1回だけ）。どの数字か分からないものには付けない
-  var KEYS=['mid','p_market','cv','bm','p_quick','p_high','bl','bh','lo','hi','ct','lv','bv','price'], tagged=false;
+  // コメントの中の金額に印を付ける。どの数字か分からないものには付けない
+  var KEYS=['mid','p_market','cv','bm','p_quick','p_high','bl','bh','lo','hi','ct','lv','bv','price'];
   function manN(x){ return x==null?null:Math.round(x/1e4); }
   function tagComment(html, base){
     if(!html) return html;
@@ -2284,12 +2284,12 @@ function apBoot(){
     if(!html) return html;
     return html.replace(/<span class="cn" data-n="(\w+)" data-c="(\d)">[^<]*<\/span>/g, function(m, k, c){
       var n=manN(now[k]); if(n==null) return m;
-      return '<span class="cn" data-n="'+k+'" data-c="'+c+'">'+(c==='1'?n.toLocaleString('ja-JP'):String(n))+'</span>';
+      return '<span class="cn" data-n="'+k+'" data-c="'+c+'">'+(c==='1'||n>=1000?n.toLocaleString('ja-JP'):String(n))+'</span>';
     });
   }
   function draw(){
-    keepComment(); var cm=cur.commentHtml;
-    if(!tagged){ cm=tagComment(cm, nums(ORIG)); tagged=true; }
+    // 直す前に出ていた数字に印を付ける（毎回やるので、あとから書き直したり貼り付けたコメントの金額も追いかける）
+    keepComment(); var cm=tagComment(cur.commentHtml, nums(cur));
     cur=RECALC(ORIG, v); cur.commentHtml=fillComment(cm, nums(cur)); doc.innerHTML=BODY(cur);
   }
   function apply(k, x){
