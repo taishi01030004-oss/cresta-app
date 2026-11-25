@@ -2261,7 +2261,37 @@ function apBoot(){
   if(!btn) return;
   var LOWER=['unit','area','pct','landUnit','landArea','bUnit','bArea','remain','weight','baseMid','compare'];
   function keepComment(){ var c=doc.querySelector('.cm'); if(c) cur.commentHtml=c.innerHTML; }
-  function draw(){ keepComment(); var cm=cur.commentHtml; cur=RECALC(ORIG, v); cur.commentHtml=cm; doc.innerHTML=BODY(cur); }
+  // 担当者のコメントの中の金額も、直した数字に合わせて書き換える（「740万円」→「800万円」など）
+  function nums(r){
+    var o={price:r.property.price};
+    if(r.detail){ var d=r.detail; o.bm=d.base.mid; o.bl=d.base.low; o.bh=d.base.high; o.cv=d.compareValue; o.mid=d.mid;
+      d.plans.forEach(function(p){ o['p_'+p.key]=p.price; }); if(d.cost){ o.lv=d.cost.landValue; o.bv=d.cost.buildingValue; o.ct=d.cost.total; } }
+    else { var a=r.appraisal; o.mid=a.mid; o.lo=a.low; o.hi=a.high; }
+    return o;
+  }
+  // コメントの中の金額に印を付ける（最初の1回だけ）。どの数字か分からないものには付けない
+  var KEYS=['mid','p_market','cv','bm','p_quick','p_high','bl','bh','lo','hi','ct','lv','bv','price'], tagged=false;
+  function manN(x){ return x==null?null:Math.round(x/1e4); }
+  function tagComment(html, base){
+    if(!html) return html;
+    var byVal={}; KEYS.forEach(function(k){ var n=manN(base[k]); if(n!=null&&byVal[n]==null) byVal[n]=k; });
+    return html.replace(/(\d{1,3}(?:,\d{3})+|\d+)(\s*万)/g, function(m, num, tail){
+      var k=byVal[Number(num.replace(/,/g,''))]; if(!k) return m;
+      return '<span class="cn" data-n="'+k+'" data-c="'+(num.indexOf(',')>=0?1:0)+'">'+num+'</span>'+tail;
+    });
+  }
+  function fillComment(html, now){
+    if(!html) return html;
+    return html.replace(/<span class="cn" data-n="(\w+)" data-c="(\d)">[^<]*<\/span>/g, function(m, k, c){
+      var n=manN(now[k]); if(n==null) return m;
+      return '<span class="cn" data-n="'+k+'" data-c="'+c+'">'+(c==='1'?n.toLocaleString('ja-JP'):String(n))+'</span>';
+    });
+  }
+  function draw(){
+    keepComment(); var cm=cur.commentHtml;
+    if(!tagged){ cm=tagComment(cm, nums(ORIG)); tagged=true; }
+    cur=RECALC(ORIG, v); cur.commentHtml=fillComment(cm, nums(cur)); doc.innerHTML=BODY(cur);
+  }
   function apply(k, x){
     var d=cur.detail;
     if(LOWER.indexOf(k)>=0) v.mid=null; // 元になる数字を直したら、査定価格は計算に戻す
@@ -2290,7 +2320,7 @@ function apBoot(){
     inp.onkeydown=function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); commit(true); } else if(ev.key==='Escape') commit(false); };
     inp.onblur=function(){ commit(true); };
   });
-  bar.onclick=function(e){ if(e.target.id==='edReset'){ v={}; cur=ORIG; var cm=null; var c=doc.querySelector('.cm'); if(c) cm=c.innerHTML; cur=RECALC(ORIG, v); cur.commentHtml=cm; doc.innerHTML=BODY(cur); } };
+  bar.onclick=function(e){ if(e.target.id==='edReset'){ v={}; draw(); } };
 }
 /* 査定書の画面を作る（editable：社内の人が開いたときだけ「数字を直す」を出す） */
 function apDoc(r, kind, editable){
