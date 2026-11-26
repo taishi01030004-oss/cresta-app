@@ -2814,7 +2814,11 @@ function lgDraw(){
         ['駅', x.station?(x.station+(x.walkMin!=null?' 徒歩'+x.walkMin+'分':'')):'—'], ['築年', x.builtYear?x.builtYear+'年':'—']];
       if(x.yieldPct!=null) facts.push(['利回り', x.yieldPct+'%']);
     } else {
-      facts=[['予算', (x.budgetMin!=null||x.budgetMax!=null)?lgMan(x.budgetMin)+'〜'+lgMan(x.budgetMax):'—'], ['希望エリア', x.areas||'—'], ['種別', x.kinds||'—'],
+      var xi=x.info||{}, ap=xi.askPrice&&/^[0-9,]+$/.test(xi.askPrice)?lgMan(Number(xi.askPrice.replace(/,/g,''))):(xi.askPrice||'');
+      if(cfIsSeller(x.want)) facts=[['売りたい・貸したい物件', [(xi.pCity||'')+(xi.pAddress||''), xi.pKind, xi.pLayout].filter(Boolean).join('・')||'—'], [x.want==='賃貸に出す'?'希望賃料':'希望価格', ap||'—'], ['媒介契約', xi.mediation||'—'],
+        ['連絡先', [x.phone, x.email].filter(Boolean).join('／')||'—'], ['最終連絡', x.lastContactAt?x.lastContactAt.slice(0,10):'—'],
+        ['次に連絡', x.nextContactAt?fmtAt(x.nextContactAt):'—']];
+      else facts=[['予算', (x.budgetMin!=null||x.budgetMax!=null)?lgMan(x.budgetMin)+'〜'+lgMan(x.budgetMax):'—'], ['希望エリア', x.areas||'—'], ['種別', x.kinds||'—'],
         ['連絡先', [x.phone, x.email].filter(Boolean).join('／')||'—'], ['最終連絡', x.lastContactAt?x.lastContactAt.slice(0,10):'—'],
         ['次に連絡', x.nextContactAt?fmtAt(x.nextContactAt):'—']];
       if(x.source) facts.push(['反響元', x.source]);
@@ -2828,7 +2832,99 @@ function lgDraw(){
       +(w?'<button class="btn sm" data-edit="'+esc(x.id)+'">編集</button>':'')+'</div><div id="lm-'+esc(x.id)+'" style="width:100%"></div></div>';
   }).join('');
 }
+/* ---------- 顧客の登録・編集（最初に「買主」か「売主」を選び、それぞれに必要な項目を入れる） ---------- */
+var CF_SELL_WANTS=['売却','賃貸に出す'], CF_BUY_WANTS=['購入','賃貸','投資'];
+var CF_KINDS=['戸建','マンション','土地','アパート・一棟','事業用','その他'];
+function cfIsSeller(w){ return CF_SELL_WANTS.indexOf(w)>=0; }
+function cfIn(k, label, val, opt){ opt=opt||{};
+  var cls=opt.wide?'wide':'';
+  if(opt.sel) return '<label class="'+cls+'">'+esc(label)+'<select data-'+(opt.info?'ci':'f')+'="'+k+'">'+opt.sel.map(function(o){ return '<option'+(o===val?' selected':'')+(o===''?' value=""':'')+'>'+esc(o===''?'（選ばない）':o)+'</option>'; }).join('')+'</select></label>';
+  if(opt.area) return '<label class="'+cls+'">'+esc(label)+'<textarea data-f="'+k+'" rows="2">'+esc(val||'')+'</textarea></label>';
+  var yen=opt.yen; var vv=val==null?'':String(val); if(yen && /^[0-9]+$/.test(vv)) vv=yenFmt(vv);
+  return '<label class="'+cls+'">'+esc(label)+'<input '+(yen?'class="yen" inputmode="numeric" ':'')+'data-'+(opt.info?'ci':'f')+'="'+k+'" value="'+esc(vv)+'"'+(opt.ph?' placeholder="'+esc(opt.ph)+'"':'')+'></label>';
+}
+function lgCustomerForm(item){
+  var v=item||{}, isNew=!(item&&item.id), info=v.info||{};
+  var side = v.want ? (cfIsSeller(v.want)?'sell':'buy') : null;
+  var box=document.getElementById('lgForm');
+  function draw(){
+    var h='<div class="card" style="margin-bottom:12px"><div class="row"><span class="what"><b>'+(isNew?'お客様を登録':'お客様の情報を直す')+'</b><span>最初に、買いたい（借りたい）方か、売りたい（貸したい）方かを選んでください。選んだ方に合わせて入れる項目が変わります。</span></span></div>'
+      +'<div class="chips" style="padding:0 15px 10px;gap:8px">'
+      +'<button type="button" class="btn'+(side==='buy'?' main':'')+'" data-cfside="buy">買主（買いたい・借りたい）</button>'
+      +'<button type="button" class="btn'+(side==='sell'?' main':'')+'" data-cfside="sell">売主（売りたい・貸したい）</button></div>';
+    if(!side){ h+='<div class="bar" style="padding:0 15px 12px"><button class="btn" id="lgCancel">やめる</button></div></div>'; box.innerHTML=h; return; }
+    var seller=side==='sell', want=v.want && (seller?cfIsSeller(v.want):!cfIsSeller(v.want)) ? v.want : (seller?'売却':'購入');
+    h+='<div class="row"><span class="what"><b>お客様のこと</b></span></div><div class="lform">'
+      +cfIn('name','氏名',v.name)+cfIn('kana','フリガナ',v.kana)
+      +cfIn('phone','電話（AIには渡しません）',v.phone)+cfIn('email','メール（AIには渡しません）',v.email)
+      +cfIn('want',seller?'ご依頼の内容':'ご希望',want,{sel:seller?CF_SELL_WANTS:CF_BUY_WANTS})
+      +cfIn('status','状況',v.status||'新規',{sel:['新規','追客中','商談中','成約','休眠']})+'</div>';
+    if(seller){
+      h+='<div class="row"><span class="what"><b>売りたい・貸したい物件</b><span>分かるところだけでOKです。この欄はAIには渡しません。</span></span></div><div class="lform">'
+        +cfIn('pKind','種別',info.pKind||'',{sel:[''].concat(CF_KINDS),info:1})
+        +cfIn('pCity','市区町村',info.pCity,{info:1,ph:'例 名古屋市中区'})+cfIn('pAddress','所在地（続き）',info.pAddress,{info:1,ph:'例 大須3丁目'})
+        +cfIn('pLand','土地面積（㎡）',info.pLand,{info:1})+cfIn('pBuilding','建物・専有面積（㎡）',info.pBuilding,{info:1})
+        +cfIn('pBuilt','築年',info.pBuilt,{info:1,ph:'例 2008・平成20年'})+cfIn('pLayout','間取り',info.pLayout,{info:1})
+        +cfIn('askPrice','希望価格（貸す場合は希望賃料／月）',info.askPrice,{info:1,yen:1,ph:'例 39,800,000'})
+        +cfIn('timing','いつまでに（時期）',info.timing,{info:1,ph:'例 来年3月までに'})
+        +cfIn('reason','理由',info.reason,{info:1,ph:'例 住み替え・相続'})
+        +cfIn('occupancy','今の状態',info.occupancy||'',{sel:['','住んでいる','空き家','賃貸中','その他'],info:1})
+        +cfIn('loanLeft','ローンの残り',info.loanLeft,{info:1,ph:'例 約1,200万円・なし'})
+        +cfIn('mediation','媒介契約',info.mediation||'',{sel:['','まだ','一般媒介','専任媒介','専属専任媒介'],info:1})+'</div>';
+      if(isNew) h+='<label style="display:flex;gap:8px;align-items:center;padding:0 15px 10px;font-size:13.5px"><input type="checkbox" id="cfProp" style="width:auto">この物件を物件台帳にも登録して、このお客様を'+(want==='賃貸に出す'?'貸主':'売主')+'としてつなぐ</label>';
+    } else {
+      h+='<div class="row"><span class="what"><b>探している物件</b></span></div><div class="lform">'
+        +cfIn('budgetMin','予算の下限（円）',v.budgetMin,{yen:1,ph:'例 30,000,000'})+cfIn('budgetMax','予算の上限（円）',v.budgetMax,{yen:1,ph:'借りる場合は月額'})
+        +cfIn('areas','希望エリア（読点区切り）',v.areas,{ph:'例 中区、千種区'})+cfIn('kinds','希望種別',v.kinds,{ph:'例 マンション、戸建'})
+        +cfIn('layout','希望の間取り',info.layout,{info:1,ph:'例 3LDK以上'})+cfIn('size','希望の広さ',info.size,{info:1,ph:'例 70㎡以上'})
+        +cfIn('timing','いつまでに（時期）',info.timing,{info:1,ph:'例 来年4月の入学まで'})
+        +cfIn('funds','自己資金',info.funds,{info:1,ph:'例 500万円'})
+        +cfIn('loan','ローンの状況',info.loan||'',{sel:['','まだ','事前審査中','事前審査OK','現金で買う','借りる（ローンなし）'],info:1})
+        +cfIn('current','今の住まい',info.current||'',{sel:['','持ち家','賃貸','社宅','実家','その他'],info:1})
+        +cfIn('reason','理由',info.reason,{info:1,ph:'例 子どもの進学・転勤'})+'</div>';
+    }
+    h+='<div class="lform">'+cfIn('note','メモ',v.note,{area:1,wide:1})+'</div>';
+    h+='<div class="bar" style="padding:0 15px 12px"><button class="btn main" id="lgSave">保存する</button><button class="btn" id="lgCancel">やめる</button><span class="state" id="lgSt"></span></div></div>';
+    box.innerHTML=h;
+    var ws=box.querySelector('[data-f="want"]'); if(ws) ws.onchange=function(){ v=cfCollect(v); v.want=ws.value; info=v.info; draw(); };
+    document.getElementById('lgSave').onclick=save;
+  }
+  function save(){
+    var o=cfCollect(v), st=document.getElementById('lgSt'), btn=document.getElementById('lgSave');
+    if(cfIsSeller(o.want)){ o.budgetMin=''; o.budgetMax=''; o.areas=''; o.kinds=''; }
+    var mk=document.getElementById('cfProp'), mkProp=mk&&mk.checked;
+    st.textContent='保存しています…'; btn.disabled=true;
+    api('/api/ledger-save',{kind:'customer', id:isNew?null:item.id, item:o}).then(function(r){
+      if(!mkProp) return r;
+      var i=o.info||{}, rent=o.want==='賃貸に出す';
+      var title=((i.pCity||'')+(i.pAddress||'')+(i.pKind?' '+i.pKind:'')).trim() || (o.name+'様の物件');
+      var p={title:title, deal:rent?'賃貸':'売買', kind:i.pKind||'その他', status:'募集中', city:i.pCity||'', address:i.pAddress||'', layout:i.pLayout||'', landArea:i.pLand||'', buildingArea:i.pBuilding||'', builtYear:i.pBuilt||'', source:'自社'};
+      if(rent) p.rent=i.askPrice||''; else p.price=i.askPrice||'';
+      return api('/api/ledger-save',{kind:'property', item:p}).then(function(pr){
+        return api('/api/pc-link',{propertyId:pr.item.id, customerId:r.item.id}).then(function(){ return r; });
+      });
+    }).then(function(){ box.innerHTML=''; CRM.lists=null; lgLoad(); })
+      .catch(function(e){ st.textContent=e.message; btn.disabled=false; });
+  }
+  box.onclick=function(e){
+    var t=e.target, sd=t.getAttribute&&t.getAttribute('data-cfside');
+    if(sd){ if(side) v=cfCollect(v); side=sd; draw(); return; }
+    if(t.id==='lgCancel'){ box.innerHTML=''; box.onclick=null; }
+  };
+  draw(); box.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+/* 画面に入っている値を集める（切り替えても入れた内容を消さない） */
+function cfCollect(base){
+  var box=document.getElementById('lgForm'), o={}, info={};
+  Object.keys(base||{}).forEach(function(k){ o[k]=base[k]; });
+  box.querySelectorAll('[data-f]').forEach(function(el){ o[el.getAttribute('data-f')]=el.value; });
+  box.querySelectorAll('[data-ci]').forEach(function(el){ if(el.value) info[el.getAttribute('data-ci')]=el.value; });
+  var keep=(base&&base.info)||{}; Object.keys(keep).forEach(function(k){ if(!(k in info) && !box.querySelector('[data-ci="'+k+'"]')) info[k]=keep[k]; });
+  o.info=info; return o;
+}
 function lgForm(item, extra){
+  if(LG.kind==='customer' && !(extra&&extra.file)) return lgCustomerForm(item);
+  document.getElementById('lgForm').onclick=null;
   var d=LG_DEF[LG.kind], v=item||{}, isNew=!(item&&item.id);
   extra=extra||{};
   var h='<div class="card" style="margin-bottom:12px">';
@@ -3096,7 +3192,14 @@ function crmCustomer(id){
     h+='<div class="card crm-sec"><h4>履歴（'+tl.length+'件）</h4>'+(tl.length?'<ul class="tl">'+tl.slice(0,150).map(function(x){ return '<li><small>'+esc(crmWhen(x.at))+'　'+esc(x.head)+'</small>'+esc(x.body||'')+'</li>'; }).join('')+'</ul>':'<div class="state">まだ記録がありません。</div>')+'</div>';
     h+='</div><div>';
     var facts=[['状態',c.status],['予算',(c.budgetMin!=null||c.budgetMax!=null)?lgMan(c.budgetMin)+'〜'+lgMan(c.budgetMax):'—'],['希望エリア',c.areas||'—'],['種別',c.kinds||'—'],['反響元',c.source||'—'],['最終連絡',c.lastContactAt?fmtAt(c.lastContactAt):'—'],['次に連絡',c.nextContactAt?fmtAt(c.nextContactAt):'—']];
-    h+='<div class="card crm-sec"><h4>お客様の情報</h4><div class="facts">'+facts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>'
+    var inf=c.info||{}, sellerC=cfIsSeller(c.want);
+    if(sellerC) facts=[['状態',c.status],['反響元',c.source||'—'],['最終連絡',c.lastContactAt?fmtAt(c.lastContactAt):'—'],['次に連絡',c.nextContactAt?fmtAt(c.nextContactAt):'—']];
+    var IL=sellerC
+      ? [['pKind','種別'],['pCity','市区町村'],['pAddress','所在地'],['pLand','土地面積（㎡）'],['pBuilding','建物・専有面積（㎡）'],['pBuilt','築年'],['pLayout','間取り'],['askPrice',c.want==='賃貸に出す'?'希望賃料':'希望価格'],['timing','時期'],['reason','理由'],['occupancy','今の状態'],['loanLeft','ローンの残り'],['mediation','媒介契約']]
+      : [['layout','希望の間取り'],['size','希望の広さ'],['timing','時期'],['funds','自己資金'],['loan','ローンの状況'],['current','今の住まい'],['reason','理由']];
+    var ifacts=IL.filter(function(x){ return inf[x[0]]; }).map(function(x){ var val=inf[x[0]]; if(x[0]==='askPrice' && /^[0-9,]+$/.test(val)) val=lgMan(Number(val.replace(/,/g,'')))+(c.want==='賃貸に出す'?'/月':''); return [x[1], val]; });
+    h+='<div class="card crm-sec"><h4>お客様の情報（'+(sellerC?'売主':'買主')+'）</h4><div class="facts">'+facts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>'
+      +(ifacts.length?'<div style="margin-top:8px;font-size:12.5px;color:var(--gold,#c9a54a)">'+(sellerC?'売りたい・貸したい物件':'探している物件の条件')+'</div><div class="facts">'+ifacts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>':'')
       +'<div class="facts"><div><small>電話</small>'+(c.phone?'<a class="lk" href="tel:'+esc(c.phone.replace(/[^0-9+]/g,''))+'">'+esc(c.phone)+'</a>':'—')+'</div><div><small>メール</small>'+(c.email?'<a class="lk" href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'—')+'</div></div>'
       +(c.note?'<div class="state" style="white-space:pre-wrap;margin-top:8px">'+esc(c.note)+'</div>':'')+'</div>';
     h+='<div id="cMsgBox"></div>';
