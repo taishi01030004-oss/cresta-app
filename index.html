@@ -2996,6 +2996,37 @@ function lgForm(item, extra){
     }).catch(function(e){ st.textContent=e.message; btn.disabled=false; });
   };
 }
+/* 「詳しい情報」の欄に値を入れる（空の欄だけ。入っている欄はそのまま）。入れた欄は色を付けて分かるように */
+function pdFill(vals){
+  var put=[], kept=[];
+  Object.keys(vals).forEach(function(k){
+    var v=vals[k]; if(v==null||v==='') return;
+    var el=document.querySelector('#pdF [data-dk="'+k+'"]'); if(!el) return;
+    if(el.value.trim() && el.value.trim()!==String(v)){ kept.push(k); el.title='調べた値：'+v; return; }
+    if(el.value.trim()===String(v)) return;
+    el.value=v; el.style.outline='2px solid var(--gold,#c9a54a)'; put.push(k);
+  });
+  var lab=function(k){ var d=CRM_DETAIL.filter(function(x){ return x[0]===k; })[0]; return d?d[1]:k; };
+  return (put.length?put.length+'項目を入れました（金色の枠）':'新しく入れた項目はありません')+(kept.length?'。すでに入っていた '+kept.map(lab).join('・')+' はそのままにしました（欄にマウスを当てると調べた値が見えます）':'');
+}
+function pdZone(pid, btn){
+  var st=document.getElementById('pdAuto'); btn.disabled=true; st.textContent='住所から調べています…';
+  api('/api/crm-zoning',{propertyId:pid}).then(function(r){
+    var x=r.result; btn.disabled=false;
+    if(!x.zoning){ st.textContent=(x.note||'用途地域が見つかりませんでした')+'（調べた場所：'+x.matched+'）'; return; }
+    st.textContent=pdFill({zoning:x.zoning, coverage:x.coverage, far:x.far})+'。調べた場所：'+x.matched+'。'+(x.note||'')+'　出典：'+r.source;
+  }).catch(function(er){ btn.disabled=false; st.textContent=er.message; });
+}
+function pdDoc(file){
+  var st=document.getElementById('pdAuto');
+  if(file.size>6*1024*1024 && file.type==='application/pdf'){ st.textContent='PDFは6MBまでにしてください。'; return; }
+  st.textContent='「'+file.name+'」をAIが読み取っています…（30秒〜1分ほど）';
+  crmShrink(file).then(function(g){
+    return new Promise(function(ok,ng){ var fr=new FileReader(); fr.onload=function(){ ok({g:g, data:String(fr.result)}); }; fr.onerror=function(){ ng(new Error('ファイルを読めませんでした')); }; fr.readAsDataURL(g); });
+  }).then(function(x){ return api('/api/crm-doc-read',{name:file.name, mime:x.g.type, data:x.data}); })
+    .then(function(r){ st.textContent='資料から：'+pdFill(r.details||{})+'。書いていなかった項目は空のままです。'; })
+    .catch(function(er){ st.textContent=er.message; });
+}
 /* 資料（販売図面のPDF・写真）を読み取って、登録の画面に入れる */
 function lgFromDoc(file){
   var msg=document.getElementById('lgMsg');
@@ -3394,7 +3425,11 @@ function crmProperty(id){
       +'<label class="btn main" style="cursor:pointer">写真・PDFを入れる<input type="file" id="pfFile" data-upload="1" accept="image/jpeg,image/png,image/webp,application/pdf" multiple style="display:none"></label><span class="state" id="pfSt"></span></div>'
       +'<div class="state">1ファイル10MBまで。大きな写真は自動で小さくしてから入れます。写真は会社の中だけで見られます（外には公開されません）。</div>':'<div class="state">写真の保存場所がまだ用意されていません。</div>');
     h+='</div>';
-    h+='<div class="card crm-sec"><h4>詳しい情報</h4><div class="lform" style="padding:0" id="pdF">'+CRM_DETAIL.map(function(d){
+    h+='<div class="card crm-sec"><h4>詳しい情報</h4>'
+      +(w?'<div class="inl" style="padding:0 0 8px;gap:6px;flex-wrap:wrap"><button class="btn sm" data-pdzone="'+esc(p.id)+'">🗺 住所から用途地域・建ぺい率・容積率を調べる</button>'
+        +'<label class="btn sm" style="cursor:pointer">📄 資料から読み取る（マイソク・重説・登記簿）<input type="file" id="pdDoc" accept="application/pdf,image/jpeg,image/png,image/webp" style="display:none"></label></div>'
+        +'<div class="state" id="pdAuto" style="padding:0 0 6px">調べた・読み取った内容は下の欄に入るだけです。確かめてから「保存する」を押してください。</div>':'')
+      +'<div class="lform" style="padding:0" id="pdF">'+CRM_DETAIL.map(function(d){
       var v=r.details[d[0]]||''; return '<label class="'+(d[0]==='equipment'||d[0]==='url'?'wide':'')+'">'+esc(d[1])+(w?'<input data-dk="'+d[0]+'" value="'+esc(v)+'">':'<span>'+esc(v||'—')+'</span>')+'</label>';
     }).join('')+'</div>'+(w?'<div class="bar"><button class="btn main sm" data-pdsave="1">保存する</button><span class="state" id="pdSt"></span></div>':'')+'</div>';
     h+='</div><div>';
@@ -3759,6 +3794,7 @@ function crmClick(e){
     if(mb.innerHTML){ mb.innerHTML=''; return; }
     msgForm(CRM.c.customer, mb, function(){ crmCustomer(cid); }); return; }
   if(t.getAttribute('data-pedit')){ LG.kind='property'; lgTabs('property'); lgLoad(); lgForm(CRM.p.property); window.scrollTo(0,0); return; }
+  if((a=t.getAttribute('data-pdzone'))){ pdZone(a, t); return; }
   if(t.getAttribute('data-pdsave')){
     var det={}, st4=document.getElementById('pdSt'); Array.prototype.forEach.call(document.querySelectorAll('#pdF [data-dk]'), function(el){ det[el.getAttribute('data-dk')]=el.value; });
     st4.textContent='保存しています…'; api('/api/crm-property-extra',{id:CRM.p.property.id, details:det}).then(function(){ st4.textContent='保存しました。'; }).catch(function(er){ st4.textContent=er.message; });
@@ -3805,7 +3841,7 @@ function crmClick(e){
   }
   if(row){ CRM.back = CRM.back || crmToday; crmCustomer(row.getAttribute('data-c')); return; }
 }
-function crmChange(e){ var t=e.target; if(t.getAttribute && t.getAttribute('data-upload') && t.files && t.files.length){ crmUpload(t.files); t.value=''; } }
+function crmChange(e){ var t=e.target; if(t.id==='pdDoc' && t.files && t.files[0]){ pdDoc(t.files[0]); t.value=''; return; } if(t.getAttribute && t.getAttribute('data-upload') && t.files && t.files.length){ crmUpload(t.files); t.value=''; } }
 function crmCalMsg(r){
   if(r.calendar==='added') return '登録しました。Googleカレンダーにも入れています。';
   if(r.calendar==='pending') return '登録しました。カレンダーへの追加は承認待ちです（コード '+r.code+'）。';
