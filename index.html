@@ -3221,6 +3221,7 @@ function crmCustomer(id){
       +'<label style="flex-direction:row;display:flex;gap:6px;align-items:center"><input type="checkbox" id="cvCal" checked style="width:auto"> Googleカレンダーにも入れる</label></div>'
       +'<div class="bar"><button class="btn main sm" data-cvsave="1">登録する</button><span class="state" id="cvSt"></span></div></details>';
     h+='</div></div></div>';
+    h+=delCard('customer', c.id, w);
     crmBox().innerHTML=h; window.scrollTo(0,0);
   }).catch(function(e){ crmBox().innerHTML=crmErr(e); });
 }
@@ -3330,8 +3331,42 @@ function crmProperty(id){
       return '<div style="padding:4px 0;font-size:13.5px;cursor:pointer" data-c="'+esc(v.customerId)+'"><b>'+esc(crmWhen(v.at))+'</b> '+esc(v.customer||'')+'様 <span class="badge">'+esc(v.status)+'</span>'+(v.reaction?' <span class="state">'+esc(v.reaction)+'</span>':'')+(v.feedback?'<div class="state">'+esc(v.feedback)+'</div>':'')+'</div>';
     }).join(''):'<div class="state">まだありません。</div>')+'</div>';
     h+='</div></div>';
+    h+=delCard('property', p.id, w);
     crmBox().innerHTML=h; window.scrollTo(0,0);
   }).catch(function(e){ crmBox().innerHTML=crmErr(e); });
+}
+
+/* ---------- 顧客・物件を台帳から消す（管理者だけ。一緒に消えるものを見せてから） ---------- */
+function delCard(kind, id, w){
+  if(!w || !(ME&&ME.can&&ME.can.decide)) return '';
+  return '<div class="card crm-sec" style="margin-top:14px;border-color:rgba(220,90,90,.45)"><h4 style="color:var(--bad)">'+(kind==='property'?'この物件を消す':'このお客様を消す')+'</h4>'
+    +'<div class="state">間違えて登録したときなどに使います。消すと元に戻せません。'+(kind==='property'?'売り止めの物件は、消さずに状況を「取下げ」にするのがおすすめです。':'連絡が途切れたお客様は、消さずに状況を「休眠」にするのがおすすめです。')+'</div>'
+    +'<div class="bar"><button class="btn sm" data-del-check="'+kind+':'+esc(id)+'">消す</button></div><div id="delBox"></div></div>';
+}
+function delClick(t){
+  var a, box=document.getElementById('delBox');
+  if((a=t.getAttribute('data-del-check'))){
+    var k=a.split(':')[0], id=a.slice(k.length+1); box.innerHTML='<div class="state">確認しています…</div>';
+    api('/api/crm-delete-check',{kind:k, id:id}).then(function(r){
+      if(r.blocked){ box.innerHTML='<div class="ng mt2">取引（申込・契約）の記録があるため消せません。'+(k==='property'?'状況を「取下げ」':'状況を「休眠」')+'にしてください。</div>'; return; }
+      box.innerHTML='<div class="mt2" style="font-size:13.5px"><b>「'+esc(r.name)+'」を消します。</b>'
+        +(r.lose.length?'<br>一緒に消えるもの：'+r.lose.map(function(x){ return esc(x[0])+' '+x[1]+'件'; }).join('、'):'<br>一緒に消えるものはありません。')
+        +(r.keep&&r.keep.length?'<br><span class="state">残るもの：'+r.keep.map(esc).join('、')+'</span>':'')
+        +'<br><span class="ng">消すと元に戻せません。</span></div>'
+        +'<div class="bar"><button class="btn sm" style="border-color:var(--bad);color:var(--bad)" data-del-go="'+esc(a)+'">本当に消す</button><button class="btn sm" data-del-no="1">やめる</button><span class="state" id="delSt"></span></div>';
+    }).catch(function(er){ box.innerHTML='<div class="ng mt2">'+esc(er.message)+'</div>'; });
+    return true;
+  }
+  if(t.getAttribute('data-del-no')){ box.innerHTML=''; return true; }
+  if((a=t.getAttribute('data-del-go'))){
+    var k2=a.split(':')[0], id2=a.slice(k2.length+1), st=document.getElementById('delSt'); t.disabled=true; st.textContent='消しています…';
+    api('/api/crm-delete',{kind:k2, id:id2}).then(function(){
+      CRM.lists=null; CRM.back=null; LG.kind=k2; lgKind(k2);
+      setTimeout(function(){ var m=document.getElementById('lgMsg'); if(m) m.innerHTML='<div class="note" style="margin:8px 0">消しました。</div>'; }, 300);
+    }).catch(function(er){ t.disabled=false; st.textContent=er.message; });
+    return true;
+  }
+  return false;
 }
 
 /* ---------- 取引（申込 → 契約 → 決済前 → 取引完了） ---------- */
@@ -3627,6 +3662,7 @@ function crmClick(e){
     return;
   }
   if(t.getAttribute && pcClick(t)){ if(e && e.preventDefault) e.preventDefault(); return; }
+  if(t.getAttribute && delClick(t)) return;
   if((a=t.getAttribute('data-apr-open'))){
     var ow2=window.open('','_blank'); if(ow2) ow2.document.write('<p style="font-family:sans-serif">査定書を開いています…</p>');
     api('/api/apr-get',{id:a}).then(function(r){
