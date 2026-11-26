@@ -2859,6 +2859,7 @@ function lgCustomerForm(item){
       +cfIn('phone','電話（AIには渡しません）',v.phone)+cfIn('email','メール（AIには渡しません）',v.email)
       +cfIn('want',seller?'ご依頼の内容':'ご希望',want,{sel:seller?CF_SELL_WANTS:CF_BUY_WANTS})
       +cfIn('status','状況',v.status||'新規',{sel:['新規','追客中','商談中','成約','休眠']})+'</div>';
+    h+=cfCoHtml(v.coOwners||[]);
     if(seller){
       h+='<div class="row"><span class="what"><b>売りたい・貸したい物件</b><span>分かるところだけでOKです。この欄はAIには渡しません。</span></span></div><div class="lform">'
         +cfIn('pKind','種別',info.pKind||'',{sel:[''].concat(CF_KINDS),info:1})
@@ -2908,10 +2909,26 @@ function lgCustomerForm(item){
   }
   box.onclick=function(e){
     var t=e.target, sd=t.getAttribute&&t.getAttribute('data-cfside');
+    if(t.getAttribute&&t.getAttribute('data-coadd')){ v=cfCollect(v); if((v.coOwners||[]).length>=5) return; v.coOwners=(v.coOwners||[]).concat([{name:'',phone:'',email:'',address:''}]); info=v.info; draw(); return; }
+    var rm=t.getAttribute&&t.getAttribute('data-codel'); if(rm!=null){ v=cfCollect(v); v.coOwners.splice(Number(rm),1); info=v.info; draw(); return; }
     if(sd){ if(side) v=cfCollect(v); side=sd; draw(); return; }
     if(t.id==='lgCancel'){ box.innerHTML=''; box.onclick=null; }
   };
   draw(); box.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+/* 共有名義の方（最大5人）：お名前・電話・メール・住所 */
+function cfCoHtml(list){
+  var h='<div class="row"><span class="what"><b>共有名義の方（いれば）</b><span>ご夫婦・ご兄弟などの共有名義や連名のときに入れてください（最大5人）。AIには渡しません。</span></span></div>';
+  list.forEach(function(c,i){
+    h+='<div class="lform" data-corow="'+i+'" style="border-left:3px solid var(--gold,#c9a54a);margin:0 15px 8px;padding:6px 10px">'
+      +'<label>共有名義の方 '+(i+1)+'：お名前<input data-co="'+i+':name" value="'+esc(c.name||'')+'"></label>'
+      +'<label>電話<input data-co="'+i+':phone" value="'+esc(c.phone||'')+'" placeholder="例 090-0000-0000"></label>'
+      +'<label>メール<input data-co="'+i+':email" value="'+esc(c.email||'')+'" placeholder="例 name@example.jp"></label>'
+      +'<label class="wide">住所<input data-co="'+i+':address" value="'+esc(c.address||'')+'" placeholder="例 名古屋市中区栄1-1-1"></label>'
+      +'<div><button type="button" class="btn sm" data-codel="'+i+'">この方を外す</button></div></div>';
+  });
+  h+='<div style="padding:0 15px 10px">'+(list.length<5?'<button type="button" class="btn sm" data-coadd="1">＋ 共有名義の方を追加</button>':'<span class="state">5人まで入れられます。</span>')+'</div>';
+  return h;
 }
 /* 画面に入っている値を集める（切り替えても入れた内容を消さない） */
 function cfCollect(base){
@@ -2920,7 +2937,12 @@ function cfCollect(base){
   box.querySelectorAll('[data-f]').forEach(function(el){ o[el.getAttribute('data-f')]=el.value; });
   box.querySelectorAll('[data-ci]').forEach(function(el){ if(el.value) info[el.getAttribute('data-ci')]=el.value; });
   var keep=(base&&base.info)||{}; Object.keys(keep).forEach(function(k){ if(!(k in info) && !box.querySelector('[data-ci="'+k+'"]')) info[k]=keep[k]; });
-  o.info=info; return o;
+  o.info=info;
+  if(box.querySelector('[data-corow]') || base.coOwners){
+    var co=[]; box.querySelectorAll('[data-co]').forEach(function(el){ var a=el.getAttribute('data-co').split(':'), i=Number(a[0]); co[i]=co[i]||{}; co[i][a[1]]=el.value; });
+    o.coOwners = box.querySelector('[data-corow]') ? co.filter(Boolean) : (base.coOwners||[]);
+  }
+  return o;
 }
 function lgForm(item, extra){
   if(LG.kind==='customer' && !(extra&&extra.file)) return lgCustomerForm(item);
@@ -3201,6 +3223,11 @@ function crmCustomer(id){
     h+='<div class="card crm-sec"><h4>お客様の情報（'+(sellerC?'売主':'買主')+'）</h4><div class="facts">'+facts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>'
       +(ifacts.length?'<div style="margin-top:8px;font-size:12.5px;color:var(--gold,#c9a54a)">'+(sellerC?'売りたい・貸したい物件':'探している物件の条件')+'</div><div class="facts">'+ifacts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>':'')
       +'<div class="facts"><div><small>電話</small>'+(c.phone?'<a class="lk" href="tel:'+esc(c.phone.replace(/[^0-9+]/g,''))+'">'+esc(c.phone)+'</a>':'—')+'</div><div><small>メール</small>'+(c.email?'<a class="lk" href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'—')+'</div></div>'
+      +((c.coOwners||[]).length?'<div style="margin-top:8px;font-size:12.5px;color:var(--gold,#c9a54a)">共有名義の方（'+c.coOwners.length+'人）</div>'+c.coOwners.map(function(o){
+        return '<div style="padding:4px 0;font-size:13.5px;border-bottom:1px solid var(--line,#eee)"><b>'+esc(o.name)+'様</b>'
+          +(o.phone?' <a class="lk" href="tel:'+esc(o.phone.replace(/[^0-9+]/g,''))+'">'+esc(o.phone)+'</a>':'')
+          +(o.email?' <a class="lk" href="mailto:'+esc(o.email)+'">'+esc(o.email)+'</a>':'')
+          +(o.address?'<div class="state">'+esc(o.address)+'</div>':'')+'</div>'; }).join(''):'')
       +(c.note?'<div class="state" style="white-space:pre-wrap;margin-top:8px">'+esc(c.note)+'</div>':'')+'</div>';
     h+='<div id="cMsgBox"></div>';
     h+=pcCustomerCard(r, w);
