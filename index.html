@@ -3348,7 +3348,7 @@ function delClick(t){
   if((a=t.getAttribute('data-del-check'))){
     var k=a.split(':')[0], id=a.slice(k.length+1); box.innerHTML='<div class="state">確認しています…</div>';
     api('/api/crm-delete-check',{kind:k, id:id}).then(function(r){
-      if(r.blocked){ box.innerHTML='<div class="ng mt2">取引（申込・契約）の記録があるため消せません。'+(k==='property'?'状況を「取下げ」':'状況を「休眠」')+'にしてください。</div>'; return; }
+      if(r.blocked){ box.innerHTML='<div class="ng mt2">進行中・完了の取引が'+(r.liveDeals||'')+'件あるため、このままでは消せません。上の「取引」の欄で「キャンセルにする」か「消す」を押してから、もう一度消してください。</div>'; return; }
       box.innerHTML='<div class="mt2" style="font-size:13.5px"><b>「'+esc(r.name)+'」を消します。</b>'
         +(r.lose.length?'<br>一緒に消えるもの：'+r.lose.map(function(x){ return esc(x[0])+' '+x[1]+'件'; }).join('、'):'<br>一緒に消えるものはありません。')
         +(r.keep&&r.keep.length?'<br><span class="state">残るもの：'+r.keep.map(esc).join('、')+'</span>':'')
@@ -3411,7 +3411,10 @@ function crmDealLine(d, side){
     +(d.propertyId&&side!=='property-detail'?'<button class="btn sm" data-dopen-p="'+esc(d.propertyId)+'">物件</button>':'')
     +(CRM.dealWrite&&d.stage==='申込'?'<button class="btn sm main" data-dnext="'+esc(d.id)+'" data-to="契約">契約済みにする</button>':'')
     +(CRM.dealWrite&&(d.stage==='契約'||d.stage==='決済前')?'<button class="btn sm main" data-dnext="'+esc(d.id)+'" data-to="完了">決済済みにする</button>':'')
-    +(CRM.dealWrite?'<button class="btn sm" data-dedit="'+esc(d.id)+'">直す</button>':'')+'</span>'
+    +(CRM.dealWrite?'<button class="btn sm" data-dedit="'+esc(d.id)+'">直す（契約内容・物件）</button>':'')
+    +(CRM.dealWrite&&d.stage!=='キャンセル'?'<button class="btn sm" data-dcancel="'+esc(d.id)+'">キャンセルにする</button>':'')
+    +(CRM.dealWrite&&d.stage==='キャンセル'?'<button class="btn sm" data-dundo="'+esc(d.id)+'">キャンセルを取り消す</button>':'')
+    +(CRM.dealWrite&&ME&&ME.can&&ME.can.decide?'<button class="btn sm" data-ddel="'+esc(d.id)+'">消す</button>':'')+'</span>'
     +'<div id="df-'+esc(d.id)+'" style="width:100%"></div></div>';
 }
 function crmDealCard(deals, w, preset, side){
@@ -3446,7 +3449,7 @@ function crmDealForm(id){
     var cur=d?(d.stage==='決済前'?'契約':d.stage):'申込';
     box.innerHTML='<div class="lform" style="padding:8px 0 0">'
       +'<label>お客様<select data-df="customerId"'+(d?' disabled':'')+'>'+crmOpts(L.customers,cid,'（選んでください）')+'</select></label>'
-      +'<label>物件<select data-df="propertyId"'+(d?' disabled':'')+'>'+crmOpts(L.properties,pid,'（なし）')+'</select></label>'
+      +'<label>物件（変えられます）<select data-df="propertyId">'+crmOpts(L.properties,pid,'（なし）')+'</select></label>'
       +'<label>段階<select data-df="stage">'+stages.map(function(x){ return '<option value="'+x+'"'+(cur===x?' selected':'')+'>'+esc(DEAL_LABEL[x])+'</option>'; }).join('')+'</select></label>'
       +'<label>申込日<input type="date" data-df="appliedAt" value="'+esc(d&&d.appliedAt||'')+'"></label>'
       +'<label>契約日時'+dtHtml('data-df="contractAt"', d?jstInput(d.contractAt):'')+'</label>'
@@ -3488,6 +3491,28 @@ function crmDealGo(id, to, btn){
     setTimeout(function(){ if(CRM.dealSide) crmDeals(to, CRM.dealSide); else (CRM.dealReload||CRM.back||crmToday)(); }, 1500);
   }).catch(function(er){ st.textContent=er.message; btn.disabled=false; });
 }
+/* キャンセル・キャンセルの取り消し・取引を消す（押し間違えを防ぐため2回押し） */
+function crmDealQuick(id, act, btn){
+  var d=CRM.dealMap[id], box=document.getElementById('df-'+id); if(!d) return;
+  var label={cancel:'キャンセルにする', undo:'キャンセルを取り消す', del:'消す', 'delete':'消す'}[act];
+  if(btn.getAttribute('data-sure')!=='1'){
+    btn.setAttribute('data-sure','1'); btn.textContent='本当に'+label;
+    if(box) box.innerHTML='<div class="state" style="padding:6px 0">'+esc(
+      act==='cancel' ? 'もう一度押すとキャンセルになります。カレンダーに入れた契約・決済の予定も消します（記録は残るので、あとで取り消せます）。'+(d.stage==='完了'?'取引完了の取引なので、売上一覧からも外れます。':'')
+      : act==='undo' ? 'もう一度押すと、'+(d.contractAt?'「契約済み」':'「申込」')+'に戻します。'
+      : 'もう一度押すと、この取引を消します。元に戻せません。'+(d.stage==='完了'?'取引完了の取引なので、売上一覧からも消えます。':''))+'</div>';
+    setTimeout(function(){ if(btn.isConnected && btn.getAttribute('data-sure')==='1'){ btn.removeAttribute('data-sure'); btn.textContent=label; if(box) box.innerHTML=''; } }, 8000);
+    return;
+  }
+  btn.disabled=true; if(box) box.innerHTML='<div class="state" style="padding:6px 0">保存しています…</div>';
+  var done=function(r){ if(box) box.innerHTML='<div class="state" style="padding:6px 0">'+esc(act==='delete'?'消しました。':crmDealMsg(r))+'</div>'; CRM.lists=null;
+    setTimeout(function(){ if(CRM.dealSide) crmDeals(act==='cancel'||act==='delete'?'申込':(d.contractAt?'契約':'申込'), CRM.dealSide); else (CRM.dealReload||CRM.back||crmToday)(); }, 1300); };
+  var fail=function(er){ btn.disabled=false; if(box) box.innerHTML='<div class="ng" style="padding:6px 0">'+esc(er.message)+'</div>'; };
+  if(act==='delete'){ api('/api/crm-deal-delete',{id:id}).then(done).catch(fail); return; }
+  var val={customerId:d.customerId, propertyId:d.propertyId||null, stage: act==='cancel' ? 'キャンセル' : (d.contractAt?'契約':'申込'), appliedAt:d.appliedAt||'',
+    contractAt:jstInput(d.contractAt), settleAt:jstInput(d.settleAt), price:d.price!=null?String(d.price):'', fee:d.fee!=null?String(d.fee):'', note:d.note||''};
+  api('/api/crm-deal',{id:id, deal:val}).then(done).catch(fail);
+}
 function crmDealMsg(r){
   var m={added:'カレンダーに入れました', changed:'カレンダーの予定を変えました', deleted:'カレンダーから消しました', pending:'カレンダーは承認待ちです', not_connected:'Googleカレンダーがつながっていないため、カレンダーには入れていません', error:'カレンダーに入れられませんでした'};
   var parts=(r.calendar||[]).map(function(c){ return c.which+'：'+(m[c.result]||c.result)+(c.code&&c.result==='pending'?'（コード '+c.code+'）':'')+(c.error?'（'+c.error+'）':''); });
@@ -3496,7 +3521,7 @@ function crmDealMsg(r){
 function crmDealSave(id, btn){
   var box=document.getElementById('df-'+id), st=document.getElementById('dfs-'+id), d=id==='new'?null:CRM.dealMap[id], val={};
   Array.prototype.forEach.call(box.querySelectorAll('[data-df]'), function(el){ val[el.getAttribute('data-df')]=el.value; });
-  if(d){ val.customerId=d.customerId; val.propertyId=d.propertyId; }
+  if(d){ val.customerId=d.customerId; }
   if(!val.propertyId) val.propertyId=null;
   btn.disabled=true; st.textContent='保存しています…';
   api('/api/crm-deal', d?{id:id, deal:val}:{deal:val}).then(function(r){
@@ -3609,6 +3634,9 @@ function crmClick(e){
   if(t.getAttribute('data-back')){ (CRM.back||crmToday)(); return; }
   if(t.getAttribute('data-dnew')){ crmDealForm('new'); return; }
   if((a=t.getAttribute('data-dedit'))){ crmDealForm(a); return; }
+  if((a=t.getAttribute('data-dcancel'))){ crmDealQuick(a, 'cancel', t); return; }
+  if((a=t.getAttribute('data-dundo'))){ crmDealQuick(a, 'undo', t); return; }
+  if((a=t.getAttribute('data-ddel'))){ crmDealQuick(a, 'delete', t); return; }
   if((a=t.getAttribute('data-dnext'))){ crmDealNext(a, t.getAttribute('data-to')); return; }
   if((a=t.getAttribute('data-dgo'))){ crmDealGo(a, t.getAttribute('data-to'), t); return; }
   if((a=t.getAttribute('data-dsave'))){ crmDealSave(a, t); return; }
