@@ -2391,7 +2391,7 @@ function aprListHtml(list, w){
   if(!list || !list.length) return '<div class="state">まだありません。台帳の物件の「査定書」ボタンから査定書を作り、査定書の画面の「物件に保存」を押すとここに残ります。</div>';
   return list.map(function(a){
     var d=jst(a.createdAt);
-    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line,#eee);font-size:13.5px">'
+    return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:6px 0;border-bottom:1px solid var(--line,#eee);font-size:13.5px">'
       +'<b>'+d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()+' '+z(d.getHours())+':'+z(d.getMinutes())+'</b>'
       +'<span class="badge">'+(a.kind==='detail'?'詳細':'簡易')+'</span>'
       +'<span>'+(a.mid!=null?man(a.mid):'—')+'</span>'
@@ -2758,7 +2758,7 @@ var LG_DEF={
   customer:{
     statuses:['すべて','新規','追客中','商談中','成約','休眠'],
     fields:[['name','氏名','text',1],['kana','フリガナ','text'],['phone','電話（AIには渡しません）','text'],['email','メール（AIには渡しません）','text'],
-      ['want','希望','select',0,['購入','売却','賃貸','投資']],['status','状況','select',0,['新規','追客中','商談中','成約','休眠']],
+      ['want','希望','select',0,['購入','売却','賃貸','投資','賃貸に出す']],['status','状況','select',0,['新規','追客中','商談中','成約','休眠']],
       ['budgetMin','予算の下限（円）','text'],['budgetMax','予算の上限','text'],['areas','希望エリア（読点区切り）','text'],['kinds','希望種別（例 マンション、戸建）','text'],
       ['note','メモ','textarea',1]],
     tpl:'氏名,フリガナ,電話,メール,希望,予算下限（万円）,予算上限（万円）,希望エリア,希望種別,状況,備考\n例）山田太郎,ヤマダタロウ,090-0000-0000,yamada@example.jp,購入,2500,3500,中区、千種区,マンション,追客中,週末に内見希望\n'
@@ -3100,6 +3100,7 @@ function crmCustomer(id){
       +'<div class="facts"><div><small>電話</small>'+(c.phone?'<a class="lk" href="tel:'+esc(c.phone.replace(/[^0-9+]/g,''))+'">'+esc(c.phone)+'</a>':'—')+'</div><div><small>メール</small>'+(c.email?'<a class="lk" href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'—')+'</div></div>'
       +(c.note?'<div class="state" style="white-space:pre-wrap;margin-top:8px">'+esc(c.note)+'</div>':'')+'</div>';
     h+='<div id="cMsgBox"></div>';
+    h+=pcCustomerCard(r, w);
     h+=crmDealCard(r.deals||[], w, {customerId:c.id}, 'customer');
     var DST={pending:'承認待ち', approved:'送信中', executed:'送信済み', rejected:'却下', expired:'期限切れ', failed:'送れなかった'};
     var dr=r.drafts||[];
@@ -3119,6 +3120,77 @@ function crmCustomer(id){
     h+='</div></div></div>';
     crmBox().innerHTML=h; window.scrollTo(0,0);
   }).catch(function(e){ crmBox().innerHTML=crmErr(e); });
+}
+
+/* ---------- 預かり物件と顧客（売主さん・貸主さん）のつながり ---------- */
+function pcRole(p){ return p.deal==='賃貸'?'貸主':'売主'; }
+function pcPropertyCard(r, p, w){
+  var role=pcRole(p), list=r.clients||[];
+  var h='<div class="card crm-sec"><h4>'+role+'さん（顧客台帳とつながり・'+list.length+'人）</h4><div id="pcList">';
+  h+= list.length ? list.map(function(c){
+    return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:6px 0;border-bottom:1px solid var(--line,#eee);font-size:13.5px">'
+      +'<span class="badge">'+esc(c.role)+'</span><a href="#" class="lk" data-pc-c="'+esc(c.customerId)+'"><b style="white-space:nowrap">'+esc(c.name)+'様</b></a><span class="badge">'+esc(c.status)+'</span>'
+      +(c.phone?'<span class="state" style="white-space:nowrap">'+esc(c.phone)+'</span>':'')
+      +(w?'<span style="margin-left:auto"><button class="btn sm" data-pc-un="'+esc(c.linkId)+'">外す</button></span>':'')+'</div>';
+  }).join('') : '<div class="state">まだつながっていません。'+(w?'下から顧客台帳のお客様を選ぶか、新しく登録してつないでください。':'')+'</div>';
+  h+='</div>';
+  if(w){
+    var o=r.owner||{};
+    h+='<div class="inl" style="padding:10px 0 0;gap:6px;flex-wrap:wrap"><input id="pcQ" placeholder="お名前・電話で顧客台帳を探す" style="flex:1;min-width:180px"><button class="btn sm" data-pc-find="1">探す</button></div><div id="pcRes"></div>'
+      +'<details style="margin-top:8px"><summary class="state" style="cursor:pointer">顧客台帳にいない'+role+'さんを登録してつなぐ</summary>'
+      +'<div class="lform" style="padding:6px 0 0"><label>お名前<input id="pcN" value="'+esc(o.name||'')+'"></label><label>電話<input id="pcP" value="'+esc(o.phone||'')+'"></label><label>メール<input id="pcE" value="'+esc(o.email||'')+'"></label></div>'
+      +'<div class="bar"><button class="btn main sm" data-pc-new="1">登録してつなぐ</button><span class="state">顧客台帳に「'+(role==='貸主'?'賃貸に出す':'売却')+'」のお客様として入ります。</span></div></details>'
+      +'<div class="state" id="pcSt"></div>';
+  }
+  return h+'</div>';
+}
+function pcCustomerCard(r, w){
+  var list=r.holdings||[];
+  var h='<div class="card crm-sec"><h4>預かっている物件（'+list.length+'件）</h4>';
+  h+= list.length ? list.map(function(x){
+    var pr = x.deal==='賃貸' ? (x.rent!=null?lgMan(x.rent)+'/月':'') : (x.price!=null?lgMan(x.price):'');
+    return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:6px 0;border-bottom:1px solid var(--line,#eee);font-size:13.5px">'
+      +'<span class="badge">'+esc(x.role)+'</span><a href="#" class="lk" data-pc-p="'+esc(x.propertyId)+'"><b>'+esc(x.title)+'</b></a><span class="badge">'+esc(x.status)+'</span>'+(pr?'<span class="state">'+esc(pr)+'</span>':'')
+      +(w?'<span style="margin-left:auto"><button class="btn sm" data-pc-un="'+esc(x.linkId)+'">外す</button></span>':'')+'</div>';
+  }).join('') : '<div class="state">売却・賃貸を預かっている物件はまだありません。</div>';
+  if(w){
+    var have={}; list.forEach(function(x){ have[x.propertyId]=1; });
+    var opts=(r.properties||[]).filter(function(p){ return !have[p.id]; });
+    if(opts.length) h+='<div class="inl" style="padding:10px 0 0;gap:6px"><select id="pcProp" style="flex:1"><option value="">物件を選ぶ</option>'+opts.map(function(p){ return '<option value="'+esc(p.id)+'">'+esc(p.title)+'（'+esc((p.deal==='賃貸'?'貸主':'売主')+'・'+p.status)+'）</option>'; }).join('')+'</select><button class="btn sm main" data-pc-add="1">つなぐ</button></div><div class="state" id="pcSt"></div>';
+  }
+  return h+'</div>';
+}
+function pcReload(){ if(CRM.p && document.getElementById('pcList')) crmProperty(CRM.p.property.id); else if(CRM.c) crmCustomer(CRM.c.customer.id); }
+function pcClick(t){
+  var a, st=document.getElementById('pcSt'), lk=t.closest?t.closest('[data-pc-c],[data-pc-p]'):null; if(lk) t=lk;
+  if((a=t.getAttribute('data-pc-c'))){ var pid=CRM.p.property.id; CRM.back=function(){ crmProperty(pid); }; crmCustomer(a); return true; }
+  if((a=t.getAttribute('data-pc-p'))){ var cid=CRM.c.customer.id; CRM.back=function(){ crmCustomer(cid); }; crmProperty(a); return true; }
+  if((a=t.getAttribute('data-pc-un'))){
+    if(t.getAttribute('data-sure')!=='1'){ t.setAttribute('data-sure','1'); t.textContent='本当に外す'; setTimeout(function(){ if(t.isConnected){ t.removeAttribute('data-sure'); t.textContent='外す'; } }, 6000); return true; }
+    t.disabled=true; api('/api/pc-unlink',{id:a}).then(pcReload).catch(function(er){ t.textContent=er.message; }); return true;
+  }
+  if(t.getAttribute('data-pc-find')){
+    var q=document.getElementById('pcQ').value.trim(), box=document.getElementById('pcRes'); if(!q){ box.innerHTML='<div class="state">お名前か電話番号を入れてください。</div>'; return true; }
+    box.innerHTML='<div class="state">探しています…</div>';
+    api('/api/ledger',{kind:'customer', q:q}).then(function(r){
+      var have={}; (CRM.p.clients||[]).forEach(function(c){ have[c.customerId]=1; });
+      var items=(r.items||[]).filter(function(c){ return !have[c.id]; }).slice(0,20);
+      box.innerHTML = items.length ? items.map(function(c){ return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:4px 0;font-size:13.5px"><b style="white-space:nowrap">'+esc(c.name)+'様</b><span class="badge">'+esc(c.want)+'</span><span class="state">'+esc(c.phone||'')+'</span><button class="btn sm main" style="margin-left:auto" data-pc-pick="'+esc(c.id)+'">つなぐ</button></div>'; }).join('')
+        : '<div class="state">見つかりませんでした。下の「登録してつなぐ」から入れられます。</div>';
+    }).catch(function(er){ box.innerHTML='<div class="ng">'+esc(er.message)+'</div>'; });
+    return true;
+  }
+  if((a=t.getAttribute('data-pc-pick'))){ t.disabled=true; api('/api/pc-link',{propertyId:CRM.p.property.id, customerId:a}).then(pcReload).catch(function(er){ t.disabled=false; if(st) st.textContent=er.message; }); return true; }
+  if(t.getAttribute('data-pc-new')){
+    var nc={name:document.getElementById('pcN').value, phone:document.getElementById('pcP').value, email:document.getElementById('pcE').value};
+    t.disabled=true; if(st) st.textContent='登録しています…';
+    api('/api/pc-link',{propertyId:CRM.p.property.id, newCustomer:nc}).then(function(){ CRM.lists=null; pcReload(); }).catch(function(er){ t.disabled=false; if(st) st.textContent=er.message; }); return true;
+  }
+  if(t.getAttribute('data-pc-add')){
+    var pv=document.getElementById('pcProp').value; if(!pv){ if(st) st.textContent='物件を選んでください。'; return true; }
+    t.disabled=true; api('/api/pc-link',{propertyId:pv, customerId:CRM.c.customer.id}).then(pcReload).catch(function(er){ t.disabled=false; if(st) st.textContent=er.message; }); return true;
+  }
+  return false;
 }
 
 /* 物件の詳しい画面 */
@@ -3145,7 +3217,8 @@ function crmProperty(id){
     h+='</div><div>';
     var facts=[['価格', p.deal==='賃貸'?(p.rent!=null?lgMan(p.rent)+'/月':'—'):(p.price!=null?lgMan(p.price):'—')],['所在地',(p.city||'')+(p.address||'')||'—'],['間取り',p.layout||'—'],['建物・専有面積',p.buildingArea!=null?p.buildingArea+'㎡':'—'],['土地面積',p.landArea!=null?p.landArea+'㎡':'—'],['駅',p.station?(p.station+(p.walkMin!=null?' 徒歩'+p.walkMin+'分':'')):'—'],['築年',p.builtYear?p.builtYear+'年':'—']];
     h+='<div class="card crm-sec"><h4>物件の情報</h4><div class="facts">'+facts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>'+(p.note?'<div class="state" style="white-space:pre-wrap;margin-top:8px">'+esc(p.note)+'</div>':'')+'</div>';
-    if(r.owner) h+='<div class="card crm-sec"><h4>'+(p.deal==='賃貸'?'貸主さん':'売主さん')+'（社内だけ・AIには渡しません）</h4><div class="lform one" style="padding:0" id="poF">'+CRM_OWNER.map(function(o){
+    h+=pcPropertyCard(r, p, w);
+    if(r.owner) h+='<div class="card crm-sec"><h4>'+(p.deal==='賃貸'?'貸主さん':'売主さん')+'のメモ（社内だけ・AIには渡しません）</h4><div class="lform one" style="padding:0" id="poF">'+CRM_OWNER.map(function(o){
       return '<label>'+esc(o[1])+(o[0]==='memo'?'<textarea data-ok="memo" rows="2">'+esc(r.owner.memo||'')+'</textarea>':'<input data-ok="'+o[0]+'" value="'+esc(r.owner[o[0]]||'')+'">')+'</label>';
     }).join('')+'</div><div class="bar"><button class="btn main sm" data-posave="1">保存する</button><span class="state" id="poSt"></span></div></div>';
     h+='<div class="card crm-sec"><h4>保存した査定書（'+(r.appraisals||[]).length+'件）</h4><div id="aprList">'+aprListHtml(r.appraisals||[], w)+'</div></div>';
@@ -3381,7 +3454,7 @@ function crmInquiryForm(r){
   if(r.existing) h+='<div class="mt2" style="color:var(--gold,#c9a54a)">同じメール・電話のお客様が台帳にいます：<b>'+esc(r.existing.name)+'様</b>（'+esc(r.existing.status)+'）</div>';
   h+='<div class="lform one" style="padding:6px 0 0">'
     +[['name','お名前',g.name],['kana','フリガナ',g.kana],['phone','電話',g.phone],['email','メール',g.email],['source','反響元',g.source||'']].map(function(f){ return '<label>'+f[1]+'<input data-iq="'+f[0]+'" value="'+esc(f[2]||'')+'"></label>'; }).join('')
-    +'<label>希望<select data-iq="want">'+crmOpts(['購入','売却','賃貸','投資'], g.want||'購入')+'</select></label>'
+    +'<label>希望<select data-iq="want">'+crmOpts(['購入','売却','賃貸','投資','賃貸に出す'], g.want||'購入')+'</select></label>'
     +'<label>物件（台帳）<select data-iq="propertyId">'+crmOpts(r.properties, r.property?r.property.id:'', g.property?'（台帳にない：'+g.property+'）':'（なし）')+'</select></label>'
     +'<input type="hidden" data-iq="propertyText" value="'+esc(g.property||'')+'">'
     +'<label>お問い合わせ内容<textarea data-iq="message" rows="4">'+esc(g.message||'')+'</textarea></label></div>'
@@ -3450,6 +3523,7 @@ function crmClick(e){
     st5.textContent='保存しています…'; api('/api/crm-property-extra',{id:CRM.p.property.id, owner:ow}).then(function(){ st5.textContent='保存しました。'; }).catch(function(er){ st5.textContent=er.message; });
     return;
   }
+  if(t.getAttribute && pcClick(t)){ if(e && e.preventDefault) e.preventDefault(); return; }
   if((a=t.getAttribute('data-apr-open'))){
     var ow2=window.open('','_blank'); if(ow2) ow2.document.write('<p style="font-family:sans-serif">査定書を開いています…</p>');
     api('/api/apr-get',{id:a}).then(function(r){
