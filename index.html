@@ -2813,6 +2813,7 @@ function lgDraw(){
         ['間取り・面積', [x.layout, x.buildingArea!=null?x.buildingArea+'㎡':'', x.landArea!=null?'土地'+x.landArea+'㎡':''].filter(Boolean).join('／')||'—'],
         ['駅', x.station?(x.station+(x.walkMin!=null?' 徒歩'+x.walkMin+'分':'')):'—'], ['築年', x.builtYear?x.builtYear+'年':'—']];
       if(x.yieldPct!=null) facts.push(['利回り', x.yieldPct+'%']);
+      facts.push(['媒介契約', x.mediation&&x.mediation.kind ? x.mediation.kind.replace('媒介','')+(x.mediation.end?'（〜'+x.mediation.end.replace(/-/g,'/')+(function(d){ return d==null?'':d<0?'・満了済み':d<=14?'・あと'+d+'日':''; })(medDays(x.mediation.end))+'）':'') : '—']);
     } else {
       var xi=x.info||{}, ap=xi.askPrice&&/^[0-9,]+$/.test(xi.askPrice)?lgMan(Number(xi.askPrice.replace(/,/g,''))):(xi.askPrice||'');
       if(cfIsSeller(x.want)) facts=[['売りたい・貸したい物件', [(xi.pCity||'')+(xi.pAddress||''), xi.pKind, xi.pLayout].filter(Boolean).join('・')||'—'], [x.want==='賃貸に出す'?'希望賃料':'希望価格', ap||'—'], ['媒介契約', xi.mediation||'—'],
@@ -3254,6 +3255,56 @@ function crmCustomer(id){
   }).catch(function(e){ crmBox().innerHTML=crmErr(e); });
 }
 
+/* ---------- 媒介契約（種類・期間・レインズ）。満了日はカレンダーにも入れる ---------- */
+function medDays(end){ if(!end) return null; var j=jst(), t=Date.UTC(j.getFullYear(), j.getMonth(), j.getDate()); var e=Date.parse(end+'T00:00:00Z'); return Math.round((e-t)/86400000); }
+function medLeft(end){
+  var d=medDays(end); if(d==null) return '';
+  var c=d<0?'var(--bad)':d<=14?'var(--gold)':'inherit';
+  return '<span style="color:'+c+';white-space:nowrap">'+(d<0?'（'+(-d)+'日前に満了）':d===0?'（今日が満了日）':'（あと'+d+'日）')+'</span>';
+}
+function medMD(s){ return s?Number(s.slice(5,7))+'/'+Number(s.slice(8,10)):''; }
+function medCard(m, p, w){
+  var h='<div class="card crm-sec"><h4>媒介契約</h4><div id="medBox">';
+  if(m.kind){
+    var ex=m.kind!=='一般媒介';
+    h+='<div class="facts">'
+      +'<div><small>種類</small>'+esc(m.kind)+'</div>'
+      +'<div><small>契約日</small>'+esc(m.start||'—')+'</div>'
+      +'<div><small>満了日（更新の時期）</small>'+esc(m.end||'—')+' '+medLeft(m.end)+'</div>'
+      +'<div><small>レインズ</small>'+(m.reinsNo?esc(m.reinsNo)+(m.reinsDate?'（'+esc(m.reinsDate)+' 登録）':''):(ex?'<span style="color:var(--gold)">まだ登録していません</span>':'—'))+'</div></div>'
+      +(ex?'<div class="state" style="margin-top:6px">'+(m.kind==='専任媒介'?'レインズへの登録は契約から7営業日以内、売主さんへの報告は2週間に1回以上が必要です。':'レインズへの登録は契約から5営業日以内、売主さんへの報告は1週間に1回以上が必要です。')+'更新は売主さんからの申し出（書面）が必要で、期間は3か月までです。</div>':'')
+      +(m.note?'<div class="state" style="white-space:pre-wrap;margin-top:6px">'+esc(m.note)+'</div>':'')
+      +'<div class="state" style="margin-top:6px">'+(m.calApproval?'📅 満了日はGoogleカレンダーに入れてあります。':'📅 満了日はまだカレンダーに入っていません（Googleカレンダーをつなぐと入ります）。')+'</div>';
+  } else {
+    h+='<div class="state">まだ入っていません。'+(w?'媒介契約を結んだら、種類と契約日を入れてください。満了日（更新の時期）をGoogleカレンダーに入れます。':'')+'</div>';
+  }
+  h+='</div>'+(w?'<div class="bar"><button class="btn sm'+(m.kind?'':' main')+'" data-med-edit="'+esc(p.id)+'">'+(m.kind?'直す・更新する':'媒介契約を入れる')+'</button></div><div id="medForm"></div>':'');
+  CRM.med=m; return h+'</div>';
+}
+function medForm(pid){
+  var box=document.getElementById('medForm'), m=CRM.med||{};
+  if(box.innerHTML){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="lform" style="padding:8px 0 0">'
+    +'<label>種類<select data-md="kind"><option value="">（媒介契約なし）</option>'+['一般媒介','専任媒介','専属専任媒介'].map(function(k){ return '<option'+(m.kind===k?' selected':'')+'>'+k+'</option>'; }).join('')+'</select></label>'
+    +'<label>契約日<input type="date" data-md="start" value="'+esc(m.start||'')+'"></label>'
+    +'<label>満了日（専任・専属専任は空なら3か月で自動）<input type="date" data-md="end" value="'+esc(m.end||'')+'"></label>'
+    +'<label>レインズ登録番号<input data-md="reinsNo" value="'+esc(m.reinsNo||'')+'"></label>'
+    +'<label>レインズ登録日<input type="date" data-md="reinsDate" value="'+esc(m.reinsDate||'')+'"></label>'
+    +'<label class="wide">メモ<textarea data-md="note" rows="2">'+esc(m.note||'')+'</textarea></label></div>'
+    +(m.kind?'<div class="state">更新したときは、新しい契約日と満了日に直して保存してください（カレンダーの予定も合わせて変わります）。</div>':'')
+    +'<div class="bar"><button class="btn main sm" data-med-save="'+esc(pid)+'">保存する</button><span class="state" id="medSt"></span></div>';
+}
+function medSave(pid, btn){
+  var box=document.getElementById('medForm'), v={}, st=document.getElementById('medSt');
+  box.querySelectorAll('[data-md]').forEach(function(el){ v[el.getAttribute('data-md')]=el.value; });
+  btn.disabled=true; st.textContent='保存しています…';
+  api('/api/crm-mediation',{propertyId:pid, mediation:v}).then(function(r){
+    var msg=(r.calendar||[]).map(function(c){ return {added:'満了日をカレンダーに入れました',changed:'カレンダーの予定を変えました',deleted:'カレンダーから消しました',pending:'カレンダーは承認待ちです（コード '+(c.code||'')+'）',not_connected:'Googleカレンダーがつながっていないため、カレンダーには入れていません',error:'カレンダーに入れられませんでした（'+(c.error||'')+'）'}[c.result]||''; }).join('');
+    st.textContent='保存しました。'+msg; CRM.lists=null;
+    setTimeout(function(){ crmProperty(pid); }, 1500);
+  }).catch(function(er){ st.textContent=er.message; btn.disabled=false; });
+}
+
 /* ---------- 預かり物件と顧客（売主さん・貸主さん）のつながり ---------- */
 function pcRole(p){ return p.deal==='賃貸'?'貸主':'売主'; }
 function pcPropertyCard(r, p, w){
@@ -3349,6 +3400,7 @@ function crmProperty(id){
     h+='</div><div>';
     var facts=[['価格', p.deal==='賃貸'?(p.rent!=null?lgMan(p.rent)+'/月':'—'):(p.price!=null?lgMan(p.price):'—')],['所在地',(p.city||'')+(p.address||'')||'—'],['間取り',p.layout||'—'],['建物・専有面積',p.buildingArea!=null?p.buildingArea+'㎡':'—'],['土地面積',p.landArea!=null?p.landArea+'㎡':'—'],['駅',p.station?(p.station+(p.walkMin!=null?' 徒歩'+p.walkMin+'分':'')):'—'],['築年',p.builtYear?p.builtYear+'年':'—']];
     h+='<div class="card crm-sec"><h4>物件の情報</h4><div class="facts">'+facts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>'+(p.note?'<div class="state" style="white-space:pre-wrap;margin-top:8px">'+esc(p.note)+'</div>':'')+'</div>';
+    h+=medCard(r.mediation||{}, p, w);
     h+=pcPropertyCard(r, p, w);
     if(r.owner) h+='<div class="card crm-sec"><h4>'+(p.deal==='賃貸'?'貸主さん':'売主さん')+'のメモ（社内だけ・AIには渡しません）</h4><div class="lform one" style="padding:0" id="poF">'+CRM_OWNER.map(function(o){
       return '<label>'+esc(o[1])+(o[0]==='memo'?'<textarea data-ok="memo" rows="2">'+esc(r.owner.memo||'')+'</textarea>':'<input data-ok="'+o[0]+'" value="'+esc(r.owner[o[0]]||'')+'">')+'</label>';
@@ -3719,6 +3771,8 @@ function crmClick(e){
   }
   if(t.getAttribute && pcClick(t)){ if(e && e.preventDefault) e.preventDefault(); return; }
   if(t.getAttribute && delClick(t)) return;
+  if((a=t.getAttribute('data-med-edit'))){ medForm(a); return; }
+  if((a=t.getAttribute('data-med-save'))){ medSave(a, t); return; }
   if((a=t.getAttribute('data-apr-open'))){
     var ow2=window.open('','_blank'); if(ow2) ow2.document.write('<p style="font-family:sans-serif">査定書を開いています…</p>');
     api('/api/apr-get',{id:a}).then(function(r){
