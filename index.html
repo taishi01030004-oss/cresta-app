@@ -3939,7 +3939,7 @@ function piLoad(){
         +(it.url?'':'<span style="display:block;color:var(--bad)">紹介リンクが入っていません（「直す」で入れてください。AIの投稿提案にも必要です）</span>')
         +'<span style="display:block">売れた '+it.soldCount+'個・'+yenFmt(it.soldAmount)+'円　投稿 '+it.postedCount+'/'+it.postCount+'件'+(it.nextPost?'（次の予定 '+esc(crmWhen(it.nextPost))+'）':'')+'</span>'+(it.note?'<span>'+esc(it.note)+'</span>':'')+'</span>'
         +'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(it.url?linkHtml(it.url,'商品ページ'):'')
-        +(r.canWrite?'<button class="btn sm main" data-pisold="'+esc(it.id)+'">売れた</button><button class="btn sm" data-pipropose="'+esc(it.id)+'">投稿を提案（AI）</button><button class="btn sm" data-pipost="'+esc(it.id)+'">投稿を記録</button><button class="btn sm" data-piedit="'+esc(it.id)+'">直す</button><button class="btn sm" data-pidel="'+esc(it.id)+'">消す</button>':'')
+        +(r.canWrite?'<button class="btn sm main" data-pisold="'+esc(it.id)+'">売れた</button><button class="btn sm main" data-pigo="'+esc(it.id)+'">投稿する</button><button class="btn sm" data-pipropose="'+esc(it.id)+'">投稿を提案（AI）</button><button class="btn sm" data-pipost="'+esc(it.id)+'">投稿を記録</button><button class="btn sm" data-piedit="'+esc(it.id)+'">直す</button><button class="btn sm" data-pidel="'+esc(it.id)+'">消す</button>':'')
         +'<button class="btn sm" data-pisales="'+esc(it.id)+'">売上を見る</button></span>'
         +'<div id="pi-'+esc(it.id)+'" style="flex-basis:100%"></div></div>';
     }).join('');
@@ -4054,6 +4054,7 @@ document.getElementById('s11').addEventListener('click', function(e){
     return;
   }
   if((a=t.getAttribute('data-pipropose'))){ tab(12); ppAiForm(a); return; }
+  if((a=t.getAttribute('data-pigo'))){ var bg=document.getElementById('pi-'+a); if(piToggle(bg,'go')) ppForm(null, bg, a, piLoad, {quick:true}); return; }
   if((a=t.getAttribute('data-pipost'))){ var b=document.getElementById('pi-'+a); if(piToggle(b,'post')) ppForm(null, b, a, piLoad); return; }
   if(t.hasAttribute('data-pisave')){
     var id=t.getAttribute('data-pisave'), box=t.closest('.card'), v={}, st=box.querySelector('[data-pist]');
@@ -4116,6 +4117,11 @@ function ppBodyTemplate(items, itemId){
   return it ? '\n\n'+(it.url?it.url+'\n':'')+'#PR' : '';
 }
 /* 投稿先に選べるSNS：つないでいるSNSがあれば、それだけ */
+/* 商品の画面から投稿を入れるときも、「自動で投稿する」とつないであるSNSが分かるように先に読み込む */
+function ppEnsure(){
+  if(PP.canAuto!==undefined && PP.conn) return Promise.resolve();
+  return api('/api/pposts',{}).then(function(r){ PP.w=r.canWrite; PP.canAuto=!!r.canAuto; PP.conn=r.snsConnected||[]; }).catch(function(){});
+}
 function ppSnsChoices(){ return (PP.conn&&PP.conn.length)?PP.conn.slice():['X','Threads']; }
 /* 自動投稿の状態 */
 function ppAutoBadge(p){
@@ -4165,21 +4171,23 @@ document.getElementById('s12').addEventListener('change', function(e){
   }
   next().then(function(){ say(n+'枚入れました'); ppLoad(); }).catch(function(er){ say(er.message); t.value=''; });
 });
-function ppForm(id, target, itemId, after){
+function ppForm(id, target, itemId, after, opt){
+  opt=opt||{};
   var p=id?PP.items.filter(function(x){ return x.id===id; })[0]:null, box=target||document.getElementById(id?'pp-'+id:'ppForm');
   if(!target && box.innerHTML){ box.innerHTML=''; return; }
   box.innerHTML='<div class="state">読み込んでいます…</div>';
-  (PI.items.length?Promise.resolve({items:PI.items}):api('/api/pitems',{})).then(function(r){
+  ppEnsure().then(function(){ return PI.items.length?{items:PI.items}:api('/api/pitems',{}); }).then(function(r){
     PI.items=r.items; var cur=p?p.itemId:(itemId||'');
     box.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
       +'<label>商品<select data-pp="itemId"><option value="">（なし）</option>'+r.items.map(function(it){ return '<option value="'+esc(it.id)+'"'+(cur===it.id?' selected':'')+'>'+esc(it.name)+'</option>'; }).join('')+'</select></label>'
-      +'<label>SNS<select data-pp="sns">'+(PP.conn&&PP.conn.length?PP.conn.concat(p&&PP.conn.indexOf(p.sns)<0?[p.sns]:[]):['X','Threads','Instagram','その他']).map(function(x){ return '<option'+((p?p.sns:'X')===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
-      +'<label>状態<select data-pp="status">'+['下書き','予定','投稿済み'].map(function(x){ return '<option'+((p?p.status:'下書き')===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
-      +'<label>日時（予定・投稿した日時）'+dtHtml('data-pp="postAt"', p&&p.postAt?jstInput(p.postAt):'')+'</label>'
+      +(opt.quick?'<div class="wide note" style="margin:0 0 6px">'+(PP.canAuto&&PP.conn&&PP.conn.length?'文を確かめて「保存する」を押すと、下の日時に'+esc(PP.conn.join('・'))+'へ自動で投稿します（「自動で投稿する」をオフにすると、予定に入れるだけになります）。':(PP.canAuto?'まだSNSとつないでいないため、自動では投稿できません（設定 → SNSとつなぐ）。予定として入れます。':'自動で投稿する設定はオーナー・管理者だけができます。予定として入れます。'))+'</div>':'')
+      +'<label>SNS<select data-pp="sns">'+(PP.conn&&PP.conn.length?PP.conn.concat(p&&PP.conn.indexOf(p.sns)<0?[p.sns]:[]):['X','Threads','Instagram','その他']).map(function(x){ return '<option'+((p?p.sns:(PP.conn&&PP.conn[0]||'X'))===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
+      +'<label>状態<select data-pp="status">'+['下書き','予定','投稿済み'].map(function(x){ return '<option'+((p?p.status:(opt.quick?'予定':'下書き'))===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
+      +'<label>日時（予定・投稿した日時）'+dtHtml('data-pp="postAt"', p&&p.postAt?jstInput(p.postAt):(opt.quick?nowQ():''))+'</label>'
       +'<label class="wide">投稿の文（物販の投稿は、紹介リンクと最後の「#PR」が必要です）<textarea data-pp="body" rows="5">'+esc(p?(p.body||''):ppBodyTemplate(r.items, cur))+'</textarea></label>'
       +'<label>投稿のURL（投稿したあと）<input data-pp="url" value="'+esc(p&&p.url||'')+'"></label>'
       +'<label>メモ<input data-pp="note" value="'+esc(p&&p.note||'')+'"></label>'
-      +ppAutoField(p?p.sns:'X', !!(p&&p.autoPublish&&p.publishStatus==='待機'))
+      +ppAutoField(p?p.sns:'X', !!(p&&p.autoPublish&&p.publishStatus==='待機') || !!(opt.quick&&PP.conn&&PP.conn.length))
       +'</div><div class="bar"><button class="btn main sm" data-ppsave="'+esc(id||'')+'">保存する</button><span class="state" data-ppst></span></div></div>';
     box.querySelector('[data-ppsave]').onclick=function(){
       var b=this, v={}, st=box.querySelector('[data-ppst]');
@@ -4196,7 +4204,7 @@ function ppAiForm(itemId){
   var box=document.getElementById('ppForm');
   if(!itemId && box.getAttribute('data-k')==='ai' && box.innerHTML){ box.innerHTML=''; box.removeAttribute('data-k'); return; }
   box.setAttribute('data-k','ai'); box.innerHTML='<div class="state">読み込んでいます…</div>';
-  (PI.items.length?Promise.resolve({items:PI.items}):api('/api/pitems',{})).then(function(r){
+  ppEnsure().then(function(){ return PI.items.length?{items:PI.items}:api('/api/pitems',{}); }).then(function(r){
     PI.items=r.items;
     if(!r.items.length){ box.innerHTML='<div class="note">先に「商品・出品」で商品を登録してください。</div>'; return; }
     box.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
