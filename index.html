@@ -3042,9 +3042,8 @@ function pfDocsCard(r, p, w){
       +'<span style="margin-left:auto">'+(canRead?'<button class="btn sm" data-pfread="'+esc(f.id)+'">読み取って登録</button> ':'')+(w?'<button class="btn sm" data-fdel="'+esc(f.id)+'">消す</button>':'')+'</span></div>';
   }).join('') : '<div class="state">まだありません。</div>';
   if(w && r.storageReady){
-    h+=pfDrop('pfDoc','📄 謄本・公図・図面・その他資料を入れる','application/pdf,image/jpeg,image/png,image/webp',
-      '<div style="margin-top:8px" onclick="event.stopPropagation()">種類：<select id="pfDocKind">'+PF_DOC_KINDS.map(function(k){ return '<option value="'+k[0]+'">'+k[1]+'</option>'; }).join('')+'</select>'
-      +' <label style="font-size:13px"><input type="checkbox" id="pfDocAuto" checked style="width:auto"> 入れたらAIで読み取って、物件の情報に入れる</label></div>');
+    h+=pfDrop('pfDoc','📄 謄本・公図・図面・その他の資料を入れる（種類は選ばなくてOK）','application/pdf,image/jpeg,image/png,image/webp',
+      '<div style="margin-top:8px" onclick="event.stopPropagation()"><label style="font-size:13px"><input type="checkbox" id="pfDocAuto" checked style="width:auto"> 入れたらAIで読み取って、物件の情報に入れる（書類の種類も自動で振り分けます）</label></div>');
     h+='<div class="state" id="pfDocSt"></div><div id="pfRead"></div>';
   } else if(w) h+='<div class="state">書類の保存場所がまだ用意されていません。</div>';
   return h+'</div>';
@@ -3066,7 +3065,7 @@ function pfUp(which, files){
     crmUploadFiles(pid, list, '写真', function(m){ st.textContent=m; }).then(function(n){ st.textContent=n+'枚入れました。'; setTimeout(function(){ crmProperty(pid); }, 600); }).catch(function(e){ st.textContent=e.message; });
     return;
   }
-  var st2=document.getElementById('pfDocSt'), kind=document.getElementById('pfDocKind').value, auto=document.getElementById('pfDocAuto').checked;
+  var st2=document.getElementById('pfDocSt'), kind='auto', auto=document.getElementById('pfDocAuto').checked;
   list=list.filter(function(f){ return f.type==='application/pdf'||/^image\//.test(f.type); });
   if(!list.length){ st2.textContent='PDFか写真（JPEG・PNG・WebP）を入れてください。'; return; }
   var before={}; CRM.p.files.forEach(function(f){ before[f.id]=1; });
@@ -3092,14 +3091,18 @@ function pfRead(fid){
   if(st) st.textContent='AIで読み取っています…（30秒〜1分ほど）';
   return api('/api/crm-file-read',{propertyId:pid, fileId:fid}).then(function(r){
     var msg=pdFill(r.details||{}), p=CRM.p.property, diff=[];
-    PF_BASIC.forEach(function(b){ var v=r.property[b[0]]; if(v==null||v==='') return; if(String(p[b[0]]==null?'':p[b[0]])===String(v)) return; diff.push([b[0], b[1], p[b[0]], v]); });
+    PF_BASIC.forEach(function(b){ var v=r.property[b[0]]; if(v==null||v==='') return; var cur=String(p[b[0]]==null?'':p[b[0]]);
+      if(cur===String(v)) return; if(typeof v==='string' && cur && cur.indexOf(v)>=0) return; // 今の方が詳しい（例：名古屋市天白区 と 名古屋市）
+      diff.push([b[0], b[1], p[b[0]], v]); });
     if(st) st.textContent='「'+r.file.name+'」から：詳しい情報に'+msg+'。';
-    var h='<div class="card" style="margin-top:8px;padding:10px"><b>「'+esc(r.file.name)+'」から読み取った基本情報</b>';
+    var KN={謄本:'謄本（登記簿）',公図:'公図',図面:'図面・マイソク',資料:'その他資料'};
+    var h='<div class="card" style="margin-top:8px;padding:10px"><b>「'+esc(r.file.name)+'」から読み取った基本情報</b><div class="state">書類の種類：'+esc(KN[r.file.kind]||r.file.kind)+'に振り分けました。</div>';
     if(!diff.length) h+='<div class="state">基本情報は今の内容と同じか、書いてありませんでした。</div>';
     else h+='<div class="state">今の内容と違うところです。直したいものにチェックを入れて「反映する」を押してください（読み間違いもあるので確かめてください）。</div>'
       +'<table class="ct" style="width:100%;margin:6px 0"><tr><th></th><th>項目</th><th>今</th><th>資料</th></tr>'+diff.map(function(d){
         return '<tr><td><input type="checkbox" data-pfb="'+d[0]+'" data-v="'+esc(String(d[3]))+'" '+(d[2]==null||d[2]===''?'checked':'')+' style="width:auto"></td><td>'+esc(d[1])+'</td><td>'+esc(d[2]==null||d[2]===''?'—':String(d[2]))+'</td><td><b>'+esc(String(d[3]))+'</b></td></tr>'; }).join('')+'</table>'
-      +'<div class="bar"><button class="btn main sm" data-pfapply="1">チェックした項目を基本情報に反映する</button><span class="state" id="pfApSt"></span></div>';
+      +'<div class="bar"><button class="btn main sm" data-pfapply="1">チェックした項目を基本情報に反映する</button><button class="btn sm" data-pfskip="1">反映しない</button><span class="state" id="pfApSt"></span></div>';
+    if(!diff.length) h+='<div class="bar"><button class="btn sm" data-pfskip="1">閉じる</button></div>';
     box.innerHTML=h+'<div class="state">「詳しい情報」に入れた項目は、上の欄で確かめてから「保存する」を押してください。</div></div>';
     box.scrollIntoView({behavior:'smooth', block:'nearest'});
   }).catch(function(er){ if(st) st.textContent=er.message; });
@@ -3930,6 +3933,7 @@ function crmClick(e){
   if((a=t.getAttribute('data-pdzone'))){ pdZone(a, t); return; }
   if((a=t.getAttribute('data-pfread'))){ t.disabled=true; pfRead(a).then(function(){ t.disabled=false; }); return; }
   if(t.getAttribute('data-pfapply')){ pfApply(t); return; }
+  if(t.getAttribute('data-pfskip')){ var rb=document.getElementById('pfRead'); if(rb) rb.innerHTML=''; var ds=document.getElementById('pfDocSt'); if(ds) ds.textContent='基本情報は変えませんでした。'; if(CRM.p) api('/api/crm-property',{id:CRM.p.property.id}).then(function(r){ var keep=pdKeep(); crmPropertyRender(r, true); pdRestore(keep); }).catch(function(){}); return; }
   var dz=t.closest&&t.closest('[data-pfdrop]'); if(dz && !t.closest('select,label,input')){ document.getElementById(dz.getAttribute('data-pfdrop')+'In').click(); return; }
   if(t.getAttribute('data-pdsave')){
     var det={}, st4=document.getElementById('pdSt'); Array.prototype.forEach.call(document.querySelectorAll('#pdF [data-dk]'), function(el){ det[el.getAttribute('data-dk')]=el.value; });
