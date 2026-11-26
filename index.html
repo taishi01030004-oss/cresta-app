@@ -2261,55 +2261,7 @@ function apBoot(){
   if(!btn) return;
   var LOWER=['unit','area','pct','landUnit','landArea','bUnit','bArea','remain','weight','baseMid','compare'];
   function keepComment(){ var c=doc.querySelector('.cm'); if(c) cur.commentHtml=c.innerHTML; }
-  // 担当者のコメントの中の金額も、直した数字に合わせて書き換える（「740万円」→「800万円」など）
-  function nums(r){
-    var o={price:r.property.price};
-    if(r.detail){ var d=r.detail; o.bm=d.base.mid; o.bl=d.base.low; o.bh=d.base.high; o.cv=d.compareValue; o.mid=d.mid;
-      d.plans.forEach(function(p){ o['p_'+p.key]=p.price; }); if(d.cost){ o.lv=d.cost.landValue; o.bv=d.cost.buildingValue; o.ct=d.cost.total; } }
-    else { var a=r.appraisal; o.mid=a.mid; o.lo=a.low; o.hi=a.high; }
-    return o;
-  }
-  // コメントの中の金額に印を付ける。どの数字か分からないものには付けない
-  var KEYS=['mid','p_market','cv','bm','p_quick','p_high','bl','bh','lo','hi','ct','lv','bv','price'];
-  function manN(x){ return x==null?null:Math.round(x/1e4); }
-  // コメントの文章を1つずつ見て、金額に印を付ける（文字の並びではなく画面の部品で見るので、書き直しても印が崩れない）
-  function fmtN(n, c){ return c==='1'||n>=1000 ? n.toLocaleString('ja-JP') : String(n); }
-  function tagComment(html, base){
-    if(!html) return html;
-    var byVal={}; KEYS.forEach(function(k){ var n=manN(base[k]); if(n!=null&&byVal[n]==null) byVal[n]=k; });
-    var box=document.createElement('div'); box.innerHTML=html;
-    // 印の中を書き換えられて数字でなくなったものは、印を外す
-    Array.prototype.forEach.call(box.querySelectorAll('span.cn'), function(el){ if(!/^[\d,]+$/.test(el.textContent)) el.replaceWith(document.createTextNode(el.textContent)); });
-    box.normalize();
-    var tw=document.createTreeWalker(box, NodeFilter.SHOW_TEXT), list=[], t;
-    while((t=tw.nextNode())){ if(!(t.parentNode.closest && t.parentNode.closest('span.cn'))) list.push(t); }
-    list.forEach(function(node){
-      var txt=node.nodeValue, re=/(\d{1,3}(?:,\d{3})+|\d+)(\s*万)/g, m, last=0, frag=document.createDocumentFragment(), hit=false;
-      while((m=re.exec(txt))){
-        var k=byVal[Number(m[1].replace(/,/g,''))]; if(!k) continue;
-        hit=true; frag.appendChild(document.createTextNode(txt.slice(last, m.index)));
-        var sp=document.createElement('span'); sp.className='cn'; sp.setAttribute('data-n',k); sp.setAttribute('data-c', m[1].indexOf(',')>=0?'1':'0'); sp.textContent=m[1];
-        frag.appendChild(sp); last=m.index+m[1].length;
-      }
-      if(hit){ frag.appendChild(document.createTextNode(txt.slice(last))); node.parentNode.replaceChild(frag, node); }
-    });
-    return box.innerHTML;
-  }
-  function fillComment(html, now){
-    if(!html) return html;
-    var box=document.createElement('div'); box.innerHTML=html;
-    Array.prototype.forEach.call(box.querySelectorAll('span.cn'), function(el){
-      // コメントの「査定価格」（取引事例からの740万円など）は、今の査定価格（一番上の大きい数字）に合わせる
-      var k=el.getAttribute('data-n'); if(k==='bm' && now.mid!=null) k='mid';
-      var n=manN(now[k]); if(n!=null) el.textContent=fmtN(n, el.getAttribute('data-c'));
-    });
-    return box.innerHTML;
-  }
-  function draw(){
-    // 直す前に出ていた数字に印を付ける（毎回やるので、あとから書き直したり貼り付けたコメントの金額も追いかける）
-    keepComment(); var cm=tagComment(cur.commentHtml, nums(cur));
-    cur=RECALC(ORIG, v); cur.commentHtml=fillComment(cm, nums(cur)); doc.innerHTML=BODY(cur);
-  }
+  function draw(){ keepComment(); var cm=cur.commentHtml; cur=RECALC(ORIG, v); cur.commentHtml=cm; doc.innerHTML=BODY(cur); }
   function apply(k, x){
     var d=cur.detail;
     if(LOWER.indexOf(k)>=0) v.mid=null; // 元になる数字を直したら、査定価格は計算に戻す
@@ -2338,19 +2290,7 @@ function apBoot(){
     inp.onkeydown=function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); commit(true); } else if(ev.key==='Escape') commit(false); };
     inp.onblur=function(){ commit(true); };
   });
-  bar.onclick=function(e){ if(e.target.id==='edReset'){ v={}; draw(); } };
-  // 開いた時点で、コメントの「査定価格」を今の査定価格にそろえる
-  (function(){ var c=doc.querySelector('.cm'); if(!c) return; keepComment(); cur.commentHtml=fillComment(tagComment(cur.commentHtml, nums(cur)), nums(cur)); c.innerHTML=cur.commentHtml; })();
-  // 物件に保存：今の数字・コメントのまま、アプリの物件に残す
-  var sv=document.getElementById('svBtn'), ss=document.getElementById('svSt');
-  if(sv) sv.onclick=function(){
-    var host=null; try{ host=window.opener && window.opener.apSaveReport ? window.opener : null; }catch(_){}
-    if(!host){ ss.textContent='アプリの画面が閉じられているため保存できません。アプリから査定書を開き直してください。'; return; }
-    keepComment(); sv.disabled=true; ss.textContent='保存しています…';
-    var data=JSON.parse(JSON.stringify(cur));
-    host.apSaveReport(KIND, data).then(function(at){ ss.textContent='物件に保存しました（'+at+'）'; sv.disabled=false; })
-      .catch(function(er){ ss.textContent=(er&&er.message)||'保存できませんでした'; sv.disabled=false; });
-  };
+  bar.onclick=function(e){ if(e.target.id==='edReset'){ v={}; cur=ORIG; var cm=null; var c=doc.querySelector('.cm'); if(c) cm=c.innerHTML; cur=RECALC(ORIG, v); cur.commentHtml=cm; doc.innerHTML=BODY(cur); } };
 }
 /* 査定書の画面を作る（editable：社内の人が開いたときだけ「数字を直す」を出す） */
 function apDoc(r, kind, editable){
@@ -2365,11 +2305,11 @@ function apDoc(r, kind, editable){
       +'.big{font-size:28px;font-weight:700;color:#1f3d2e}.box{border:2px solid #1f3d2e;padding:14px;margin:14px 0;text-align:center}.small{font-size:11px;color:#444}'
       +'.cm{min-height:70px;border:1px dashed #999;padding:8px}.top{display:flex;justify-content:space-between;align-items:flex-end}@media print{.noprint{display:none!important}.cm{border:1px solid #aaa}}';
   var body=detail?apBodyDetail:apBodySimple, recalc=detail?apRecalcDetail:apRecalcSimple;
-  var js='var ORIG='+JSON.stringify(r).replace(/</g,'\\u003c')+';var KIND='+JSON.stringify(kind)+';'
+  var js='var ORIG='+JSON.stringify(r).replace(/</g,'\\u003c')+';'
     +[esc, man, apR10, apEv, apMan, apCompTable, apRentSection, apSpec, apCommentHtml, body, recalc, apBoot].map(function(f){ return f.toString(); }).join('\n')
     +'\nvar BODY='+body.name+', RECALC='+recalc.name+';apBoot();';
   return '<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>'+(detail?'詳細査定書 ':'価格査定書 ')+esc(p.title)+'</title><style>'+css+AP_CSS_ED+'</style></head><body>'
-    +'<div class="noprint" style="text-align:right">'+(editable?'<span id="svSt" style="font-size:12px;color:#1f3d2e;margin-right:6px"></span><button id="svBtn">物件に保存</button> <button id="edBtn">数字を直す</button> ':'')+'<button onclick="print()">印刷・PDFで保存</button></div>'
+    +'<div class="noprint" style="text-align:right">'+(editable?'<button id="edBtn">数字を直す</button> ':'')+'<button onclick="print()">印刷・PDFで保存</button></div>'
     +'<div id="ed" class="ed noprint" style="display:none"><b>点線で囲まれた数字を押すと、その場で直せます。</b>（Enterで決定・Escで取り消し）<br>'
     +'<span class="hint">1つ直すと、つながっている数字（査定価格・幅・売り出し3案など）がすべて計算し直されます。直した数字はこの画面だけで、そのまま「印刷・PDFで保存」できます。査定価格を直接直すと、売り出し3案だけがそれに合わせて変わります。</span>'
     +' <button id="edReset">元の数字に戻す</button></div><div id="doc">'+body(r)+'</div>'
@@ -2378,27 +2318,6 @@ function apDoc(r, kind, editable){
 function apInside(){ try{ return !!localStorage.getItem('cresta-auth') || !!localStorage.getItem('cresta-dash'); }catch(e){ return false; } }
 function appraisalHtml(r){ return apDoc(r, 'simple', apInside()); }
 function detailHtml(r){ return apDoc(r, 'detail', apInside()); }
-/* 査定書の画面から呼ばれる：物件に保存する（保存した日時を返す） */
-function apSaveReport(kind, data){
-  var pid=data && data.property && data.property.id;
-  if(!pid) return Promise.reject(new Error('物件が分からないため保存できません'));
-  return api('/api/apr-save',{propertyId:pid, kind:kind, data:data}).then(function(r){
-    if(CRM.p && CRM.p.property && CRM.p.property.id===pid && document.getElementById('aprList')) document.getElementById('aprList').innerHTML=aprListHtml(r.appraisals, CRM.p.canWrite);
-    return crmWhen(r.appraisal.createdAt);
-  });
-}
-function aprListHtml(list, w){
-  if(!list || !list.length) return '<div class="state">まだありません。台帳の物件の「査定書」ボタンから査定書を作り、査定書の画面の「物件に保存」を押すとここに残ります。</div>';
-  return list.map(function(a){
-    var d=jst(a.createdAt);
-    return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:6px 0;border-bottom:1px solid var(--line,#eee);font-size:13.5px">'
-      +'<b>'+d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()+' '+z(d.getHours())+':'+z(d.getMinutes())+'</b>'
-      +'<span class="badge">'+(a.kind==='detail'?'詳細':'簡易')+'</span>'
-      +'<span>'+(a.mid!=null?man(a.mid):'—')+'</span>'
-      +(a.createdByName?'<span class="state">'+esc(a.createdByName)+'</span>':'')
-      +'<span style="margin-left:auto"><button class="btn sm" data-apr-open="'+esc(a.id)+'">開く</button>'+(w?' <button class="btn sm" data-apr-del="'+esc(a.id)+'">消す</button>':'')+'</span></div>';
-  }).join('');
-}
 function openAppraisal(r, w){ var h=appraisalHtml(r); w.document.open(); w.document.write(h); w.document.close(); }
 
 /* ---------- 会社の設定 ---------- */
@@ -2758,7 +2677,7 @@ var LG_DEF={
   customer:{
     statuses:['すべて','新規','追客中','商談中','成約','休眠'],
     fields:[['name','氏名','text',1],['kana','フリガナ','text'],['phone','電話（AIには渡しません）','text'],['email','メール（AIには渡しません）','text'],
-      ['want','希望','select',0,['購入','売却','賃貸','投資','賃貸に出す']],['status','状況','select',0,['新規','追客中','商談中','成約','休眠']],
+      ['want','希望','select',0,['購入','売却','賃貸','投資']],['status','状況','select',0,['新規','追客中','商談中','成約','休眠']],
       ['budgetMin','予算の下限（円）','text'],['budgetMax','予算の上限','text'],['areas','希望エリア（読点区切り）','text'],['kinds','希望種別（例 マンション、戸建）','text'],
       ['note','メモ','textarea',1]],
     tpl:'氏名,フリガナ,電話,メール,希望,予算下限（万円）,予算上限（万円）,希望エリア,希望種別,状況,備考\n例）山田太郎,ヤマダタロウ,090-0000-0000,yamada@example.jp,購入,2500,3500,中区、千種区,マンション,追客中,週末に内見希望\n'
@@ -2813,13 +2732,8 @@ function lgDraw(){
         ['間取り・面積', [x.layout, x.buildingArea!=null?x.buildingArea+'㎡':'', x.landArea!=null?'土地'+x.landArea+'㎡':''].filter(Boolean).join('／')||'—'],
         ['駅', x.station?(x.station+(x.walkMin!=null?' 徒歩'+x.walkMin+'分':'')):'—'], ['築年', x.builtYear?x.builtYear+'年':'—']];
       if(x.yieldPct!=null) facts.push(['利回り', x.yieldPct+'%']);
-      facts.push(['媒介契約', x.mediation&&x.mediation.kind ? x.mediation.kind.replace('媒介','')+(x.mediation.end?'（〜'+x.mediation.end.replace(/-/g,'/')+(function(d){ return d==null?'':d<0?'・満了済み':d<=14?'・あと'+d+'日':''; })(medDays(x.mediation.end))+'）':'') : '—']);
     } else {
-      var xi=x.info||{}, ap=xi.askPrice&&/^[0-9,]+$/.test(xi.askPrice)?lgMan(Number(xi.askPrice.replace(/,/g,''))):(xi.askPrice||'');
-      if(cfIsSeller(x.want)) facts=[['売りたい・貸したい物件', [(xi.pCity||'')+(xi.pAddress||''), xi.pKind, xi.pLayout].filter(Boolean).join('・')||'—'], [x.want==='賃貸に出す'?'希望賃料':'希望価格', ap||'—'], ['媒介契約', xi.mediation||'—'],
-        ['連絡先', [x.phone, x.email].filter(Boolean).join('／')||'—'], ['最終連絡', x.lastContactAt?x.lastContactAt.slice(0,10):'—'],
-        ['次に連絡', x.nextContactAt?fmtAt(x.nextContactAt):'—']];
-      else facts=[['予算', (x.budgetMin!=null||x.budgetMax!=null)?lgMan(x.budgetMin)+'〜'+lgMan(x.budgetMax):'—'], ['希望エリア', x.areas||'—'], ['種別', x.kinds||'—'],
+      facts=[['予算', (x.budgetMin!=null||x.budgetMax!=null)?lgMan(x.budgetMin)+'〜'+lgMan(x.budgetMax):'—'], ['希望エリア', x.areas||'—'], ['種別', x.kinds||'—'],
         ['連絡先', [x.phone, x.email].filter(Boolean).join('／')||'—'], ['最終連絡', x.lastContactAt?x.lastContactAt.slice(0,10):'—'],
         ['次に連絡', x.nextContactAt?fmtAt(x.nextContactAt):'—']];
       if(x.source) facts.push(['反響元', x.source]);
@@ -2833,122 +2747,7 @@ function lgDraw(){
       +(w?'<button class="btn sm" data-edit="'+esc(x.id)+'">編集</button>':'')+'</div><div id="lm-'+esc(x.id)+'" style="width:100%"></div></div>';
   }).join('');
 }
-/* ---------- 顧客の登録・編集（最初に「買主」か「売主」を選び、それぞれに必要な項目を入れる） ---------- */
-var CF_SELL_WANTS=['売却','賃貸に出す'], CF_BUY_WANTS=['購入','賃貸','投資'];
-var CF_KINDS=['戸建','マンション','土地','アパート・一棟','事業用','その他'];
-function cfIsSeller(w){ return CF_SELL_WANTS.indexOf(w)>=0; }
-function cfIn(k, label, val, opt){ opt=opt||{};
-  var cls=opt.wide?'wide':'';
-  if(opt.sel) return '<label class="'+cls+'">'+esc(label)+'<select data-'+(opt.info?'ci':'f')+'="'+k+'">'+opt.sel.map(function(o){ return '<option'+(o===val?' selected':'')+(o===''?' value=""':'')+'>'+esc(o===''?'（選ばない）':o)+'</option>'; }).join('')+'</select></label>';
-  if(opt.area) return '<label class="'+cls+'">'+esc(label)+'<textarea data-f="'+k+'" rows="2">'+esc(val||'')+'</textarea></label>';
-  var yen=opt.yen; var vv=val==null?'':String(val); if(yen && /^[0-9]+$/.test(vv)) vv=yenFmt(vv);
-  return '<label class="'+cls+'">'+esc(label)+'<input '+(yen?'class="yen" inputmode="numeric" ':'')+'data-'+(opt.info?'ci':'f')+'="'+k+'" value="'+esc(vv)+'"'+(opt.ph?' placeholder="'+esc(opt.ph)+'"':'')+'></label>';
-}
-function lgCustomerForm(item){
-  var v=item||{}, isNew=!(item&&item.id), info=v.info||{};
-  var side = v.want ? (cfIsSeller(v.want)?'sell':'buy') : null;
-  var box=document.getElementById('lgForm');
-  function draw(){
-    var h='<div class="card" style="margin-bottom:12px"><div class="row"><span class="what"><b>'+(isNew?'お客様を登録':'お客様の情報を直す')+'</b><span>最初に、買いたい（借りたい）方か、売りたい（貸したい）方かを選んでください。選んだ方に合わせて入れる項目が変わります。</span></span></div>'
-      +'<div class="chips" style="padding:0 15px 10px;gap:8px">'
-      +'<button type="button" class="btn'+(side==='buy'?' main':'')+'" data-cfside="buy">買主（買いたい・借りたい）</button>'
-      +'<button type="button" class="btn'+(side==='sell'?' main':'')+'" data-cfside="sell">売主（売りたい・貸したい）</button></div>';
-    if(!side){ h+='<div class="bar" style="padding:0 15px 12px"><button class="btn" id="lgCancel">やめる</button></div></div>'; box.innerHTML=h; return; }
-    var seller=side==='sell', want=v.want && (seller?cfIsSeller(v.want):!cfIsSeller(v.want)) ? v.want : (seller?'売却':'購入');
-    h+='<div class="row"><span class="what"><b>お客様のこと</b></span></div><div class="lform">'
-      +cfIn('name','氏名',v.name)+cfIn('kana','フリガナ',v.kana)
-      +cfIn('phone','電話（AIには渡しません）',v.phone)+cfIn('email','メール（AIには渡しません）',v.email)
-      +cfIn('address','住所（AIには渡しません）',info.address,{info:1,wide:1,ph:'例 名古屋市中区栄1-1-1'})
-      +cfIn('want',seller?'ご依頼の内容':'ご希望',want,{sel:seller?CF_SELL_WANTS:CF_BUY_WANTS})
-      +cfIn('status','状況',v.status||'新規',{sel:['新規','追客中','商談中','成約','休眠']})+'</div>';
-    h+=cfCoHtml(v.coOwners||[]);
-    if(seller){
-      h+='<div class="row"><span class="what"><b>売りたい・貸したい物件</b><span>分かるところだけでOKです。この欄はAIには渡しません。</span></span></div><div class="lform">'
-        +cfIn('pKind','種別',info.pKind||'',{sel:[''].concat(CF_KINDS),info:1})
-        +cfIn('pCity','市区町村',info.pCity,{info:1,ph:'例 名古屋市中区'})+cfIn('pAddress','所在地（続き）',info.pAddress,{info:1,ph:'例 大須3丁目'})
-        +cfIn('pLand','土地面積（㎡）',info.pLand,{info:1})+cfIn('pBuilding','建物・専有面積（㎡）',info.pBuilding,{info:1})
-        +cfIn('pBuilt','築年',info.pBuilt,{info:1,ph:'例 2008・平成20年'})+cfIn('pLayout','間取り',info.pLayout,{info:1})
-        +cfIn('askPrice','希望価格（貸す場合は希望賃料／月）',info.askPrice,{info:1,yen:1,ph:'例 39,800,000'})
-        +cfIn('timing','いつまでに（時期）',info.timing,{info:1,ph:'例 来年3月までに'})
-        +cfIn('reason','理由',info.reason,{info:1,ph:'例 住み替え・相続'})
-        +cfIn('occupancy','今の状態',info.occupancy||'',{sel:['','住んでいる','空き家','賃貸中','その他'],info:1})
-        +cfIn('loanLeft','ローンの残り',info.loanLeft,{info:1,ph:'例 約1,200万円・なし'})
-        +cfIn('mediation','媒介契約',info.mediation||'',{sel:['','まだ','一般媒介','専任媒介','専属専任媒介'],info:1})+'</div>';
-      if(isNew) h+='<label style="display:flex;gap:8px;align-items:center;padding:0 15px 10px;font-size:13.5px"><input type="checkbox" id="cfProp" style="width:auto">この物件を物件台帳にも登録して、このお客様を'+(want==='賃貸に出す'?'貸主':'売主')+'としてつなぐ</label>';
-    } else {
-      h+='<div class="row"><span class="what"><b>探している物件</b></span></div><div class="lform">'
-        +cfIn('budgetMin','予算の下限（円）',v.budgetMin,{yen:1,ph:'例 30,000,000'})+cfIn('budgetMax','予算の上限（円）',v.budgetMax,{yen:1,ph:'借りる場合は月額'})
-        +cfIn('areas','希望エリア（読点区切り）',v.areas,{ph:'例 中区、千種区'})+cfIn('kinds','希望種別',v.kinds,{ph:'例 マンション、戸建'})
-        +cfIn('layout','希望の間取り',info.layout,{info:1,ph:'例 3LDK以上'})+cfIn('size','希望の広さ',info.size,{info:1,ph:'例 70㎡以上'})
-        +cfIn('timing','いつまでに（時期）',info.timing,{info:1,ph:'例 来年4月の入学まで'})
-        +cfIn('funds','自己資金',info.funds,{info:1,ph:'例 500万円'})
-        +cfIn('loan','ローンの状況',info.loan||'',{sel:['','まだ','事前審査中','事前審査OK','現金で買う','借りる（ローンなし）'],info:1})
-        +cfIn('current','今の住まい',info.current||'',{sel:['','持ち家','賃貸','社宅','実家','その他'],info:1})
-        +cfIn('reason','理由',info.reason,{info:1,ph:'例 子どもの進学・転勤'})+'</div>';
-    }
-    h+='<div class="lform">'+cfIn('note','メモ',v.note,{area:1,wide:1})+'</div>';
-    h+='<div class="bar" style="padding:0 15px 12px"><button class="btn main" id="lgSave">保存する</button><button class="btn" id="lgCancel">やめる</button><span class="state" id="lgSt"></span></div></div>';
-    box.innerHTML=h;
-    var ws=box.querySelector('[data-f="want"]'); if(ws) ws.onchange=function(){ v=cfCollect(v); v.want=ws.value; info=v.info; draw(); };
-    document.getElementById('lgSave').onclick=save;
-  }
-  function save(){
-    var o=cfCollect(v), st=document.getElementById('lgSt'), btn=document.getElementById('lgSave');
-    if(cfIsSeller(o.want)){ o.budgetMin=''; o.budgetMax=''; o.areas=''; o.kinds=''; }
-    var mk=document.getElementById('cfProp'), mkProp=mk&&mk.checked;
-    st.textContent='保存しています…'; btn.disabled=true;
-    api('/api/ledger-save',{kind:'customer', id:isNew?null:item.id, item:o}).then(function(r){
-      if(!mkProp) return r;
-      var i=o.info||{}, rent=o.want==='賃貸に出す';
-      var title=((i.pCity||'')+(i.pAddress||'')+(i.pKind?' '+i.pKind:'')).trim() || (o.name+'様の物件');
-      var p={title:title, deal:rent?'賃貸':'売買', kind:i.pKind||'その他', status:'募集中', city:i.pCity||'', address:i.pAddress||'', layout:i.pLayout||'', landArea:i.pLand||'', buildingArea:i.pBuilding||'', builtYear:i.pBuilt||'', source:'自社'};
-      if(rent) p.rent=i.askPrice||''; else p.price=i.askPrice||'';
-      return api('/api/ledger-save',{kind:'property', item:p}).then(function(pr){
-        return api('/api/pc-link',{propertyId:pr.item.id, customerId:r.item.id}).then(function(){ return r; });
-      });
-    }).then(function(){ box.innerHTML=''; CRM.lists=null; lgLoad(); })
-      .catch(function(e){ st.textContent=e.message; btn.disabled=false; });
-  }
-  box.onclick=function(e){
-    var t=e.target, sd=t.getAttribute&&t.getAttribute('data-cfside');
-    if(t.getAttribute&&t.getAttribute('data-coadd')){ v=cfCollect(v); if((v.coOwners||[]).length>=5) return; v.coOwners=(v.coOwners||[]).concat([{name:'',phone:'',email:'',address:''}]); info=v.info; draw(); return; }
-    var rm=t.getAttribute&&t.getAttribute('data-codel'); if(rm!=null){ v=cfCollect(v); v.coOwners.splice(Number(rm),1); info=v.info; draw(); return; }
-    if(sd){ if(side) v=cfCollect(v); side=sd; draw(); return; }
-    if(t.id==='lgCancel'){ box.innerHTML=''; box.onclick=null; }
-  };
-  draw(); box.scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-/* 共有名義の方（最大5人）：お名前・電話・メール・住所 */
-function cfCoHtml(list){
-  var h='<div class="row"><span class="what"><b>共有名義の方（いれば）</b><span>ご夫婦・ご兄弟などの共有名義や連名のときに入れてください（最大5人）。AIには渡しません。</span></span></div>';
-  list.forEach(function(c,i){
-    h+='<div class="lform" data-corow="'+i+'" style="border-left:3px solid var(--gold,#c9a54a);margin:0 15px 8px;padding:6px 10px">'
-      +'<label>共有名義の方 '+(i+1)+'：お名前<input data-co="'+i+':name" value="'+esc(c.name||'')+'"></label>'
-      +'<label>電話<input data-co="'+i+':phone" value="'+esc(c.phone||'')+'" placeholder="例 090-0000-0000"></label>'
-      +'<label>メール<input data-co="'+i+':email" value="'+esc(c.email||'')+'" placeholder="例 name@example.jp"></label>'
-      +'<label class="wide">住所<input data-co="'+i+':address" value="'+esc(c.address||'')+'" placeholder="例 名古屋市中区栄1-1-1"></label>'
-      +'<div><button type="button" class="btn sm" data-codel="'+i+'">この方を外す</button></div></div>';
-  });
-  h+='<div style="padding:0 15px 10px">'+(list.length<5?'<button type="button" class="btn sm" data-coadd="1">＋ 共有名義の方を追加</button>':'<span class="state">5人まで入れられます。</span>')+'</div>';
-  return h;
-}
-/* 画面に入っている値を集める（切り替えても入れた内容を消さない） */
-function cfCollect(base){
-  var box=document.getElementById('lgForm'), o={}, info={};
-  Object.keys(base||{}).forEach(function(k){ o[k]=base[k]; });
-  box.querySelectorAll('[data-f]').forEach(function(el){ o[el.getAttribute('data-f')]=el.value; });
-  box.querySelectorAll('[data-ci]').forEach(function(el){ if(el.value) info[el.getAttribute('data-ci')]=el.value; });
-  var keep=(base&&base.info)||{}; Object.keys(keep).forEach(function(k){ if(!(k in info) && !box.querySelector('[data-ci="'+k+'"]')) info[k]=keep[k]; });
-  o.info=info;
-  if(box.querySelector('[data-corow]') || base.coOwners){
-    var co=[]; box.querySelectorAll('[data-co]').forEach(function(el){ var a=el.getAttribute('data-co').split(':'), i=Number(a[0]); co[i]=co[i]||{}; co[i][a[1]]=el.value; });
-    o.coOwners = box.querySelector('[data-corow]') ? co.filter(Boolean) : (base.coOwners||[]);
-  }
-  return o;
-}
 function lgForm(item, extra){
-  if(LG.kind==='customer' && !(extra&&extra.file)) return lgCustomerForm(item);
-  document.getElementById('lgForm').onclick=null;
   var d=LG_DEF[LG.kind], v=item||{}, isNew=!(item&&item.id);
   extra=extra||{};
   var h='<div class="card" style="margin-bottom:12px">';
@@ -2995,37 +2794,6 @@ function lgForm(item, extra){
         .catch(function(e){ st.textContent='物件は保存しました。ただし：'+e.message; btn.disabled=false; isNew=false; item={id:pid}; });
     }).catch(function(e){ st.textContent=e.message; btn.disabled=false; });
   };
-}
-/* 「詳しい情報」の欄に値を入れる（空の欄だけ。入っている欄はそのまま）。入れた欄は色を付けて分かるように */
-function pdFill(vals){
-  var put=[], kept=[];
-  Object.keys(vals).forEach(function(k){
-    var v=vals[k]; if(v==null||v==='') return;
-    var el=document.querySelector('#pdF [data-dk="'+k+'"]'); if(!el) return;
-    if(el.value.trim() && el.value.trim()!==String(v)){ kept.push(k); el.title='調べた値：'+v; return; }
-    if(el.value.trim()===String(v)) return;
-    el.value=v; el.style.outline='2px solid var(--gold,#c9a54a)'; put.push(k);
-  });
-  var lab=function(k){ var d=CRM_DETAIL.filter(function(x){ return x[0]===k; })[0]; return d?d[1]:k; };
-  return (put.length?put.length+'項目を入れました（金色の枠）':'新しく入れた項目はありません')+(kept.length?'。すでに入っていた '+kept.map(lab).join('・')+' はそのままにしました（欄にマウスを当てると調べた値が見えます）':'');
-}
-function pdZone(pid, btn){
-  var st=document.getElementById('pdAuto'); btn.disabled=true; st.textContent='住所から調べています…';
-  api('/api/crm-zoning',{propertyId:pid}).then(function(r){
-    var x=r.result; btn.disabled=false;
-    if(!x.zoning){ st.textContent=(x.note||'用途地域が見つかりませんでした')+'（調べた場所：'+x.matched+'）'; return; }
-    st.textContent=pdFill({zoning:x.zoning, coverage:x.coverage, far:x.far})+'。調べた場所：'+x.matched+'。'+(x.note||'')+'　出典：'+r.source;
-  }).catch(function(er){ btn.disabled=false; st.textContent=er.message; });
-}
-function pdDoc(file){
-  var st=document.getElementById('pdAuto');
-  if(file.size>6*1024*1024 && file.type==='application/pdf'){ st.textContent='PDFは6MBまでにしてください。'; return; }
-  st.textContent='「'+file.name+'」をAIが読み取っています…（30秒〜1分ほど）';
-  crmShrink(file).then(function(g){
-    return new Promise(function(ok,ng){ var fr=new FileReader(); fr.onload=function(){ ok({g:g, data:String(fr.result)}); }; fr.onerror=function(){ ng(new Error('ファイルを読めませんでした')); }; fr.readAsDataURL(g); });
-  }).then(function(x){ return api('/api/crm-doc-read',{name:file.name, mime:x.g.type, data:x.data}); })
-    .then(function(r){ st.textContent='資料から：'+pdFill(r.details||{})+'。書いていなかった項目は空のままです。'; })
-    .catch(function(er){ st.textContent=er.message; });
 }
 /* 資料（販売図面のPDF・写真）を読み取って、登録の画面に入れる */
 function lgFromDoc(file){
@@ -3247,23 +3015,10 @@ function crmCustomer(id){
     h+='<div class="card crm-sec"><h4>履歴（'+tl.length+'件）</h4>'+(tl.length?'<ul class="tl">'+tl.slice(0,150).map(function(x){ return '<li><small>'+esc(crmWhen(x.at))+'　'+esc(x.head)+'</small>'+esc(x.body||'')+'</li>'; }).join('')+'</ul>':'<div class="state">まだ記録がありません。</div>')+'</div>';
     h+='</div><div>';
     var facts=[['状態',c.status],['予算',(c.budgetMin!=null||c.budgetMax!=null)?lgMan(c.budgetMin)+'〜'+lgMan(c.budgetMax):'—'],['希望エリア',c.areas||'—'],['種別',c.kinds||'—'],['反響元',c.source||'—'],['最終連絡',c.lastContactAt?fmtAt(c.lastContactAt):'—'],['次に連絡',c.nextContactAt?fmtAt(c.nextContactAt):'—']];
-    var inf=c.info||{}, sellerC=cfIsSeller(c.want);
-    if(sellerC) facts=[['状態',c.status],['反響元',c.source||'—'],['最終連絡',c.lastContactAt?fmtAt(c.lastContactAt):'—'],['次に連絡',c.nextContactAt?fmtAt(c.nextContactAt):'—']];
-    var IL=sellerC
-      ? [['pKind','種別'],['pCity','市区町村'],['pAddress','所在地'],['pLand','土地面積（㎡）'],['pBuilding','建物・専有面積（㎡）'],['pBuilt','築年'],['pLayout','間取り'],['askPrice',c.want==='賃貸に出す'?'希望賃料':'希望価格'],['timing','時期'],['reason','理由'],['occupancy','今の状態'],['loanLeft','ローンの残り'],['mediation','媒介契約']]
-      : [['layout','希望の間取り'],['size','希望の広さ'],['timing','時期'],['funds','自己資金'],['loan','ローンの状況'],['current','今の住まい'],['reason','理由']];
-    var ifacts=IL.filter(function(x){ return inf[x[0]]; }).map(function(x){ var val=inf[x[0]]; if(x[0]==='askPrice' && /^[0-9,]+$/.test(val)) val=lgMan(Number(val.replace(/,/g,'')))+(c.want==='賃貸に出す'?'/月':''); return [x[1], val]; });
-    h+='<div class="card crm-sec"><h4>お客様の情報（'+(sellerC?'売主':'買主')+'）</h4><div class="facts">'+facts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>'
-      +(ifacts.length?'<div style="margin-top:8px;font-size:12.5px;color:var(--gold,#c9a54a)">'+(sellerC?'売りたい・貸したい物件':'探している物件の条件')+'</div><div class="facts">'+ifacts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>':'')
-      +'<div class="facts"><div><small>電話</small>'+(c.phone?'<a class="lk" href="tel:'+esc(c.phone.replace(/[^0-9+]/g,''))+'">'+esc(c.phone)+'</a>':'—')+'</div><div><small>メール</small>'+(c.email?'<a class="lk" href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'—')+'</div>'+(inf.address?'<div><small>住所</small>'+esc(inf.address)+'</div>':'')+'</div>'
-      +((c.coOwners||[]).length?'<div style="margin-top:8px;font-size:12.5px;color:var(--gold,#c9a54a)">共有名義の方（'+c.coOwners.length+'人）</div>'+c.coOwners.map(function(o){
-        return '<div style="padding:4px 0;font-size:13.5px;border-bottom:1px solid var(--line,#eee)"><b>'+esc(o.name)+'様</b>'
-          +(o.phone?' <a class="lk" href="tel:'+esc(o.phone.replace(/[^0-9+]/g,''))+'">'+esc(o.phone)+'</a>':'')
-          +(o.email?' <a class="lk" href="mailto:'+esc(o.email)+'">'+esc(o.email)+'</a>':'')
-          +(o.address?'<div class="state">'+esc(o.address)+'</div>':'')+'</div>'; }).join(''):'')
+    h+='<div class="card crm-sec"><h4>お客様の情報</h4><div class="facts">'+facts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>'
+      +'<div class="facts"><div><small>電話</small>'+(c.phone?'<a class="lk" href="tel:'+esc(c.phone.replace(/[^0-9+]/g,''))+'">'+esc(c.phone)+'</a>':'—')+'</div><div><small>メール</small>'+(c.email?'<a class="lk" href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'—')+'</div></div>'
       +(c.note?'<div class="state" style="white-space:pre-wrap;margin-top:8px">'+esc(c.note)+'</div>':'')+'</div>';
     h+='<div id="cMsgBox"></div>';
-    h+=pcCustomerCard(r, w);
     h+=crmDealCard(r.deals||[], w, {customerId:c.id}, 'customer');
     var DST={pending:'承認待ち', approved:'送信中', executed:'送信済み', rejected:'却下', expired:'期限切れ', failed:'送れなかった'};
     var dr=r.drafts||[];
@@ -3281,130 +3036,8 @@ function crmCustomer(id){
       +'<label style="flex-direction:row;display:flex;gap:6px;align-items:center"><input type="checkbox" id="cvCal" checked style="width:auto"> Googleカレンダーにも入れる</label></div>'
       +'<div class="bar"><button class="btn main sm" data-cvsave="1">登録する</button><span class="state" id="cvSt"></span></div></details>';
     h+='</div></div></div>';
-    h+=delCard('customer', c.id, w);
     crmBox().innerHTML=h; window.scrollTo(0,0);
   }).catch(function(e){ crmBox().innerHTML=crmErr(e); });
-}
-
-/* ---------- 媒介契約（種類・期間・レインズ）。満了日はカレンダーにも入れる ---------- */
-function medDays(end){ if(!end) return null; var j=jst(), t=Date.UTC(j.getFullYear(), j.getMonth(), j.getDate()); var e=Date.parse(end+'T00:00:00Z'); return Math.round((e-t)/86400000); }
-function medLeft(end){
-  var d=medDays(end); if(d==null) return '';
-  var c=d<0?'var(--bad)':d<=14?'var(--gold)':'inherit';
-  return '<span style="color:'+c+';white-space:nowrap">'+(d<0?'（'+(-d)+'日前に満了）':d===0?'（今日が満了日）':'（あと'+d+'日）')+'</span>';
-}
-function medMD(s){ return s?Number(s.slice(5,7))+'/'+Number(s.slice(8,10)):''; }
-function medCard(m, p, w){
-  var h='<div class="card crm-sec"><h4>媒介契約</h4><div id="medBox">';
-  if(m.kind){
-    var ex=m.kind!=='一般媒介';
-    h+='<div class="facts">'
-      +'<div><small>種類</small>'+esc(m.kind)+'</div>'
-      +'<div><small>契約日</small>'+esc(m.start||'—')+'</div>'
-      +'<div><small>満了日（更新の時期）</small>'+esc(m.end||'—')+' '+medLeft(m.end)+'</div>'
-      +'<div><small>レインズ</small>'+(m.reinsNo?esc(m.reinsNo)+(m.reinsDate?'（'+esc(m.reinsDate)+' 登録）':''):(ex?'<span style="color:var(--gold)">まだ登録していません</span>':'—'))+'</div></div>'
-      +(ex?'<div class="state" style="margin-top:6px">'+(m.kind==='専任媒介'?'レインズへの登録は契約から7営業日以内、売主さんへの報告は2週間に1回以上が必要です。':'レインズへの登録は契約から5営業日以内、売主さんへの報告は1週間に1回以上が必要です。')+'更新は売主さんからの申し出（書面）が必要で、期間は3か月までです。</div>':'')
-      +(m.note?'<div class="state" style="white-space:pre-wrap;margin-top:6px">'+esc(m.note)+'</div>':'')
-      +'<div class="state" style="margin-top:6px">'+(m.calApproval?'📅 満了日はGoogleカレンダーに入れてあります。':'📅 満了日はまだカレンダーに入っていません（Googleカレンダーをつなぐと入ります）。')+'</div>';
-  } else {
-    h+='<div class="state">まだ入っていません。'+(w?'媒介契約を結んだら、種類と契約日を入れてください。満了日（更新の時期）をGoogleカレンダーに入れます。':'')+'</div>';
-  }
-  h+='</div>'+(w?'<div class="bar"><button class="btn sm'+(m.kind?'':' main')+'" data-med-edit="'+esc(p.id)+'">'+(m.kind?'直す・更新する':'媒介契約を入れる')+'</button></div><div id="medForm"></div>':'');
-  CRM.med=m; return h+'</div>';
-}
-function medForm(pid){
-  var box=document.getElementById('medForm'), m=CRM.med||{};
-  if(box.innerHTML){ box.innerHTML=''; return; }
-  box.innerHTML='<div class="lform" style="padding:8px 0 0">'
-    +'<label>種類<select data-md="kind"><option value="">（媒介契約なし）</option>'+['一般媒介','専任媒介','専属専任媒介'].map(function(k){ return '<option'+(m.kind===k?' selected':'')+'>'+k+'</option>'; }).join('')+'</select></label>'
-    +'<label>契約日<input type="date" data-md="start" value="'+esc(m.start||'')+'"></label>'
-    +'<label>満了日（専任・専属専任は空なら3か月で自動）<input type="date" data-md="end" value="'+esc(m.end||'')+'"></label>'
-    +'<label>レインズ登録番号<input data-md="reinsNo" value="'+esc(m.reinsNo||'')+'"></label>'
-    +'<label>レインズ登録日<input type="date" data-md="reinsDate" value="'+esc(m.reinsDate||'')+'"></label>'
-    +'<label class="wide">メモ<textarea data-md="note" rows="2">'+esc(m.note||'')+'</textarea></label></div>'
-    +(m.kind?'<div class="state">更新したときは、新しい契約日と満了日に直して保存してください（カレンダーの予定も合わせて変わります）。</div>':'')
-    +'<div class="bar"><button class="btn main sm" data-med-save="'+esc(pid)+'">保存する</button><span class="state" id="medSt"></span></div>';
-}
-function medSave(pid, btn){
-  var box=document.getElementById('medForm'), v={}, st=document.getElementById('medSt');
-  box.querySelectorAll('[data-md]').forEach(function(el){ v[el.getAttribute('data-md')]=el.value; });
-  btn.disabled=true; st.textContent='保存しています…';
-  api('/api/crm-mediation',{propertyId:pid, mediation:v}).then(function(r){
-    var msg=(r.calendar||[]).map(function(c){ return {added:'満了日をカレンダーに入れました',changed:'カレンダーの予定を変えました',deleted:'カレンダーから消しました',pending:'カレンダーは承認待ちです（コード '+(c.code||'')+'）',not_connected:'Googleカレンダーがつながっていないため、カレンダーには入れていません',error:'カレンダーに入れられませんでした（'+(c.error||'')+'）'}[c.result]||''; }).join('');
-    st.textContent='保存しました。'+msg; CRM.lists=null;
-    setTimeout(function(){ crmProperty(pid); }, 1500);
-  }).catch(function(er){ st.textContent=er.message; btn.disabled=false; });
-}
-
-/* ---------- 預かり物件と顧客（売主さん・貸主さん）のつながり ---------- */
-function pcRole(p){ return p.deal==='賃貸'?'貸主':'売主'; }
-function pcPropertyCard(r, p, w){
-  var role=pcRole(p), list=r.clients||[];
-  var h='<div class="card crm-sec"><h4>'+role+'さん（顧客台帳とつながり・'+list.length+'人）</h4><div id="pcList">';
-  h+= list.length ? list.map(function(c){
-    return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:6px 0;border-bottom:1px solid var(--line,#eee);font-size:13.5px">'
-      +'<span class="badge">'+esc(c.role)+'</span><a href="#" class="lk" data-pc-c="'+esc(c.customerId)+'"><b style="white-space:nowrap">'+esc(c.name)+'様</b></a><span class="badge">'+esc(c.status)+'</span>'
-      +(c.phone?'<span class="state" style="white-space:nowrap">'+esc(c.phone)+'</span>':'')
-      +(w?'<span style="margin-left:auto"><button class="btn sm" data-pc-un="'+esc(c.linkId)+'">外す</button></span>':'')+'</div>';
-  }).join('') : '<div class="state">まだつながっていません。'+(w?'下から顧客台帳のお客様を選ぶか、新しく登録してつないでください。':'')+'</div>';
-  h+='</div>';
-  if(w){
-    var o=r.owner||{};
-    h+='<div class="inl" style="padding:10px 0 0;gap:6px;flex-wrap:wrap"><input id="pcQ" placeholder="お名前・電話で顧客台帳を探す" style="flex:1;min-width:180px"><button class="btn sm" data-pc-find="1">探す</button></div><div id="pcRes"></div>'
-      +'<details style="margin-top:8px"><summary class="state" style="cursor:pointer">顧客台帳にいない'+role+'さんを登録してつなぐ</summary>'
-      +'<div class="lform" style="padding:6px 0 0"><label>お名前<input id="pcN" value="'+esc(o.name||'')+'"></label><label>電話<input id="pcP" value="'+esc(o.phone||'')+'"></label><label>メール<input id="pcE" value="'+esc(o.email||'')+'"></label></div>'
-      +'<div class="bar"><button class="btn main sm" data-pc-new="1">登録してつなぐ</button><span class="state">顧客台帳に「'+(role==='貸主'?'賃貸に出す':'売却')+'」のお客様として入ります。</span></div></details>'
-      +'<div class="state" id="pcSt"></div>';
-  }
-  return h+'</div>';
-}
-function pcCustomerCard(r, w){
-  var list=r.holdings||[];
-  var h='<div class="card crm-sec"><h4>預かっている物件（'+list.length+'件）</h4>';
-  h+= list.length ? list.map(function(x){
-    var pr = x.deal==='賃貸' ? (x.rent!=null?lgMan(x.rent)+'/月':'') : (x.price!=null?lgMan(x.price):'');
-    return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:6px 0;border-bottom:1px solid var(--line,#eee);font-size:13.5px">'
-      +'<span class="badge">'+esc(x.role)+'</span><a href="#" class="lk" data-pc-p="'+esc(x.propertyId)+'"><b>'+esc(x.title)+'</b></a><span class="badge">'+esc(x.status)+'</span>'+(pr?'<span class="state">'+esc(pr)+'</span>':'')
-      +(w?'<span style="margin-left:auto"><button class="btn sm" data-pc-un="'+esc(x.linkId)+'">外す</button></span>':'')+'</div>';
-  }).join('') : '<div class="state">売却・賃貸を預かっている物件はまだありません。</div>';
-  if(w){
-    var have={}; list.forEach(function(x){ have[x.propertyId]=1; });
-    var opts=(r.properties||[]).filter(function(p){ return !have[p.id]; });
-    if(opts.length) h+='<div class="inl" style="padding:10px 0 0;gap:6px"><select id="pcProp" style="flex:1"><option value="">物件を選ぶ</option>'+opts.map(function(p){ return '<option value="'+esc(p.id)+'">'+esc(p.title)+'（'+esc((p.deal==='賃貸'?'貸主':'売主')+'・'+p.status)+'）</option>'; }).join('')+'</select><button class="btn sm main" data-pc-add="1">つなぐ</button></div><div class="state" id="pcSt"></div>';
-  }
-  return h+'</div>';
-}
-function pcReload(){ if(CRM.p && document.getElementById('pcList')) crmProperty(CRM.p.property.id); else if(CRM.c) crmCustomer(CRM.c.customer.id); }
-function pcClick(t){
-  var a, st=document.getElementById('pcSt'), lk=t.closest?t.closest('[data-pc-c],[data-pc-p]'):null; if(lk) t=lk;
-  if((a=t.getAttribute('data-pc-c'))){ var pid=CRM.p.property.id; CRM.back=function(){ crmProperty(pid); }; crmCustomer(a); return true; }
-  if((a=t.getAttribute('data-pc-p'))){ var cid=CRM.c.customer.id; CRM.back=function(){ crmCustomer(cid); }; crmProperty(a); return true; }
-  if((a=t.getAttribute('data-pc-un'))){
-    if(t.getAttribute('data-sure')!=='1'){ t.setAttribute('data-sure','1'); t.textContent='本当に外す'; setTimeout(function(){ if(t.isConnected){ t.removeAttribute('data-sure'); t.textContent='外す'; } }, 6000); return true; }
-    t.disabled=true; api('/api/pc-unlink',{id:a}).then(pcReload).catch(function(er){ t.textContent=er.message; }); return true;
-  }
-  if(t.getAttribute('data-pc-find')){
-    var q=document.getElementById('pcQ').value.trim(), box=document.getElementById('pcRes'); if(!q){ box.innerHTML='<div class="state">お名前か電話番号を入れてください。</div>'; return true; }
-    box.innerHTML='<div class="state">探しています…</div>';
-    api('/api/ledger',{kind:'customer', q:q}).then(function(r){
-      var have={}; (CRM.p.clients||[]).forEach(function(c){ have[c.customerId]=1; });
-      var items=(r.items||[]).filter(function(c){ return !have[c.id]; }).slice(0,20);
-      box.innerHTML = items.length ? items.map(function(c){ return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:4px 0;font-size:13.5px"><b style="white-space:nowrap">'+esc(c.name)+'様</b><span class="badge">'+esc(c.want)+'</span><span class="state">'+esc(c.phone||'')+'</span><button class="btn sm main" style="margin-left:auto" data-pc-pick="'+esc(c.id)+'">つなぐ</button></div>'; }).join('')
-        : '<div class="state">見つかりませんでした。下の「登録してつなぐ」から入れられます。</div>';
-    }).catch(function(er){ box.innerHTML='<div class="ng">'+esc(er.message)+'</div>'; });
-    return true;
-  }
-  if((a=t.getAttribute('data-pc-pick'))){ t.disabled=true; api('/api/pc-link',{propertyId:CRM.p.property.id, customerId:a}).then(pcReload).catch(function(er){ t.disabled=false; if(st) st.textContent=er.message; }); return true; }
-  if(t.getAttribute('data-pc-new')){
-    var nc={name:document.getElementById('pcN').value, phone:document.getElementById('pcP').value, email:document.getElementById('pcE').value};
-    t.disabled=true; if(st) st.textContent='登録しています…';
-    api('/api/pc-link',{propertyId:CRM.p.property.id, newCustomer:nc}).then(function(){ CRM.lists=null; pcReload(); }).catch(function(er){ t.disabled=false; if(st) st.textContent=er.message; }); return true;
-  }
-  if(t.getAttribute('data-pc-add')){
-    var pv=document.getElementById('pcProp').value; if(!pv){ if(st) st.textContent='物件を選んでください。'; return true; }
-    t.disabled=true; api('/api/pc-link',{propertyId:pv, customerId:CRM.c.customer.id}).then(pcReload).catch(function(er){ t.disabled=false; if(st) st.textContent=er.message; }); return true;
-  }
-  return false;
 }
 
 /* 物件の詳しい画面 */
@@ -3425,63 +3058,22 @@ function crmProperty(id){
       +'<label class="btn main" style="cursor:pointer">写真・PDFを入れる<input type="file" id="pfFile" data-upload="1" accept="image/jpeg,image/png,image/webp,application/pdf" multiple style="display:none"></label><span class="state" id="pfSt"></span></div>'
       +'<div class="state">1ファイル10MBまで。大きな写真は自動で小さくしてから入れます。写真は会社の中だけで見られます（外には公開されません）。</div>':'<div class="state">写真の保存場所がまだ用意されていません。</div>');
     h+='</div>';
-    h+='<div class="card crm-sec"><h4>詳しい情報</h4>'
-      +(w?'<div class="inl" style="padding:0 0 8px;gap:6px;flex-wrap:wrap"><button class="btn sm" data-pdzone="'+esc(p.id)+'">🗺 住所から用途地域・建ぺい率・容積率を調べる</button>'
-        +'<label class="btn sm" style="cursor:pointer">📄 資料から読み取る（マイソク・重説・登記簿）<input type="file" id="pdDoc" accept="application/pdf,image/jpeg,image/png,image/webp" style="display:none"></label></div>'
-        +'<div class="state" id="pdAuto" style="padding:0 0 6px">調べた・読み取った内容は下の欄に入るだけです。確かめてから「保存する」を押してください。</div>':'')
-      +'<div class="lform" style="padding:0" id="pdF">'+CRM_DETAIL.map(function(d){
+    h+='<div class="card crm-sec"><h4>詳しい情報</h4><div class="lform" style="padding:0" id="pdF">'+CRM_DETAIL.map(function(d){
       var v=r.details[d[0]]||''; return '<label class="'+(d[0]==='equipment'||d[0]==='url'?'wide':'')+'">'+esc(d[1])+(w?'<input data-dk="'+d[0]+'" value="'+esc(v)+'">':'<span>'+esc(v||'—')+'</span>')+'</label>';
     }).join('')+'</div>'+(w?'<div class="bar"><button class="btn main sm" data-pdsave="1">保存する</button><span class="state" id="pdSt"></span></div>':'')+'</div>';
     h+='</div><div>';
     var facts=[['価格', p.deal==='賃貸'?(p.rent!=null?lgMan(p.rent)+'/月':'—'):(p.price!=null?lgMan(p.price):'—')],['所在地',(p.city||'')+(p.address||'')||'—'],['間取り',p.layout||'—'],['建物・専有面積',p.buildingArea!=null?p.buildingArea+'㎡':'—'],['土地面積',p.landArea!=null?p.landArea+'㎡':'—'],['駅',p.station?(p.station+(p.walkMin!=null?' 徒歩'+p.walkMin+'分':'')):'—'],['築年',p.builtYear?p.builtYear+'年':'—']];
     h+='<div class="card crm-sec"><h4>物件の情報</h4><div class="facts">'+facts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>'+(p.note?'<div class="state" style="white-space:pre-wrap;margin-top:8px">'+esc(p.note)+'</div>':'')+'</div>';
-    h+=medCard(r.mediation||{}, p, w);
-    h+=pcPropertyCard(r, p, w);
-    if(r.owner) h+='<div class="card crm-sec"><h4>'+(p.deal==='賃貸'?'貸主さん':'売主さん')+'のメモ（社内だけ・AIには渡しません）</h4><div class="lform one" style="padding:0" id="poF">'+CRM_OWNER.map(function(o){
+    if(r.owner) h+='<div class="card crm-sec"><h4>'+(p.deal==='賃貸'?'貸主さん':'売主さん')+'（社内だけ・AIには渡しません）</h4><div class="lform one" style="padding:0" id="poF">'+CRM_OWNER.map(function(o){
       return '<label>'+esc(o[1])+(o[0]==='memo'?'<textarea data-ok="memo" rows="2">'+esc(r.owner.memo||'')+'</textarea>':'<input data-ok="'+o[0]+'" value="'+esc(r.owner[o[0]]||'')+'">')+'</label>';
     }).join('')+'</div><div class="bar"><button class="btn main sm" data-posave="1">保存する</button><span class="state" id="poSt"></span></div></div>';
-    h+='<div class="card crm-sec"><h4>保存した査定書（'+(r.appraisals||[]).length+'件）</h4><div id="aprList">'+aprListHtml(r.appraisals||[], w)+'</div></div>';
     h+=crmDealCard(r.deals||[], w, {propertyId:p.id}, 'property');
     h+='<div class="card crm-sec"><h4>案内した記録（'+r.viewings.length+'件）</h4>'+(r.viewings.length?r.viewings.map(function(v){
       return '<div style="padding:4px 0;font-size:13.5px;cursor:pointer" data-c="'+esc(v.customerId)+'"><b>'+esc(crmWhen(v.at))+'</b> '+esc(v.customer||'')+'様 <span class="badge">'+esc(v.status)+'</span>'+(v.reaction?' <span class="state">'+esc(v.reaction)+'</span>':'')+(v.feedback?'<div class="state">'+esc(v.feedback)+'</div>':'')+'</div>';
     }).join(''):'<div class="state">まだありません。</div>')+'</div>';
     h+='</div></div>';
-    h+=delCard('property', p.id, w);
     crmBox().innerHTML=h; window.scrollTo(0,0);
   }).catch(function(e){ crmBox().innerHTML=crmErr(e); });
-}
-
-/* ---------- 顧客・物件を台帳から消す（管理者だけ。一緒に消えるものを見せてから） ---------- */
-function delCard(kind, id, w){
-  if(!w || !(ME&&ME.can&&ME.can.decide)) return '';
-  return '<div class="card crm-sec" style="margin-top:14px;border-color:rgba(220,90,90,.45)"><h4 style="color:var(--bad)">'+(kind==='property'?'この物件を消す':'このお客様を消す')+'</h4>'
-    +'<div class="state">間違えて登録したときなどに使います。消すと元に戻せません。'+(kind==='property'?'売り止めの物件は、消さずに状況を「取下げ」にするのがおすすめです。':'連絡が途切れたお客様は、消さずに状況を「休眠」にするのがおすすめです。')+'</div>'
-    +'<div class="bar"><button class="btn sm" data-del-check="'+kind+':'+esc(id)+'">消す</button></div><div id="delBox"></div></div>';
-}
-function delClick(t){
-  var a, box=document.getElementById('delBox');
-  if((a=t.getAttribute('data-del-check'))){
-    var k=a.split(':')[0], id=a.slice(k.length+1); box.innerHTML='<div class="state">確認しています…</div>';
-    api('/api/crm-delete-check',{kind:k, id:id}).then(function(r){
-      if(r.blocked){ box.innerHTML='<div class="ng mt2">進行中・完了の取引が'+(r.liveDeals||'')+'件あるため、このままでは消せません。上の「取引」の欄で「キャンセルにする」か「消す」を押してから、もう一度消してください。</div>'; return; }
-      box.innerHTML='<div class="mt2" style="font-size:13.5px"><b>「'+esc(r.name)+'」を消します。</b>'
-        +(r.lose.length?'<br>一緒に消えるもの：'+r.lose.map(function(x){ return esc(x[0])+' '+x[1]+'件'; }).join('、'):'<br>一緒に消えるものはありません。')
-        +(r.keep&&r.keep.length?'<br><span class="state">残るもの：'+r.keep.map(esc).join('、')+'</span>':'')
-        +'<br><span class="ng">消すと元に戻せません。</span></div>'
-        +'<div class="bar"><button class="btn sm" style="border-color:var(--bad);color:var(--bad)" data-del-go="'+esc(a)+'">本当に消す</button><button class="btn sm" data-del-no="1">やめる</button><span class="state" id="delSt"></span></div>';
-    }).catch(function(er){ box.innerHTML='<div class="ng mt2">'+esc(er.message)+'</div>'; });
-    return true;
-  }
-  if(t.getAttribute('data-del-no')){ box.innerHTML=''; return true; }
-  if((a=t.getAttribute('data-del-go'))){
-    var k2=a.split(':')[0], id2=a.slice(k2.length+1), st=document.getElementById('delSt'); t.disabled=true; st.textContent='消しています…';
-    api('/api/crm-delete',{kind:k2, id:id2}).then(function(){
-      CRM.lists=null; CRM.back=null; LG.kind=k2; lgKind(k2);
-      setTimeout(function(){ var m=document.getElementById('lgMsg'); if(m) m.innerHTML='<div class="note" style="margin:8px 0">消しました。</div>'; }, 300);
-    }).catch(function(er){ t.disabled=false; st.textContent=er.message; });
-    return true;
-  }
-  return false;
 }
 
 /* ---------- 取引（申込 → 契約 → 決済前 → 取引完了） ---------- */
@@ -3526,10 +3118,7 @@ function crmDealLine(d, side){
     +(d.propertyId&&side!=='property-detail'?'<button class="btn sm" data-dopen-p="'+esc(d.propertyId)+'">物件</button>':'')
     +(CRM.dealWrite&&d.stage==='申込'?'<button class="btn sm main" data-dnext="'+esc(d.id)+'" data-to="契約">契約済みにする</button>':'')
     +(CRM.dealWrite&&(d.stage==='契約'||d.stage==='決済前')?'<button class="btn sm main" data-dnext="'+esc(d.id)+'" data-to="完了">決済済みにする</button>':'')
-    +(CRM.dealWrite?'<button class="btn sm" data-dedit="'+esc(d.id)+'">直す（契約内容・物件）</button>':'')
-    +(CRM.dealWrite&&d.stage!=='キャンセル'?'<button class="btn sm" data-dcancel="'+esc(d.id)+'">キャンセルにする</button>':'')
-    +(CRM.dealWrite&&d.stage==='キャンセル'?'<button class="btn sm" data-dundo="'+esc(d.id)+'">キャンセルを取り消す</button>':'')
-    +(CRM.dealWrite&&ME&&ME.can&&ME.can.decide?'<button class="btn sm" data-ddel="'+esc(d.id)+'">消す</button>':'')+'</span>'
+    +(CRM.dealWrite?'<button class="btn sm" data-dedit="'+esc(d.id)+'">直す</button>':'')+'</span>'
     +'<div id="df-'+esc(d.id)+'" style="width:100%"></div></div>';
 }
 function crmDealCard(deals, w, preset, side){
@@ -3564,7 +3153,7 @@ function crmDealForm(id){
     var cur=d?(d.stage==='決済前'?'契約':d.stage):'申込';
     box.innerHTML='<div class="lform" style="padding:8px 0 0">'
       +'<label>お客様<select data-df="customerId"'+(d?' disabled':'')+'>'+crmOpts(L.customers,cid,'（選んでください）')+'</select></label>'
-      +'<label>物件（変えられます）<select data-df="propertyId">'+crmOpts(L.properties,pid,'（なし）')+'</select></label>'
+      +'<label>物件<select data-df="propertyId"'+(d?' disabled':'')+'>'+crmOpts(L.properties,pid,'（なし）')+'</select></label>'
       +'<label>段階<select data-df="stage">'+stages.map(function(x){ return '<option value="'+x+'"'+(cur===x?' selected':'')+'>'+esc(DEAL_LABEL[x])+'</option>'; }).join('')+'</select></label>'
       +'<label>申込日<input type="date" data-df="appliedAt" value="'+esc(d&&d.appliedAt||'')+'"></label>'
       +'<label>契約日時'+dtHtml('data-df="contractAt"', d?jstInput(d.contractAt):'')+'</label>'
@@ -3606,28 +3195,6 @@ function crmDealGo(id, to, btn){
     setTimeout(function(){ if(CRM.dealSide) crmDeals(to, CRM.dealSide); else (CRM.dealReload||CRM.back||crmToday)(); }, 1500);
   }).catch(function(er){ st.textContent=er.message; btn.disabled=false; });
 }
-/* キャンセル・キャンセルの取り消し・取引を消す（押し間違えを防ぐため2回押し） */
-function crmDealQuick(id, act, btn){
-  var d=CRM.dealMap[id], box=document.getElementById('df-'+id); if(!d) return;
-  var label={cancel:'キャンセルにする', undo:'キャンセルを取り消す', del:'消す', 'delete':'消す'}[act];
-  if(btn.getAttribute('data-sure')!=='1'){
-    btn.setAttribute('data-sure','1'); btn.textContent='本当に'+label;
-    if(box) box.innerHTML='<div class="state" style="padding:6px 0">'+esc(
-      act==='cancel' ? 'もう一度押すとキャンセルになります。カレンダーに入れた契約・決済の予定も消します（記録は残るので、あとで取り消せます）。'+(d.stage==='完了'?'取引完了の取引なので、売上一覧からも外れます。':'')
-      : act==='undo' ? 'もう一度押すと、'+(d.contractAt?'「契約済み」':'「申込」')+'に戻します。'
-      : 'もう一度押すと、この取引を消します。元に戻せません。'+(d.stage==='完了'?'取引完了の取引なので、売上一覧からも消えます。':''))+'</div>';
-    setTimeout(function(){ if(btn.isConnected && btn.getAttribute('data-sure')==='1'){ btn.removeAttribute('data-sure'); btn.textContent=label; if(box) box.innerHTML=''; } }, 8000);
-    return;
-  }
-  btn.disabled=true; if(box) box.innerHTML='<div class="state" style="padding:6px 0">保存しています…</div>';
-  var done=function(r){ if(box) box.innerHTML='<div class="state" style="padding:6px 0">'+esc(act==='delete'?'消しました。':crmDealMsg(r))+'</div>'; CRM.lists=null;
-    setTimeout(function(){ if(CRM.dealSide) crmDeals(act==='cancel'||act==='delete'?'申込':(d.contractAt?'契約':'申込'), CRM.dealSide); else (CRM.dealReload||CRM.back||crmToday)(); }, 1300); };
-  var fail=function(er){ btn.disabled=false; if(box) box.innerHTML='<div class="ng" style="padding:6px 0">'+esc(er.message)+'</div>'; };
-  if(act==='delete'){ api('/api/crm-deal-delete',{id:id}).then(done).catch(fail); return; }
-  var val={customerId:d.customerId, propertyId:d.propertyId||null, stage: act==='cancel' ? 'キャンセル' : (d.contractAt?'契約':'申込'), appliedAt:d.appliedAt||'',
-    contractAt:jstInput(d.contractAt), settleAt:jstInput(d.settleAt), price:d.price!=null?String(d.price):'', fee:d.fee!=null?String(d.fee):'', note:d.note||''};
-  api('/api/crm-deal',{id:id, deal:val}).then(done).catch(fail);
-}
 function crmDealMsg(r){
   var m={added:'カレンダーに入れました', changed:'カレンダーの予定を変えました', deleted:'カレンダーから消しました', pending:'カレンダーは承認待ちです', not_connected:'Googleカレンダーがつながっていないため、カレンダーには入れていません', error:'カレンダーに入れられませんでした'};
   var parts=(r.calendar||[]).map(function(c){ return c.which+'：'+(m[c.result]||c.result)+(c.code&&c.result==='pending'?'（コード '+c.code+'）':'')+(c.error?'（'+c.error+'）':''); });
@@ -3636,7 +3203,7 @@ function crmDealMsg(r){
 function crmDealSave(id, btn){
   var box=document.getElementById('df-'+id), st=document.getElementById('dfs-'+id), d=id==='new'?null:CRM.dealMap[id], val={};
   Array.prototype.forEach.call(box.querySelectorAll('[data-df]'), function(el){ val[el.getAttribute('data-df')]=el.value; });
-  if(d){ val.customerId=d.customerId; }
+  if(d){ val.customerId=d.customerId; val.propertyId=d.propertyId; }
   if(!val.propertyId) val.propertyId=null;
   btn.disabled=true; st.textContent='保存しています…';
   api('/api/crm-deal', d?{id:id, deal:val}:{deal:val}).then(function(r){
@@ -3732,7 +3299,7 @@ function crmInquiryForm(r){
   if(r.existing) h+='<div class="mt2" style="color:var(--gold,#c9a54a)">同じメール・電話のお客様が台帳にいます：<b>'+esc(r.existing.name)+'様</b>（'+esc(r.existing.status)+'）</div>';
   h+='<div class="lform one" style="padding:6px 0 0">'
     +[['name','お名前',g.name],['kana','フリガナ',g.kana],['phone','電話',g.phone],['email','メール',g.email],['source','反響元',g.source||'']].map(function(f){ return '<label>'+f[1]+'<input data-iq="'+f[0]+'" value="'+esc(f[2]||'')+'"></label>'; }).join('')
-    +'<label>希望<select data-iq="want">'+crmOpts(['購入','売却','賃貸','投資','賃貸に出す'], g.want||'購入')+'</select></label>'
+    +'<label>希望<select data-iq="want">'+crmOpts(['購入','売却','賃貸','投資'], g.want||'購入')+'</select></label>'
     +'<label>物件（台帳）<select data-iq="propertyId">'+crmOpts(r.properties, r.property?r.property.id:'', g.property?'（台帳にない：'+g.property+'）':'（なし）')+'</select></label>'
     +'<input type="hidden" data-iq="propertyText" value="'+esc(g.property||'')+'">'
     +'<label>お問い合わせ内容<textarea data-iq="message" rows="4">'+esc(g.message||'')+'</textarea></label></div>'
@@ -3749,9 +3316,6 @@ function crmClick(e){
   if(t.getAttribute('data-back')){ (CRM.back||crmToday)(); return; }
   if(t.getAttribute('data-dnew')){ crmDealForm('new'); return; }
   if((a=t.getAttribute('data-dedit'))){ crmDealForm(a); return; }
-  if((a=t.getAttribute('data-dcancel'))){ crmDealQuick(a, 'cancel', t); return; }
-  if((a=t.getAttribute('data-dundo'))){ crmDealQuick(a, 'undo', t); return; }
-  if((a=t.getAttribute('data-ddel'))){ crmDealQuick(a, 'delete', t); return; }
   if((a=t.getAttribute('data-dnext'))){ crmDealNext(a, t.getAttribute('data-to')); return; }
   if((a=t.getAttribute('data-dgo'))){ crmDealGo(a, t.getAttribute('data-to'), t); return; }
   if((a=t.getAttribute('data-dsave'))){ crmDealSave(a, t); return; }
@@ -3794,7 +3358,6 @@ function crmClick(e){
     if(mb.innerHTML){ mb.innerHTML=''; return; }
     msgForm(CRM.c.customer, mb, function(){ crmCustomer(cid); }); return; }
   if(t.getAttribute('data-pedit')){ LG.kind='property'; lgTabs('property'); lgLoad(); lgForm(CRM.p.property); window.scrollTo(0,0); return; }
-  if((a=t.getAttribute('data-pdzone'))){ pdZone(a, t); return; }
   if(t.getAttribute('data-pdsave')){
     var det={}, st4=document.getElementById('pdSt'); Array.prototype.forEach.call(document.querySelectorAll('#pdF [data-dk]'), function(el){ det[el.getAttribute('data-dk')]=el.value; });
     st4.textContent='保存しています…'; api('/api/crm-property-extra',{id:CRM.p.property.id, details:det}).then(function(){ st4.textContent='保存しました。'; }).catch(function(er){ st4.textContent=er.message; });
@@ -3803,23 +3366,6 @@ function crmClick(e){
   if(t.getAttribute('data-posave')){
     var ow={}, st5=document.getElementById('poSt'); Array.prototype.forEach.call(document.querySelectorAll('#poF [data-ok]'), function(el){ ow[el.getAttribute('data-ok')]=el.value; });
     st5.textContent='保存しています…'; api('/api/crm-property-extra',{id:CRM.p.property.id, owner:ow}).then(function(){ st5.textContent='保存しました。'; }).catch(function(er){ st5.textContent=er.message; });
-    return;
-  }
-  if(t.getAttribute && pcClick(t)){ if(e && e.preventDefault) e.preventDefault(); return; }
-  if(t.getAttribute && delClick(t)) return;
-  if((a=t.getAttribute('data-med-edit'))){ medForm(a); return; }
-  if((a=t.getAttribute('data-med-save'))){ medSave(a, t); return; }
-  if((a=t.getAttribute('data-apr-open'))){
-    var ow2=window.open('','_blank'); if(ow2) ow2.document.write('<p style="font-family:sans-serif">査定書を開いています…</p>');
-    api('/api/apr-get',{id:a}).then(function(r){
-      if(!ow2){ t.textContent='画面を開けませんでした'; return; }
-      ow2.document.open(); ow2.document.write(apDoc(r.appraisal.data, r.appraisal.kind, apInside())); ow2.document.close();
-    }).catch(function(er){ if(ow2) ow2.close(); t.textContent=er.message; });
-    return;
-  }
-  if((a=t.getAttribute('data-apr-del'))){
-    if(t.getAttribute('data-sure')!=='1'){ t.setAttribute('data-sure','1'); t.textContent='本当に消す'; setTimeout(function(){ if(t.isConnected){ t.removeAttribute('data-sure'); t.textContent='消す'; } }, 6000); return; }
-    t.disabled=true; api('/api/apr-delete',{id:a}).then(function(){ crmProperty(CRM.p.property.id); }).catch(function(er){ t.textContent=er.message; });
     return;
   }
   if((a=t.getAttribute('data-fdel'))){
@@ -3841,7 +3387,7 @@ function crmClick(e){
   }
   if(row){ CRM.back = CRM.back || crmToday; crmCustomer(row.getAttribute('data-c')); return; }
 }
-function crmChange(e){ var t=e.target; if(t.id==='pdDoc' && t.files && t.files[0]){ pdDoc(t.files[0]); t.value=''; return; } if(t.getAttribute && t.getAttribute('data-upload') && t.files && t.files.length){ crmUpload(t.files); t.value=''; } }
+function crmChange(e){ var t=e.target; if(t.getAttribute && t.getAttribute('data-upload') && t.files && t.files.length){ crmUpload(t.files); t.value=''; } }
 function crmCalMsg(r){
   if(r.calendar==='added') return '登録しました。Googleカレンダーにも入れています。';
   if(r.calendar==='pending') return '登録しました。カレンダーへの追加は承認待ちです（コード '+r.code+'）。';
@@ -4029,7 +3575,7 @@ function piLoad(){
         +(it.url?'':'<span style="display:block;color:var(--bad)">紹介リンクが入っていません（「直す」で入れてください。AIの投稿提案にも必要です）</span>')
         +'<span style="display:block">売れた '+it.soldCount+'個・'+yenFmt(it.soldAmount)+'円　投稿 '+it.postedCount+'/'+it.postCount+'件'+(it.nextPost?'（次の予定 '+esc(crmWhen(it.nextPost))+'）':'')+'</span>'+(it.note?'<span>'+esc(it.note)+'</span>':'')+'</span>'
         +'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(it.url?linkHtml(it.url,'商品ページ'):'')
-        +(r.canWrite?'<button class="btn sm main" data-pisold="'+esc(it.id)+'">売れた</button><button class="btn sm main" data-pigo="'+esc(it.id)+'">投稿する</button><button class="btn sm" data-pipropose="'+esc(it.id)+'">投稿を提案（AI）</button><button class="btn sm" data-pipost="'+esc(it.id)+'">投稿を記録</button><button class="btn sm" data-piedit="'+esc(it.id)+'">直す</button><button class="btn sm" data-pidel="'+esc(it.id)+'">消す</button>':'')
+        +(r.canWrite?'<button class="btn sm main" data-pisold="'+esc(it.id)+'">売れた</button><button class="btn sm" data-pipropose="'+esc(it.id)+'">投稿を提案（AI）</button><button class="btn sm" data-pipost="'+esc(it.id)+'">投稿を記録</button><button class="btn sm" data-piedit="'+esc(it.id)+'">直す</button><button class="btn sm" data-pidel="'+esc(it.id)+'">消す</button>':'')
         +'<button class="btn sm" data-pisales="'+esc(it.id)+'">売上を見る</button></span>'
         +'<div id="pi-'+esc(it.id)+'" style="flex-basis:100%"></div></div>';
     }).join('');
@@ -4144,7 +3690,6 @@ document.getElementById('s11').addEventListener('click', function(e){
     return;
   }
   if((a=t.getAttribute('data-pipropose'))){ tab(12); ppAiForm(a); return; }
-  if((a=t.getAttribute('data-pigo'))){ var bg=document.getElementById('pi-'+a); if(piToggle(bg,'go')) ppForm(null, bg, a, piLoad, {quick:true}); return; }
   if((a=t.getAttribute('data-pipost'))){ var b=document.getElementById('pi-'+a); if(piToggle(b,'post')) ppForm(null, b, a, piLoad); return; }
   if(t.hasAttribute('data-pisave')){
     var id=t.getAttribute('data-pisave'), box=t.closest('.card'), v={}, st=box.querySelector('[data-pist]');
@@ -4207,11 +3752,6 @@ function ppBodyTemplate(items, itemId){
   return it ? '\n\n'+(it.url?it.url+'\n':'')+'#PR' : '';
 }
 /* 投稿先に選べるSNS：つないでいるSNSがあれば、それだけ */
-/* 商品の画面から投稿を入れるときも、「自動で投稿する」とつないであるSNSが分かるように先に読み込む */
-function ppEnsure(){
-  if(PP.canAuto!==undefined && PP.conn) return Promise.resolve();
-  return api('/api/pposts',{}).then(function(r){ PP.w=r.canWrite; PP.canAuto=!!r.canAuto; PP.conn=r.snsConnected||[]; }).catch(function(){});
-}
 function ppSnsChoices(){ return (PP.conn&&PP.conn.length)?PP.conn.slice():['X','Threads']; }
 /* 自動投稿の状態 */
 function ppAutoBadge(p){
@@ -4261,23 +3801,21 @@ document.getElementById('s12').addEventListener('change', function(e){
   }
   next().then(function(){ say(n+'枚入れました'); ppLoad(); }).catch(function(er){ say(er.message); t.value=''; });
 });
-function ppForm(id, target, itemId, after, opt){
-  opt=opt||{};
+function ppForm(id, target, itemId, after){
   var p=id?PP.items.filter(function(x){ return x.id===id; })[0]:null, box=target||document.getElementById(id?'pp-'+id:'ppForm');
   if(!target && box.innerHTML){ box.innerHTML=''; return; }
   box.innerHTML='<div class="state">読み込んでいます…</div>';
-  ppEnsure().then(function(){ return PI.items.length?{items:PI.items}:api('/api/pitems',{}); }).then(function(r){
+  (PI.items.length?Promise.resolve({items:PI.items}):api('/api/pitems',{})).then(function(r){
     PI.items=r.items; var cur=p?p.itemId:(itemId||'');
     box.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
       +'<label>商品<select data-pp="itemId"><option value="">（なし）</option>'+r.items.map(function(it){ return '<option value="'+esc(it.id)+'"'+(cur===it.id?' selected':'')+'>'+esc(it.name)+'</option>'; }).join('')+'</select></label>'
-      +(opt.quick?'<div class="wide note" style="margin:0 0 6px">'+(PP.canAuto&&PP.conn&&PP.conn.length?'文を確かめて「保存する」を押すと、下の日時に'+esc(PP.conn.join('・'))+'へ自動で投稿します（「自動で投稿する」をオフにすると、予定に入れるだけになります）。':(PP.canAuto?'まだSNSとつないでいないため、自動では投稿できません（設定 → SNSとつなぐ）。予定として入れます。':'自動で投稿する設定はオーナー・管理者だけができます。予定として入れます。'))+'</div>':'')
-      +'<label>SNS<select data-pp="sns">'+(PP.conn&&PP.conn.length?PP.conn.concat(p&&PP.conn.indexOf(p.sns)<0?[p.sns]:[]):['X','Threads','Instagram','その他']).map(function(x){ return '<option'+((p?p.sns:(PP.conn&&PP.conn[0]||'X'))===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
-      +'<label>状態<select data-pp="status">'+['下書き','予定','投稿済み'].map(function(x){ return '<option'+((p?p.status:(opt.quick?'予定':'下書き'))===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
-      +'<label>日時（予定・投稿した日時）'+dtHtml('data-pp="postAt"', p&&p.postAt?jstInput(p.postAt):(opt.quick?nowQ():''))+'</label>'
+      +'<label>SNS<select data-pp="sns">'+(PP.conn&&PP.conn.length?PP.conn.concat(p&&PP.conn.indexOf(p.sns)<0?[p.sns]:[]):['X','Threads','Instagram','その他']).map(function(x){ return '<option'+((p?p.sns:'X')===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
+      +'<label>状態<select data-pp="status">'+['下書き','予定','投稿済み'].map(function(x){ return '<option'+((p?p.status:'下書き')===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
+      +'<label>日時（予定・投稿した日時）'+dtHtml('data-pp="postAt"', p&&p.postAt?jstInput(p.postAt):'')+'</label>'
       +'<label class="wide">投稿の文（物販の投稿は、紹介リンクと最後の「#PR」が必要です）<textarea data-pp="body" rows="5">'+esc(p?(p.body||''):ppBodyTemplate(r.items, cur))+'</textarea></label>'
       +'<label>投稿のURL（投稿したあと）<input data-pp="url" value="'+esc(p&&p.url||'')+'"></label>'
       +'<label>メモ<input data-pp="note" value="'+esc(p&&p.note||'')+'"></label>'
-      +ppAutoField(p?p.sns:'X', !!(p&&p.autoPublish&&p.publishStatus==='待機') || !!(opt.quick&&PP.conn&&PP.conn.length))
+      +ppAutoField(p?p.sns:'X', !!(p&&p.autoPublish&&p.publishStatus==='待機'))
       +'</div><div class="bar"><button class="btn main sm" data-ppsave="'+esc(id||'')+'">保存する</button><span class="state" data-ppst></span></div></div>';
     box.querySelector('[data-ppsave]').onclick=function(){
       var b=this, v={}, st=box.querySelector('[data-ppst]');
@@ -4294,7 +3832,7 @@ function ppAiForm(itemId){
   var box=document.getElementById('ppForm');
   if(!itemId && box.getAttribute('data-k')==='ai' && box.innerHTML){ box.innerHTML=''; box.removeAttribute('data-k'); return; }
   box.setAttribute('data-k','ai'); box.innerHTML='<div class="state">読み込んでいます…</div>';
-  ppEnsure().then(function(){ return PI.items.length?{items:PI.items}:api('/api/pitems',{}); }).then(function(r){
+  (PI.items.length?Promise.resolve({items:PI.items}):api('/api/pitems',{})).then(function(r){
     PI.items=r.items;
     if(!r.items.length){ box.innerHTML='<div class="note">先に「商品・出品」で商品を登録してください。</div>'; return; }
     box.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
