@@ -2857,6 +2857,7 @@ function lgCustomerForm(item){
     h+='<div class="row"><span class="what"><b>お客様のこと</b></span></div><div class="lform">'
       +cfIn('name','氏名',v.name)+cfIn('kana','フリガナ',v.kana)
       +cfIn('phone','電話（AIには渡しません）',v.phone)+cfIn('email','メール（AIには渡しません）',v.email)
+      +cfIn('address','住所（AIには渡しません）',info.address,{info:1,wide:1,ph:'例 名古屋市中区栄1-1-1'})
       +cfIn('want',seller?'ご依頼の内容':'ご希望',want,{sel:seller?CF_SELL_WANTS:CF_BUY_WANTS})
       +cfIn('status','状況',v.status||'新規',{sel:['新規','追客中','商談中','成約','休眠']})+'</div>';
     h+=cfCoHtml(v.coOwners||[]);
@@ -3222,7 +3223,7 @@ function crmCustomer(id){
     var ifacts=IL.filter(function(x){ return inf[x[0]]; }).map(function(x){ var val=inf[x[0]]; if(x[0]==='askPrice' && /^[0-9,]+$/.test(val)) val=lgMan(Number(val.replace(/,/g,'')))+(c.want==='賃貸に出す'?'/月':''); return [x[1], val]; });
     h+='<div class="card crm-sec"><h4>お客様の情報（'+(sellerC?'売主':'買主')+'）</h4><div class="facts">'+facts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>'
       +(ifacts.length?'<div style="margin-top:8px;font-size:12.5px;color:var(--gold,#c9a54a)">'+(sellerC?'売りたい・貸したい物件':'探している物件の条件')+'</div><div class="facts">'+ifacts.map(function(f){ return '<div><small>'+esc(f[0])+'</small>'+esc(f[1])+'</div>'; }).join('')+'</div>':'')
-      +'<div class="facts"><div><small>電話</small>'+(c.phone?'<a class="lk" href="tel:'+esc(c.phone.replace(/[^0-9+]/g,''))+'">'+esc(c.phone)+'</a>':'—')+'</div><div><small>メール</small>'+(c.email?'<a class="lk" href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'—')+'</div></div>'
+      +'<div class="facts"><div><small>電話</small>'+(c.phone?'<a class="lk" href="tel:'+esc(c.phone.replace(/[^0-9+]/g,''))+'">'+esc(c.phone)+'</a>':'—')+'</div><div><small>メール</small>'+(c.email?'<a class="lk" href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'—')+'</div>'+(inf.address?'<div><small>住所</small>'+esc(inf.address)+'</div>':'')+'</div>'
       +((c.coOwners||[]).length?'<div style="margin-top:8px;font-size:12.5px;color:var(--gold,#c9a54a)">共有名義の方（'+c.coOwners.length+'人）</div>'+c.coOwners.map(function(o){
         return '<div style="padding:4px 0;font-size:13.5px;border-bottom:1px solid var(--line,#eee)"><b>'+esc(o.name)+'様</b>'
           +(o.phone?' <a class="lk" href="tel:'+esc(o.phone.replace(/[^0-9+]/g,''))+'">'+esc(o.phone)+'</a>':'')
