@@ -3038,9 +3038,11 @@ function pfDocsCard(r, p, w){
   h+= docs.length ? docs.map(function(f){
     var canRead=w && (f.mime==='application/pdf'||/^image\//.test(f.mime));
     return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:6px 0;border-bottom:1px solid var(--line,#eee);font-size:13.5px">'
+      +(w?'<input type="checkbox" data-pfsel="doc" value="'+esc(f.id)+'" style="width:auto">':'')
       +'<span class="badge">'+esc(f.kind==='資料'?'その他資料':f.kind)+'</span><a class="lk" href="'+esc(f.url||'#')+'" target="_blank" rel="noopener">'+esc(f.name)+'</a>'
       +'<span style="margin-left:auto">'+(canRead?'<button class="btn sm" data-pfread="'+esc(f.id)+'">読み取って登録</button> ':'')+(w?'<button class="btn sm" data-fdel="'+esc(f.id)+'">消す</button>':'')+'</span></div>';
   }).join('') : '<div class="state">まだありません。</div>';
+  if(w && docs.length) h+=pfBulkBar('doc');
   if(w && r.storageReady){
     h+=pfDrop('pfDoc','📄 謄本・公図・図面・その他の資料を入れる（種類は選ばなくてOK）','application/pdf,image/jpeg,image/png,image/webp',
       '<div style="margin-top:8px" onclick="event.stopPropagation()"><label style="font-size:13px"><input type="checkbox" id="pfDocAuto" checked style="width:auto"> 入れたらAIで読み取って、物件の情報に入れる（書類の種類も自動で振り分けます）</label></div>');
@@ -3052,10 +3054,32 @@ function pfPhotosCard(r, p, w){
   var ph=r.files.filter(function(f){ return f.kind==='写真'; });
   var h='<div class="card crm-sec"><h4>物件写真（'+ph.length+'枚）</h4>';
   h+= ph.length ? '<div class="ph">'+ph.map(function(f){
-    return '<figure><a href="'+esc(f.url||'#')+'" target="_blank" rel="noopener"><img src="'+esc(f.url||'')+'" alt="'+esc(f.name)+'" loading="lazy"></a><figcaption><span>'+esc(f.name)+'</span>'+(w?'<button class="btn sm" data-fdel="'+esc(f.id)+'">消す</button>':'')+'</figcaption></figure>';
+    return '<figure><a href="'+esc(f.url||'#')+'" target="_blank" rel="noopener"><img src="'+esc(f.url||'')+'" alt="'+esc(f.name)+'" loading="lazy"></a><figcaption>'+(w?'<input type="checkbox" data-pfsel="ph" value="'+esc(f.id)+'" style="width:auto">':'')+'<span>'+esc(f.name)+'</span>'+(w?'<button class="btn sm" data-fdel="'+esc(f.id)+'">消す</button>':'')+'</figcaption></figure>';
   }).join('')+'</div>' : '<div class="state">まだありません。</div>';
+  if(w && ph.length) h+=pfBulkBar('ph');
   if(w && r.storageReady) h+=pfDrop('pfPh','📷 物件写真を入れる','image/jpeg,image/png,image/webp','')+'<div class="state" id="pfPhSt">大きな写真は自動で小さくしてから入れます。写真は会社の中だけで見られます（外には公開されません）。</div>';
   return h+'</div>';
+}
+/* チェックしたものをまとめて消す（2回押し） */
+function pfBulkBar(g){
+  return '<div class="bar" style="gap:6px;flex-wrap:wrap"><button class="btn sm" data-pfall="'+g+'">すべて選ぶ</button><button class="btn sm" data-pfbulk="'+g+'">選んだものを消す</button><span class="state" id="pfBulkSt-'+g+'"></span></div>';
+}
+function pfBulk(g, btn){
+  var ids=Array.prototype.map.call(document.querySelectorAll('[data-pfsel="'+g+'"]:checked'), function(c){ return c.value; });
+  var st=document.getElementById('pfBulkSt-'+g);
+  if(!ids.length){ st.textContent='消すものにチェックを入れてください。'; return; }
+  if(btn.getAttribute('data-sure')!=='1'){
+    btn.setAttribute('data-sure','1'); btn.textContent='本当に'+ids.length+'件消す'; st.textContent='もう一度押すと消えます（元に戻せません）。';
+    setTimeout(function(){ if(btn.isConnected && btn.getAttribute('data-sure')==='1'){ btn.removeAttribute('data-sure'); btn.textContent='選んだものを消す'; st.textContent=''; } }, 8000);
+    return;
+  }
+  btn.disabled=true; var done=0, ng=0, chain=Promise.resolve();
+  ids.forEach(function(id){ chain=chain.then(function(){ return api('/api/crm-file-delete',{id:id}).then(function(){ done++; }, function(){ ng++; }).then(function(){ st.textContent='消しています… '+(done+ng)+'/'+ids.length; }); }); });
+  chain.then(function(){
+    var keep=pdKeep();
+    return api('/api/crm-property',{id:CRM.p.property.id}).then(function(r){ crmPropertyRender(r, true); pdRestore(keep);
+      var s2=document.getElementById(g==='doc'?'pfDocSt':'pfPhSt'); if(s2) s2.textContent=done+'件消しました。'+(ng?ng+'件は消せませんでした。':''); });
+  });
 }
 function pfUp(which, files){
   var pid=CRM.p.property.id, list=Array.prototype.slice.call(files);
@@ -3933,6 +3957,8 @@ function crmClick(e){
   if((a=t.getAttribute('data-pdzone'))){ pdZone(a, t); return; }
   if((a=t.getAttribute('data-pfread'))){ t.disabled=true; pfRead(a).then(function(){ t.disabled=false; }); return; }
   if(t.getAttribute('data-pfapply')){ pfApply(t); return; }
+  if((a=t.getAttribute('data-pfbulk'))){ pfBulk(a, t); return; }
+  if((a=t.getAttribute('data-pfall'))){ var cs=document.querySelectorAll('[data-pfsel="'+a+'"]'), on=Array.prototype.some.call(cs,function(c){ return !c.checked; }); cs.forEach(function(c){ c.checked=on; }); t.textContent=on?'選ぶのをやめる':'すべて選ぶ'; return; }
   if(t.getAttribute('data-pfskip')){ var rb=document.getElementById('pfRead'); if(rb) rb.innerHTML=''; var ds=document.getElementById('pfDocSt'); if(ds) ds.textContent='基本情報は変えませんでした。'; if(CRM.p) api('/api/crm-property',{id:CRM.p.property.id}).then(function(r){ var keep=pdKeep(); crmPropertyRender(r, true); pdRestore(keep); }).catch(function(){}); return; }
   var dz=t.closest&&t.closest('[data-pfdrop]'); if(dz && !t.closest('select,label,input')){ document.getElementById(dz.getAttribute('data-pfdrop')+'In').click(); return; }
   if(t.getAttribute('data-pdsave')){
