@@ -482,6 +482,8 @@
       <button data-tabs="7" onclick="tab(7)">業者一覧</button>
       <button data-tabs="11,12" data-grp="b" onclick="navGroup(11,'b')">物販管理<i class="car">▾</i></button>
       <div class="subnav" id="sub-b"><button data-subtab="11">商品・出品</button><button data-subtab="12">投稿管理<span class="nbadge" id="navProp" style="display:none"></span></button><button data-subtab="10">物販売上</button></div>
+      <button data-tabs="13,14,15" data-grp="m" onclick="navGroup(13,'m')">SNS運用<i class="car">▾</i></button>
+      <div class="subnav" id="sub-m"><button data-subtab="13">投稿<span class="nbadge" id="navCp" style="display:none"></span></button><button data-subtab="14">投稿カレンダー</button><button data-subtab="15">反応・報告</button></div>
       <button data-tabs="8,9,10" data-grp="s" onclick="navGroup(8,'s')">売上一覧<i class="car">▾</i></button>
       <div class="subnav" id="sub-s"><button data-subtab="8">売上一覧</button><button data-subtab="9">紹介料</button><button data-subtab="10">物販売上</button></div>
       <button data-tabs="1,2" data-grp="h" onclick="navGroup(1,'h')">会話履歴<i class="car">▾</i></button>
@@ -643,6 +645,33 @@
     <div id="ppForm"></div>
     <div class="card" id="ppList"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
     <div class="note">AIが作った投稿案は「提案」として入り、オーナー・管理者が承認すると「予定」になります（文を直してから承認もできます）。広告だと分かるように、文の最後に「#PR」と紹介リンクが付きます。ここから自動で投稿はしないので、実際の投稿は「文をコピー」して各アプリか、今のSNSの仕組みで行ってください。</div>
+  </section>
+
+  <section id="s13">
+    <div class="inl" style="padding:0 0 10px;flex-wrap:wrap">
+      <select id="cpSns"><option value="">すべてのSNS</option><option>Instagram</option><option>Threads</option><option>X</option></select>
+      <select id="cpSt"><option value="">すべての状態</option><option>提案</option><option>下書き</option><option>予定</option><option>投稿済み</option><option>却下</option></select>
+      <button class="btn main" id="cpAi">🤖 AIに下書きを作ってもらう</button>
+      <button class="btn" id="cpNew">＋ 投稿を作る</button>
+    </div>
+    <div id="cpConn"></div>
+    <div id="cpForm"></div>
+    <div class="card" id="cpList"><div class="row"><span class="what"><span>読み込んでいます…</span></span></div></div>
+    <div class="note">会社のInstagram・Threads・Xの投稿を作って、予定の時間に自動で投稿します。AIが作った下書きは「提案」として入り、オーナー・管理者が承認すると「予定」になります（文を直してから承認もできます）。Instagramは写真が1枚以上必要です。Xは費用がかかるため今はつないでいません。「文をコピー」してXのアプリから投稿してください。</div>
+  </section>
+
+  <section id="s14">
+    <div class="inl" style="padding:0 0 10px"><button class="btn sm" id="ccPrev">← 前の月</button><b id="ccM" style="font-size:16px"></b><button class="btn sm" id="ccNext">次の月 →</button>
+      <span class="state" style="margin-left:auto">日にちを押すと、その日に投稿を作れます</span></div>
+    <div id="ccBox"><div class="state">読み込んでいます…</div></div>
+    <div id="ccForm"></div>
+  </section>
+
+  <section id="s15">
+    <div class="inl" style="padding:0 0 10px;flex-wrap:wrap"><button class="btn sm" id="crPrev">← 前の月</button><b id="crM" style="font-size:16px"></b><button class="btn sm" id="crNext">次の月 →</button>
+      <button class="btn sm" id="crRefresh" style="margin-left:auto">反応を今すぐ取りに行く</button><button class="btn sm main" id="crPrint">報告書を印刷・PDFで保存</button></div>
+    <div id="crBox"><div class="state">読み込んでいます…</div></div>
+    <div class="note">反応（表示回数・いいね・コメントなど）は、自動で投稿した Instagram・Threads の投稿について、投稿してから30日のあいだ6時間ごとに取りに行きます。手で投稿したものやXの反応は取れません。Threadsの反応を見るには、設定でThreadsとつなぎ直してください（反応を見る許可を足しました）。</div>
   </section>
 
   <section id="s5">
@@ -1916,12 +1945,14 @@ function drawSns(){
   api('/api/sns').then(function(r){
     var h='';
     if(SNS_FLASH){ h+='<div class="row"><span class="what"><b style="color:'+(SNS_FLASH.ok?'var(--ok,#3fae6a)':'var(--bad)')+'">'+esc(SNS_FLASH.msg||(SNS_FLASH.ok?'つながりました':'つなげませんでした'))+'</b></span></div>'; SNS_FLASH=null; }
-    h+='<div class="row"><span class="what"><span>つなぐと、「物販管理 → 投稿管理」で「自動で投稿する」をオンにした投稿が、予定の時間に自動で出ます（オンにできるのはオーナー・管理者だけ）。公式の仕組みだけを使います。</span></span></div>';
+    h+='<div class="row"><span class="what"><span>つなぐと、「SNS運用 → 投稿」「物販管理 → 投稿管理」で「自動で投稿する」をオンにした投稿が、予定の時間に自動で出ます（オンにできるのはオーナー・管理者だけ）。公式の仕組みだけを使います。</span></span></div>';
     r.accounts.forEach(function(a){
       var exp=a.expiresAt?crmWhen(a.expiresAt):'';
       h+='<div class="row" style="flex-wrap:wrap"><span class="badge">'+esc(a.sns)+'</span><span class="what" style="overflow-wrap:anywhere;min-width:0"><b>'+(a.connected?'つながっています：'+esc(a.username?'@'+a.username:'アカウント'):'まだつながっていません')+'</b>'
-        +(a.sns==='X'?'<span>Xの公式の仕組みは有料です。リンク付きの投稿は1回あたり約0.2ドル（30円くらい）。先にXの開発者ページでクレジットを買っておきます。</span>':'<span>Threadsの公式の仕組みは無料です。'+(a.connected&&exp?'鍵の期限：'+esc(exp)+'（投稿するたびに自動で延びます。60日投稿しないと切れるので、そのときはつなぎ直してください）':'')+'</span>')
-        +(!a.serverReady?'<span style="color:var(--gold)">準備中：サーバーに'+esc(a.sns)+'のキー（'+(a.sns==='X'?'X_CLIENT_ID・X_CLIENT_SECRET':'THREADS_APP_ID・THREADS_APP_SECRET')+'）がまだ入っていません。</span>':'')
+        +(a.sns==='X'?'<span>Xの公式の仕組みは有料です。リンク付きの投稿は1回あたり約0.2ドル（30円くらい）。先にXの開発者ページでクレジットを買っておきます。今は「文をコピー」して手で投稿する使い方にしています。</span>'
+          :a.sns==='Instagram'?'<span>Instagramの公式の仕組みは無料です（プロアカウントが必要）。'+(a.connected&&exp?'鍵の期限：'+esc(exp)+'（期限が近づくと自動で延ばします）':'')+'</span>'
+          :'<span>Threadsの公式の仕組みは無料です。'+(a.connected&&exp?'鍵の期限：'+esc(exp)+'（投稿するたびに自動で延びます。60日投稿しないと切れるので、そのときはつなぎ直してください）':'')+'反応の数を見るには、一度つなぎ直してください。</span>')
+        +(!a.serverReady?'<span style="color:var(--gold)">準備中：サーバーに'+esc(a.sns)+'のキー（'+({X:'X_CLIENT_ID・X_CLIENT_SECRET',Instagram:'INSTAGRAM_APP_ID・INSTAGRAM_APP_SECRET',Threads:'THREADS_APP_ID・THREADS_APP_SECRET'}[a.sns])+'）がまだ入っていません。</span>':'')
         +(a.redirectUri?'<span>'+(a.sns==='X'?'Xの開発者ページに登録する「コールバックURL」':'Metaの開発者ページに登録する「リダイレクトURI」')+'：<br><code style="word-break:break-all">'+esc(a.redirectUri)+'</code> <button class="btn sm" data-copy="'+esc(a.redirectUri)+'">コピー</button></span>':'')
         +'</span>'
         +(r.canManage&&a.serverReady?'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button class="btn sm main" data-snsgo="'+a.sns+'">'+(a.connected?'つなぎ直す':a.sns+'とつなぐ')+'</button>'+(a.connected?'<button class="btn sm" data-snsoff="'+a.sns+'">外す</button>':'')+'</span>':'')
@@ -4031,6 +4062,9 @@ function tab(i){
   if(i===10) psLoad();
   if(i===11) piLoad();
   if(i===12) ppLoad();
+  if(i===13) cpLoad();
+  if(i===14) ccLoad();
+  if(i===15) crLoad();
   closeDrawers();
   // 「顧客」と「物件」は同じ台帳の画面（s4）を使い、上のボタンを入れ替える
   var sec = i===6 ? 4 : i;
@@ -4045,7 +4079,7 @@ function tab(i){
 /* ---------- 左メニューの副タブ（開け閉めできる。開け閉めはこの端末に覚えておく） ---------- */
 var NAV_CLOSED={}; try{ NAV_CLOSED=JSON.parse(localStorage.getItem('cresta-nav')||'{}')||{}; }catch(e){}
 function navPaint(){
-  ['c','p','h','s','b'].forEach(function(g){
+  ['c','p','h','s','b','m'].forEach(function(g){
     var box=document.getElementById('sub-'+g), btn=document.querySelector('[data-grp="'+g+'"]');
     if(box) box.classList.toggle('hide', !!NAV_CLOSED[g]);
     if(btn) btn.classList.toggle('closed', !!NAV_CLOSED[g]);
@@ -4335,6 +4369,324 @@ document.getElementById('s11').addEventListener('click', function(e){
     api('/api/pitem-sold',{itemId:a, sold:sv}).then(function(){ st2.textContent='物販売上に入れました。'; setTimeout(piLoad, 900); }).catch(function(er){ st2.textContent=er.message; t.disabled=false; });
   }
 });
+
+/* ---------- SNS運用：会社のInstagram・Threads・Xの投稿 ---------- */
+var CP={items:[], conn:[], themes:['物件紹介','お知らせ','不動産の豆知識','地域の情報','会社・スタッフ','お客様の声','その他']};
+var CP_SNS=['Instagram','Threads','X'];
+var CP_ICON={Instagram:'📷',Threads:'🧵',X:'𝕏'};
+function cpAutoOk(sns){ return CP.canAuto && sns!=='X' && CP.conn.indexOf(sns)>=0; }
+function cpMetrics(p){
+  var m=p.metrics; if(!m) return p.status==='投稿済み'&&p.publishStatus==='完了'&&p.sns!=='X'?'<span class="state" style="display:block;margin-top:4px">反応はまだ取れていません（投稿から数時間で入ります）</span>':'';
+  var parts=[['views','👁 表示'],['reach','👤 届いた人'],['likes','❤ いいね'],['comments','💬 コメント'],['reposts','🔁 リポスト'],['shares','↗ シェア'],['saves','🔖 保存']].filter(function(k){ return m[k[0]]!=null; })
+    .map(function(k){ return k[1]+' <b>'+Number(m[k[0]]).toLocaleString('ja-JP')+'</b>'; });
+  return '<span style="display:block;margin-top:4px;font-size:13px">'+parts.join('　')+(p.metricsAt?' <span class="state">（'+esc(crmWhen(p.metricsAt))+' 時点）</span>':'')+'</span>';
+}
+function cpImgs(p, w){
+  var list=p.imageUrls||[], max=10;
+  var h='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;align-items:center">';
+  list.forEach(function(x){
+    h+='<span style="position:relative;display:inline-block">'+(x.url?'<a href="'+esc(x.url)+'" target="_blank" rel="noopener"><img src="'+esc(x.url)+'" alt="投稿の写真" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line)"></a>':'<span class="state">（写真）</span>')
+      +(w?'<button class="btn sm" data-cpimgdel="'+esc(p.id)+'" data-path="'+esc(x.path)+'" title="この写真を外す" style="position:absolute;top:-8px;right:-8px;padding:0 7px;border-radius:999px">×</button>':'')+'</span>';
+  });
+  if(w && list.length<max && p.sns!=='X') h+='<label class="btn sm" style="cursor:pointer">📷 写真を付ける<input type="file" class="cpImgIn" data-post="'+esc(p.id)+'" accept="image/*" multiple style="display:none"></label>'
+    +'<button class="btn sm" data-cppick="'+esc(p.id)+'">🏠 物件の写真から選ぶ</button>';
+  if(w && list.length<max && p.sns!=='X') h+='<span class="state" data-cpimgst="'+esc(p.id)+'">'+(p.sns==='Instagram'&&!list.length?'Instagramは写真が1枚以上必要です（10枚まで）':'10枚まで')+'</span>';
+  h+='</div><div id="cppick-'+esc(p.id)+'"></div>';
+  return h;
+}
+function cpConnNote(){
+  var box=document.getElementById('cpConn'), miss=['Instagram','Threads'].filter(function(x){ return CP.conn.indexOf(x)<0; });
+  box.innerHTML = miss.length ? '<div class="note" style="margin:0 0 10px">'+esc(miss.join('・'))+'とはまだつながっていません。「設定 → SNSとつなぐ」でつなぐと、予定の時間に自動で投稿できます（つなぐまでは下書き・予定として使えます）。</div>' : '';
+}
+function cpLoad(){
+  var box=document.getElementById('cpList');
+  api('/api/pposts',{channel:'会社'}).then(function(r){
+    CP.items=r.items; CP.w=r.canWrite; CP.canAuto=!!r.canAuto; CP.conn=r.snsConnected||[]; if(r.themes) CP.themes=r.themes;
+    document.getElementById('cpNew').style.display=r.canWrite?'':'none'; document.getElementById('cpAi').style.display=r.canWrite?'':'none';
+    cpConnNote();
+    var props=r.items.filter(function(p){ return p.status==='提案'; }).length, nb=document.getElementById('navCp');
+    if(nb){ nb.style.display=props?'':'none'; nb.textContent=props; }
+    var sns=document.getElementById('cpSns').value, st=document.getElementById('cpSt').value;
+    var list=r.items.filter(function(p){ return (!sns||p.sns===sns) && (!st||p.status===st); });
+    list.sort(function(a,b){ return (a.status==='提案'?0:1)-(b.status==='提案'?0:1); });
+    var canDecide=!!(ME&&ME.can&&ME.can.decide) || !ME;
+    if(CP.flash){ CP.flashMsg=CP.flash; CP.flashUntil=Date.now()+10000; CP.flash=null; }
+    var flash=CP.flashMsg&&CP.flashUntil>Date.now()?'<div class="row"><span class="what"><b style="color:var(--gold)">'+esc(CP.flashMsg)+'</b></span></div>':'';
+    if(!list.length){ box.innerHTML=flash+'<div class="row"><span class="what"><span>投稿はまだありません。「AIに下書きを作ってもらう」か「投稿を作る」から始めてください。</span></span></div>'; return; }
+    box.innerHTML=flash+(props?'<div class="row"><span class="what"><b style="color:var(--gold)">承認を待っている下書きが'+props+'件あります</b></span></div>':'')+list.map(function(p){
+      var head='<span class="badge">'+(CP_ICON[p.sns]||'')+' '+esc(p.sns)+'</span>'+(p.theme?'<span class="badge">'+esc(p.theme)+'</span>':'');
+      var title=p.propertyName?'<b>'+esc(p.propertyName)+'</b>':'';
+      if(p.status==='提案') return '<div class="row" style="flex-wrap:wrap;background:rgba(201,162,75,.06)">'+head+'<span class="badge" style="border-color:var(--gold);color:var(--gold)">下書き（AI）</span>'
+        +'<span class="what">'+title+'<span style="white-space:pre-wrap;display:block;margin-top:4px">'+esc(p.body||'')+'</span>'+cpImgs(p, r.canWrite)+'</span>'
+        +'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button class="btn sm" data-cpcopy="'+esc(p.id)+'">文をコピー</button>'+(canDecide?'<button class="btn sm main" data-cpok="'+esc(p.id)+'">承認する</button><button class="btn sm" data-cpng="'+esc(p.id)+'">却下</button>':'<span class="state">オーナー・管理者の承認待ち</span>')+'</span>'
+        +'<div id="cp-'+esc(p.id)+'" style="flex-basis:100%"></div></div>';
+      var busy=p.publishStatus==='投稿中'||p.publishStatus==='完了';
+      return '<div class="row" style="flex-wrap:wrap"><span class="when">'+esc(p.postAt?crmWhen(p.postAt):'日時なし')+'</span>'+head+'<span class="badge">'+esc(p.status)+'</span>'+ppAutoBadge(p)
+        +'<span class="what">'+title+(p.body?'<span style="white-space:pre-wrap">'+esc(p.body.length>160?p.body.slice(0,160)+'…':p.body)+'</span>':'')
+        +(p.publishStatus==='失敗'&&p.publishError?'<span style="color:var(--bad);display:block;margin-top:4px">自動投稿できませんでした：'+esc(p.publishError)+'</span>':'')
+        +cpMetrics(p)+cpImgs(p, r.canWrite && p.status!=='却下' && !busy)+'</span>'
+        +'<span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(p.url?linkHtml(p.url,'投稿を開く'):'')+(p.body?'<button class="btn sm" data-cpcopy="'+esc(p.id)+'">文をコピー</button>':'')
+        +cpAutoBtns(p)
+        +(p.publishStatus==='完了'&&p.sns!=='X'&&r.canWrite?'<button class="btn sm" data-cpmet="'+esc(p.id)+'">反応を更新</button>':'')
+        +(r.canWrite&&!busy?'<button class="btn sm" data-cpedit="'+esc(p.id)+'">直す</button>':'')+(r.canWrite&&p.publishStatus!=='投稿中'?'<button class="btn sm" data-cpdel="'+esc(p.id)+'">消す</button>':'')+'</span>'
+        +'<div id="cp-'+esc(p.id)+'" style="flex-basis:100%"></div></div>';
+    }).join('');
+  }).catch(function(e){ box.innerHTML='<div class="row"><span class="what"><span style="color:var(--bad)">'+esc(e.message)+'</span></span></div>'; });
+}
+function cpAutoBtns(p){
+  if(!CP.canAuto || p.sns==='X') return '';
+  if(p.publishStatus==='待機') return '<button class="btn sm" data-cpauto="'+esc(p.id)+'" data-on="0">自動をやめる</button>';
+  if(p.publishStatus==='失敗') return '<button class="btn sm main" data-cpauto="'+esc(p.id)+'" data-on="1">もう一度（自動で投稿）</button>';
+  if(!p.publishStatus && p.status==='予定' && p.postAt && CP.conn.indexOf(p.sns)>=0) return '<button class="btn sm" data-cpauto="'+esc(p.id)+'" data-on="1">自動で投稿する</button>';
+  return '';
+}
+function cpAutoField(sns, on){
+  if(!CP.canAuto) return '';
+  return '<label class="wide" style="display:flex;flex-direction:row;gap:8px;align-items:flex-start"><input type="checkbox" data-cpa="1" style="width:auto;margin-top:3px"'+(on?' checked':'')+'>'
+    +'<span>予定の時間に、つないだアカウントから自動で投稿する<br><span class="state">'+(CP.conn.filter(function(x){ return x!=='X'; }).length?'つないであるSNS：'+esc(CP.conn.filter(function(x){ return x!=='X'; }).join('・')):'まだSNSとつないでいません（設定 → SNSとつなぐ）')+'。Xは自動では投稿しません（文をコピーして手で投稿）。</span></span></label>';
+}
+function cpPropsOpts(cur){
+  return (CP.props||[]).map(function(x){ return '<option value="'+esc(x.id)+'"'+(cur===x.id?' selected':'')+'>'+esc(x.title)+'</option>'; }).join('');
+}
+function cpEnsureProps(){
+  if(CP.props) return Promise.resolve();
+  return api('/api/ledger',{kind:'property'}).then(function(r){ CP.props=r.items||[]; }).catch(function(){ CP.props=[]; });
+}
+/* 投稿を作る・直す（target を渡すとそこに出す。preset で日時などを先に入れる） */
+function cpForm(id, target, preset){
+  preset=preset||{};
+  var p=id?CP.items.filter(function(x){ return x.id===id; })[0]:null, box=target||document.getElementById(id?'cp-'+id:'cpForm');
+  if(!target && box.innerHTML){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="state">読み込んでいます…</div>';
+  cpEnsureProps().then(function(){
+    var sns=p?p.sns:(preset.sns||'Instagram');
+    box.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
+      +'<label>SNS<select data-cp="sns">'+CP_SNS.map(function(x){ return '<option'+(sns===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
+      +'<label>テーマ<select data-cp="theme"><option value="">（選ぶ）</option>'+CP.themes.map(function(x){ return '<option'+((p?p.theme:preset.theme)===x?' selected':'')+'>'+esc(x)+'</option>'; }).join('')+'</select></label>'
+      +'<label>紹介する物件（あれば）<select data-cp="propertyId"><option value="">（なし）</option>'+cpPropsOpts(p?p.propertyId:'')+'</select></label>'
+      +'<label>状態<select data-cp="status">'+['下書き','予定','投稿済み'].map(function(x){ return '<option'+((p?p.status:(preset.postAt?'予定':'下書き'))===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
+      +'<label>日時（予定・投稿した日時）'+dtHtml('data-cp="postAt"', p&&p.postAt?jstInput(p.postAt):(preset.postAt||''))+'</label>'
+      +'<label class="wide">投稿の文<textarea data-cp="body" rows="6" placeholder="Instagramは写真と一緒に出ます。ハッシュタグは最後にまとめて入れてください">'+esc(p?(p.body||''):'')+'</textarea><span class="state" data-cpcount></span></label>'
+      +'<label>投稿のURL（手で投稿したあと）<input data-cp="url" value="'+esc(p&&p.url||'')+'"></label>'
+      +'<label>メモ<input data-cp="note" value="'+esc(p&&p.note||'')+'"></label>'
+      +cpAutoField(sns, !!(p&&p.autoPublish&&p.publishStatus==='待機'))
+      +'</div><div class="bar"><button class="btn main sm" data-cpsave="1">保存する</button><button class="btn sm" data-cpcancel="1">やめる</button><span class="state" data-cpst></span></div>'
+      +(id?'':'<div class="state">写真は、保存したあとに一覧の「写真を付ける」「物件の写真から選ぶ」から付けられます。</div>')+'</div>';
+    var ta=box.querySelector('[data-cp="body"]'), cnt=box.querySelector('[data-cpcount]'), sel=box.querySelector('[data-cp="sns"]');
+    var count=function(){ var n=Array.from(ta.value).length, lim={Instagram:2200,Threads:500,X:140}[sel.value]; cnt.textContent=n+'／'+lim+'文字'+(sel.value==='X'?'（Xは日本語1文字を2と数えて280まで）':''); cnt.style.color=n>lim?'var(--bad)':''; };
+    ta.oninput=count; sel.onchange=count; count();
+    box.querySelector('[data-cpcancel]').onclick=function(){ box.innerHTML=''; };
+    box.querySelector('[data-cpsave]').onclick=function(){
+      var b=this, v={channel:'会社'}, st=box.querySelector('[data-cpst]');
+      Array.prototype.forEach.call(box.querySelectorAll('[data-cp]'), function(el){ v[el.getAttribute('data-cp')]=el.value||null; });
+      var ac=box.querySelector('[data-cpa]'); v.autoPublish=!!(ac&&ac.checked);
+      b.disabled=true; st.textContent='保存しています…';
+      api('/api/ppost-save', id?{id:id, post:v}:{post:v}).then(function(x){ CP.flash=x.autoOff||x.autoNote||'保存しました'; box.innerHTML=''; (preset.after||cpLoad)(); })
+        .catch(function(er){ st.textContent=er.message; b.disabled=false; });
+    };
+  });
+}
+/* AIに下書きを作ってもらう */
+function cpAiForm(){
+  var box=document.getElementById('cpForm');
+  if(box.getAttribute('data-k')==='ai' && box.innerHTML){ box.innerHTML=''; box.removeAttribute('data-k'); return; }
+  box.setAttribute('data-k','ai'); box.innerHTML='<div class="state">読み込んでいます…</div>';
+  cpEnsureProps().then(function(){
+    box.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
+      +'<label>テーマ<select id="caTheme">'+CP.themes.map(function(x){ return '<option>'+esc(x)+'</option>'; }).join('')+'</select></label>'
+      +'<label>紹介する物件（物件紹介のとき）<select id="caProp"><option value="">（なし）</option>'+cpPropsOpts('')+'</select></label>'
+      +'<label class="wide">伝えたいこと（メモでOK）<textarea id="caTopic" rows="3" placeholder="例：12/7(土)・8(日)に天白区で内見会。予約制。駐車場あり"></textarea></label>'
+      +'<label>SNS<span style="display:flex;gap:14px;padding:8px 0">'+CP_SNS.map(function(x){ return '<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-ca="'+x+'"'+(x!=='X'?' checked':'')+' style="width:auto"> '+x+'</label>'; }).join('')+'</span></label>'
+      +'<label>それぞれ何本<select id="caN"><option selected>1</option><option>2</option><option>3</option></select></label>'
+      +'</div><div class="bar"><button class="btn main sm" id="caGo">下書きを作ってもらう</button><span class="state" id="caSt">物件台帳とメモに書いたことだけを使います（番地・個人名は書きません）。作った下書きは承認するまで投稿されません。</span></div></div>';
+    var th=document.getElementById('caTheme');
+    th.onchange=function(){ if(th.value==='物件紹介' && !document.getElementById('caProp').value) document.getElementById('caSt').textContent='物件紹介のときは、紹介する物件を選んでください。物件の写真も自動で付きます。'; };
+    document.getElementById('caGo').onclick=function(){
+      var b=this, st=document.getElementById('caSt'), sns=[];
+      box.querySelectorAll('[data-ca]').forEach(function(c){ if(c.checked) sns.push(c.getAttribute('data-ca')); });
+      b.disabled=true; st.textContent='AIが下書きを作っています…（20〜40秒）';
+      api('/api/cpost-propose',{theme:th.value, propertyId:document.getElementById('caProp').value||null, topic:document.getElementById('caTopic').value, sns:sns, count:Number(document.getElementById('caN').value)})
+        .then(function(x){ CP.flash=x.made+'本の下書きを作りました。内容を確かめて「承認する」を押してください'; box.innerHTML=''; box.removeAttribute('data-k'); cpLoad(); })
+        .catch(function(er){ st.textContent=er.message; b.disabled=false; });
+    };
+  });
+}
+/* 物件の写真から選んで投稿に付ける */
+function cpPick(pid){
+  var box=document.getElementById('cppick-'+pid), p=CP.items.filter(function(x){ return x.id===pid; })[0];
+  if(box.innerHTML){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="state">読み込んでいます…</div>';
+  cpEnsureProps().then(function(){
+    var draw=function(propId){
+      if(!propId){ box.innerHTML='<div class="card" style="padding:8px 12px;margin:6px 0">物件：<select data-cppprop="'+esc(pid)+'"><option value="">（選ぶ）</option>'+cpPropsOpts('')+'</select></div>'; return; }
+      api('/api/crm-property',{id:propId}).then(function(r){
+        var ph=r.files.filter(function(f){ return f.kind==='写真'; });
+        box.innerHTML='<div class="card" style="padding:8px 12px;margin:6px 0"><b>'+esc(r.property.title)+'の写真</b>'
+          +(ph.length?'<div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0">'+ph.map(function(f){ return '<label style="display:inline-flex;flex-direction:column;align-items:center;gap:2px"><img src="'+esc(f.url||'')+'" style="width:84px;height:84px;object-fit:cover;border-radius:8px"><input type="checkbox" data-cppf="'+esc(f.id)+'" style="width:auto"></label>'; }).join('')+'</div>'
+            +'<div class="bar"><button class="btn sm main" data-cppgo="'+esc(pid)+'" data-prop="'+esc(propId)+'">選んだ写真を付ける</button><span class="state" data-cppst></span></div>'
+          :'<div class="state">この物件には写真がまだありません（物件の詳しい画面の「物件写真」から入れられます）。</div>')+'</div>';
+      }).catch(function(e){ box.innerHTML='<div class="state">'+esc(e.message)+'</div>'; });
+    };
+    draw(p&&p.propertyId);
+  });
+}
+function cpUpload(pid, files){
+  var st=document.querySelector('[data-cpimgst="'+pid+'"]'), list=Array.prototype.slice.call(files), n=0;
+  var say=function(m){ if(st) st.textContent=m; };
+  function next(){
+    if(!list.length) return Promise.resolve();
+    var f=list.shift(); say('写真を入れています…（'+(n+1)+'枚目）');
+    return crmShrink(f).then(function(g){
+      if(!/^image\/(jpeg|png|webp)$/.test(g.type)) throw new Error('この写真の形式は入れられません（JPEG・PNGにしてください）');
+      return api('/api/ppost-img-upload',{postId:pid, mime:g.type, size:g.size}).then(function(u){
+        return fetch(u.url,{method:'PUT', headers:{'content-type':g.type}, body:g}).then(function(res){
+          if(!res.ok) throw new Error('アップロードに失敗しました（'+res.status+'）');
+          return api('/api/ppost-img-done',{postId:pid, path:u.path});
+        });
+      });
+    }).then(function(){ n++; return next(); });
+  }
+  next().then(function(){ say(n+'枚入れました'); cpLoad(); }).catch(function(er){ say(er.message); });
+}
+document.getElementById('s13').addEventListener('change', function(e){
+  var t=e.target;
+  if(t.classList && t.classList.contains('cpImgIn') && t.files && t.files.length){ cpUpload(t.getAttribute('data-post'), t.files); t.value=''; return; }
+  var a=t.getAttribute&&t.getAttribute('data-cppprop'); if(a && t.value){ var bx=document.getElementById('cppick-'+a); bx.innerHTML=''; var p=CP.items.filter(function(x){ return x.id===a; })[0]; if(p){ var keep=p.propertyId; p.propertyId=t.value; cpPick(a); p.propertyId=keep; } }
+});
+document.getElementById('s13').addEventListener('click', cpClick);
+document.getElementById('s14').addEventListener('click', cpClick);
+function cpClick(e){
+  var t=e.target, a;
+  if(!t.getAttribute) return;
+  if((a=t.getAttribute('data-cpedit'))){ cpForm(a); return; }
+  if((a=t.getAttribute('data-cppick'))){ cpPick(a); return; }
+  if((a=t.getAttribute('data-cppgo'))){
+    var ids=Array.prototype.map.call(document.querySelectorAll('#cppick-'+a+' [data-cppf]:checked'), function(c){ return c.getAttribute('data-cppf'); });
+    var st=t.parentNode.querySelector('[data-cppst]'); if(!ids.length){ st.textContent='付ける写真を選んでください'; return; }
+    t.disabled=true; api('/api/cpost-img-pick',{postId:a, propertyId:t.getAttribute('data-prop'), fileIds:ids}).then(function(){ cpLoad(); }).catch(function(er){ st.textContent=er.message; t.disabled=false; });
+    return;
+  }
+  if((a=t.getAttribute('data-cpimgdel'))){ t.disabled=true; api('/api/ppost-img-delete',{postId:a, path:t.getAttribute('data-path')}).then(cpLoad).catch(function(er){ t.disabled=false; alertNote(er.message); }); return; }
+  if((a=t.getAttribute('data-cpcopy'))){
+    var p=CP.items.filter(function(x){ return x.id===a; })[0];
+    if(p&&navigator.clipboard) navigator.clipboard.writeText(p.body||'').then(function(){ t.textContent='コピーしました'; setTimeout(function(){ if(t.isConnected) t.textContent='文をコピー'; }, 2000); });
+    return;
+  }
+  if((a=t.getAttribute('data-cpok'))){
+    var bx=document.getElementById('cp-'+a), pp=CP.items.filter(function(x){ return x.id===a; })[0];
+    if(bx.innerHTML){ bx.innerHTML=''; return; }
+    bx.innerHTML='<div class="card" style="padding:10px 14px;margin:8px 0"><div class="lform" style="padding:0">'
+      +'<label>投稿するSNS<select data-ok="sns">'+CP_SNS.map(function(x){ return '<option'+((pp&&pp.sns)===x?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'
+      +'<label>投稿する日時'+dtHtml('data-ok="postAt"', tomorrowNoon())+'</label>'
+      +'<label class="wide">投稿の文（直してから承認できます）<textarea data-ok="body" rows="6">'+esc(pp&&pp.body||'')+'</textarea></label>'
+      +cpAutoField(pp&&pp.sns, cpAutoOk(pp&&pp.sns))
+      +'</div><div class="bar"><button class="btn main sm" data-cpokgo="'+esc(a)+'">承認して投稿予定に入れる</button><span class="state" data-okst></span></div></div>';
+    var sel=bx.querySelector('[data-ok="sns"]'), acb0=bx.querySelector('[data-cpa]');
+    if(sel&&acb0) sel.onchange=function(){ acb0.checked=cpAutoOk(sel.value); };
+    return;
+  }
+  if((a=t.getAttribute('data-cpokgo'))){
+    var cb=t.closest('.card'), stt=cb.querySelector('[data-okst]'), acb=cb.querySelector('[data-cpa]');
+    t.disabled=true; stt.textContent='承認しています…';
+    api('/api/ppost-decide',{id:a, approve:true, sns:cb.querySelector('[data-ok="sns"]').value, postAt:cb.querySelector('[data-ok="postAt"]').value, body:cb.querySelector('[data-ok="body"]').value, autoPublish:!!(acb&&acb.checked)})
+      .then(function(x){ CP.flash=x.autoNote||'承認しました（予定に入れました）'; cpLoad(); }).catch(function(er){ stt.textContent=er.message; t.disabled=false; });
+    return;
+  }
+  if((a=t.getAttribute('data-cpng'))){
+    if(t.getAttribute('data-sure')!=='1'){ t.setAttribute('data-sure','1'); t.textContent='本当に却下'; setTimeout(function(){ if(t.isConnected){ t.removeAttribute('data-sure'); t.textContent='却下'; } }, 4000); return; }
+    t.disabled=true; api('/api/ppost-decide',{id:a, approve:false}).then(cpLoad).catch(function(er){ t.textContent=er.message; });
+    return;
+  }
+  if((a=t.getAttribute('data-cpauto'))){
+    var on=t.getAttribute('data-on')==='1'; t.disabled=true;
+    api('/api/ppost-auto',{id:a, on:on}).then(function(x){ CP.flash=on?(x.autoNote||'自動で投稿します'):'自動で投稿するのをやめました'; cpLoad(); }).catch(function(er){ t.textContent=er.message; t.disabled=false; });
+    return;
+  }
+  if((a=t.getAttribute('data-cpmet'))){ t.disabled=true; t.textContent='取りに行っています…'; api('/api/cpost-metrics',{id:a}).then(function(){ setTimeout(cpLoad, 8000); }).catch(function(er){ t.textContent=er.message; }); return; }
+  if((a=t.getAttribute('data-cpdel'))){
+    if(t.getAttribute('data-sure')!=='1'){ t.setAttribute('data-sure','1'); t.textContent='本当に消す'; setTimeout(function(){ if(t.isConnected){ t.removeAttribute('data-sure'); t.textContent='消す'; } }, 4000); return; }
+    t.disabled=true; api('/api/ppost-delete',{id:a}).then(function(){ cpLoad(); if(document.getElementById('s14').className==='on') ccLoad(); }).catch(function(er){ t.textContent=er.message; });
+    return;
+  }
+  if((a=t.getAttribute('data-ccday'))){ cpForm(null, document.getElementById('ccForm'), {postAt:a+'T12:00', after:function(){ ccLoad(); }}); document.getElementById('ccForm').scrollIntoView({behavior:'smooth',block:'nearest'}); return; }
+  if((a=t.getAttribute('data-ccpost'))){ e.stopPropagation(); cpForm(a, document.getElementById('ccForm'), {after:function(){ ccLoad(); }}); document.getElementById('ccForm').scrollIntoView({behavior:'smooth',block:'nearest'}); return; }
+}
+function alertNote(m){ CP.flash=m; cpLoad(); }
+document.getElementById('cpNew').onclick=function(){ document.getElementById('cpForm').removeAttribute('data-k'); cpForm(null); };
+document.getElementById('cpAi').onclick=cpAiForm;
+document.getElementById('cpSns').onchange=cpLoad; document.getElementById('cpSt').onchange=cpLoad;
+
+/* ---------- SNS運用：投稿カレンダー（月の表） ---------- */
+var CC={m:null};
+function ccLoad(){
+  if(!CC.m){ var j=jst(); CC.m=j.getFullYear()+'-'+z(j.getMonth()+1); }
+  document.getElementById('ccM').textContent=CC.m.replace('-','年')+'月';
+  var box=document.getElementById('ccBox');
+  api('/api/pposts',{channel:'会社'}).then(function(r){
+    CP.items=r.items; CP.w=r.canWrite; CP.canAuto=!!r.canAuto; CP.conn=r.snsConnected||[];
+    var y=Number(CC.m.slice(0,4)), mo=Number(CC.m.slice(5,7)), first=new Date(Date.UTC(y,mo-1,1)), days=new Date(Date.UTC(y,mo,0)).getUTCDate(), lead=first.getUTCDay();
+    var byDay={};
+    r.items.forEach(function(p){ if(!p.postAt || p.status==='却下') return; var d=new Date(Date.parse(p.postAt)+9*3600000); if(d.getUTCFullYear()!==y || d.getUTCMonth()!==mo-1) return; (byDay[d.getUTCDate()]=byDay[d.getUTCDate()]||[]).push(p); });
+    var today=jst(), isThis=today.getFullYear()===y && today.getMonth()===mo-1;
+    var col={'予定':'var(--gold)','投稿済み':'var(--ok,#3fae6a)','下書き':'var(--muted,#8aa)','提案':'var(--gold)'};
+    var h='<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">'+['日','月','火','水','木','金','土'].map(function(w,i){ return '<div class="state" style="text-align:center;'+(i===0?'color:var(--bad)':'')+'">'+w+'</div>'; }).join('');
+    for(var i=0;i<lead;i++) h+='<div></div>';
+    for(var d=1; d<=days; d++){
+      var ds=y+'-'+z(mo)+'-'+z(d), list=(byDay[d]||[]).sort(function(a,b){ return a.postAt.localeCompare(b.postAt); });
+      h+='<div data-ccday="'+ds+'" style="min-height:92px;border:1px solid var(--line);border-radius:8px;padding:4px;cursor:pointer;'+(isThis&&today.getDate()===d?'outline:2px solid var(--gold);':'')+'">'
+        +'<div data-ccday="'+ds+'" style="font-size:12px">'+d+'</div>'
+        +list.map(function(p){ var t=new Date(Date.parse(p.postAt)+9*3600000);
+          return '<div data-ccpost="'+esc(p.id)+'" title="'+esc((p.body||'').slice(0,80))+'" style="font-size:11.5px;margin-top:3px;padding:2px 4px;border-radius:6px;border-left:3px solid '+(col[p.status]||'var(--line)')+';background:rgba(255,255,255,.04);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+            +(CP_ICON[p.sns]||'')+' '+z(t.getUTCHours())+':'+z(t.getUTCMinutes())+' '+esc(p.theme||p.status)+(p.publishStatus==='待機'?' ⏱':p.publishStatus==='完了'?' ✓':p.publishStatus==='失敗'?' ⚠':'')+'</div>'; }).join('')
+        +'</div>';
+    }
+    h+='</div><div class="state" style="margin-top:6px">⏱ 自動で投稿する予定 ／ ✓ 自動で投稿した ／ ⚠ 自動投稿できなかった。投稿を押すと直せます。</div>';
+    box.innerHTML=h;
+  }).catch(function(e){ box.innerHTML='<div class="state">'+esc(e.message)+'</div>'; });
+}
+function ccMove(n){ var y=Number(CC.m.slice(0,4)), m=Number(CC.m.slice(5,7))+n; if(m<1){ m=12; y--; } if(m>12){ m=1; y++; } CC.m=y+'-'+z(m); document.getElementById('ccForm').innerHTML=''; ccLoad(); }
+document.getElementById('ccPrev').onclick=function(){ ccMove(-1); }; document.getElementById('ccNext').onclick=function(){ ccMove(1); };
+
+/* ---------- SNS運用：反応・報告（月ごと） ---------- */
+var CR={m:null, last:null};
+function crLoad(){
+  if(!CR.m){ var j=jst(); CR.m=j.getFullYear()+'-'+z(j.getMonth()+1); }
+  document.getElementById('crM').textContent=CR.m.replace('-','年')+'月';
+  var box=document.getElementById('crBox');
+  api('/api/sns-report',{month:CR.m}).then(function(r){
+    CR.last=r; box.innerHTML=crHtml(r);
+  }).catch(function(e){ box.innerHTML='<div class="state">'+esc(e.message)+'</div>'; });
+}
+function crHtml(r){
+  var n=function(v){ return Number(v||0).toLocaleString('ja-JP'); };
+  var sns=Object.keys(r.bySns);
+  var h='<div class="card" style="padding:12px 16px"><b style="font-size:16px">'+esc(r.month.replace('-','年'))+'月のSNS運用</b>'
+    +'<div class="facts" style="margin-top:8px"><div><small>投稿した数</small>'+n(r.total)+'件</div>'
+    +'<div><small>表示回数（合計）</small>'+n(sns.reduce(function(a,k){ return a+r.bySns[k].views; },0))+'</div>'
+    +'<div><small>いいね（合計）</small>'+n(sns.reduce(function(a,k){ return a+r.bySns[k].likes; },0))+'</div>'
+    +'<div><small>コメント・返信（合計）</small>'+n(sns.reduce(function(a,k){ return a+r.bySns[k].comments; },0))+'</div></div>';
+  if(!r.total) return h+'<div class="state" style="margin-top:8px">この月に投稿した投稿はありません。</div></div>';
+  h+='<table class="ct" style="width:100%;margin-top:10px"><tr><th>SNS</th><th>投稿</th><th>表示</th><th>届いた人</th><th>いいね</th><th>コメント</th><th>リポスト・シェア</th><th>保存</th></tr>'
+    +sns.map(function(k){ var b=r.bySns[k]; return '<tr><td>'+(CP_ICON[k]||'')+' '+esc(k)+'</td><td>'+n(b.posts)+'</td><td>'+n(b.views)+'</td><td>'+(k==='Instagram'?n(b.reach):'—')+'</td><td>'+n(b.likes)+'</td><td>'+n(b.comments)+'</td><td>'+n(b.reposts+b.shares+b.quotes)+'</td><td>'+(k==='Instagram'?n(b.saves):'—')+'</td></tr>'; }).join('')+'</table>';
+  var th=Object.keys(r.byTheme);
+  h+='<div style="margin-top:10px"><b>テーマ別の投稿数</b>　'+th.map(function(k){ return esc(k)+' '+r.byTheme[k]+'件'; }).join('　')+'</div>';
+  if(r.top.length) h+='<div style="margin-top:12px"><b>よく見られた投稿</b>'+r.top.map(function(p,i){
+    return '<div style="padding:6px 0;border-bottom:1px solid var(--line);font-size:13.5px">'+(i+1)+'. '+(CP_ICON[p.sns]||'')+' '+esc(p.postAt?crmWhen(p.postAt):'')+(p.theme?'【'+esc(p.theme)+'】':'')+' '+esc(p.body)+'…'
+      +'<div class="state">表示 '+n(p.metrics.views)+'・いいね '+n(p.metrics.likes)+'・反応の合計 '+n(p.engagement)+(p.url?'　<a class="lk" href="'+esc(p.url)+'" target="_blank" rel="noopener">投稿を開く</a>':'')+'</div></div>'; }).join('')+'</div>';
+  if(r.notMeasured) h+='<div class="state" style="margin-top:8px">反応がまだ取れていない投稿が'+r.notMeasured+'件あります（手で投稿したもの・投稿してすぐのものなど）。</div>';
+  return h+'</div>';
+}
+function crMove(n){ var y=Number(CR.m.slice(0,4)), m=Number(CR.m.slice(5,7))+n; if(m<1){ m=12; y--; } if(m>12){ m=1; y++; } CR.m=y+'-'+z(m); crLoad(); }
+document.getElementById('crPrev').onclick=function(){ crMove(-1); }; document.getElementById('crNext').onclick=function(){ crMove(1); };
+document.getElementById('crRefresh').onclick=function(){ var b=this; b.disabled=true; b.textContent='取りに行っています…（1〜2分）';
+  api('/api/cpost-metrics',{}).then(function(){ setTimeout(function(){ b.disabled=false; b.textContent='反応を今すぐ取りに行く'; crLoad(); }, 20000); }).catch(function(er){ b.disabled=false; b.textContent=er.message; }); };
+document.getElementById('crPrint').onclick=function(){
+  if(!CR.last) return;
+  var w=window.open('','_blank'); if(!w) return;
+  w.document.write('<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>SNS運用報告 '+esc(CR.last.month)+'</title><style>body{font-family:"Hiragino Sans","Noto Sans JP",sans-serif;color:#222;max-width:820px;margin:24px auto;padding:0 16px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:6px 8px;text-align:center;font-size:13px}th{background:#eef3ef}.facts{display:flex;gap:24px;flex-wrap:wrap}.facts small{display:block;color:#666}.state{color:#666;font-size:12px}a{color:#1f3d2e}.card{border:none}</style></head><body>'
+    +'<h1 style="font-size:20px;border-bottom:2px solid #1f3d2e;padding-bottom:6px">SNS運用 月次報告</h1>'+crHtml(CR.last)+'<p class="state">数字は Instagram・Threads の公式の仕組みから取った値です（投稿してから30日まで）。手で投稿したもの・Xは含みません。</p></body></html>');
+  w.document.close(); setTimeout(function(){ w.print(); }, 300);
+};
 
 /* ---------- 物販管理：投稿 ---------- */
 var PP={items:[]};
